@@ -4,9 +4,13 @@ Django settings for courtly project (Courtly MVP).
 
 from pathlib import Path
 import os
+import environ
 
 # ===== Paths =====
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Load .env so os.getenv works locally
+environ.Env.read_env(BASE_DIR / '.env')
+
 
 # ===== Security / Debug =====
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-not-for-prod")
@@ -70,8 +74,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "courtly.wsgi.application"
 
-# ===== Database =====
-# ตั้งค่า Postgres ผ่าน ENV; ถ้าไม่ได้ตั้งค่า จะใช้ SQLite (dev)
+## ===== Database =====
+# Use Postgres if DB_* vars exist; fallback to SQLite
 if os.getenv("DB_NAME"):
     DATABASES = {
         "default": {
@@ -79,8 +83,9 @@ if os.getenv("DB_NAME"):
             "NAME": os.getenv("DB_NAME"),
             "USER": os.getenv("DB_USER", "postgres"),
             "PASSWORD": os.getenv("DB_PASSWORD", ""),
-            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+            "HOST": os.getenv("DB_HOST", "db"),  # 'db' matches docker-compose service
             "PORT": os.getenv("DB_PORT", "5432"),
+            "CONN_MAX_AGE": 60,
         }
     }
 else:
