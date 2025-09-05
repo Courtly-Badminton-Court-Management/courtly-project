@@ -1,0 +1,24 @@
+@import "tailwindcss";
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+::placeholder { color: rgb(105 97 89 / 60%); } /* walnut 60% */
+
+@theme {
+  --color-onyx: #414141;
+  --color-brown-sugar: #a86d59;
+  --color-cherry: #dea4af;
+  --color-platinum: #e2e2e2;
+  --color-cambridge: #75b2a0;
+  --color-sea: #2e8762;
+  --color-pine: #1e7068;
+  --color-walnut: #696159;
+  --color-lion: #a3834c;
+  --color-court-bg: #ede5da;
+  --color-court-deep: #2b6f66;
+  
+  --box-shadow-soft: 0 8px 30px rgba(0,0,0,.08);
+  --font-family-sans: var(--font-poppins), ui-sans-serif, system-ui;
+}
