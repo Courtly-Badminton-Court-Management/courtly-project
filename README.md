@@ -138,7 +138,7 @@ This will start:
 
 * Project Proposal: [Project Proposal PDF](https://drive.google.com/file/d/12xOk2idmqJrXaWnmxFgaFw4w6hojjo8z/view?usp=sharing)
 * Jira Board: [Courtly Jira](https://courtly-badminton.atlassian.net/jira/software/projects/SCRUM/boards/1)
-* GitHub Org: [Courtly-Badminton-Court-Managment](https://github.com/Courtly-Badminton-Court-Managment)
+* GitHub Org: [Courtly-Badminton-Court-Managment](https://github.com/Courtly-Badminton-Court-Management)
 
 ---
 
@@ -154,7 +154,7 @@ This will start:
 ## 📬 Contact
 
 * Email: [courtly.project@gmail.com](mailto:courtly.project@gmail.com)
-* GitHub: [Courtly Organization](https://github.com/Courtly-Badminton-Court-Managment)
+* GitHub: [Courtly Organization](https://github.com/Courtly-Badminton-Court-Management)
 
 ---
 
