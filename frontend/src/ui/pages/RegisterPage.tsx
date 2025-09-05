@@ -152,7 +152,7 @@ export default function RegisterPage() {
         )}
 
         <div className="mt-8">
-          <PrimaryButton type="submit" disabled={loading}>
+          <PrimaryButton type="submit" disabled={loading} className="text-white">
             {loading ? "Please wait…" : "Sign up Now!"}
           </PrimaryButton>
         </div>
