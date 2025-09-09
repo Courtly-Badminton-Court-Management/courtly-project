@@ -132,36 +132,30 @@ export default function LoginPage() {
           </Link>
         </div> */}
 
-          <PrimaryButton
-          type="button"
-          onClick={() => handleGoogleSignIn()}
-          className="bg-platinum text-onyx"
-        >
-          <img src="/brand/google-icon.svg" alt="Google" className="h-1 w-1" />
-          Sign in with Google
-        </PrimaryButton>
+        <div className="flex items-center justify-between"></div>
         
-
-                <div className="my-6 relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-2 text-muted-foreground">or continue with</span>
-          </div>
-        </div>
-
 
         <PrimaryButton
           type="submit"
           disabled={loading}
-          className="w-full"
+          className="text-white"
           aria-busy={loading}
         >
           {loading ? "Signing in..." : "Sign in"}
         </PrimaryButton>
 
-
+        <PrimaryButton
+          type="button"
+          onClick={() => handleGoogleSignIn()}
+          className="bg-smoke text-onyx"
+        >
+          <img
+            src="/brand/google-icon.svg"
+            alt="Google"
+            className="h-5 w-5"
+          />
+          <span className="font-medium">Sign in with Google (optional)</span>
+        </PrimaryButton>
 
 
 
