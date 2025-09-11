@@ -1,5 +1,5 @@
-import HomeagePlayer from "@/ui/pages/HomepagePlayer";
+import PlayerHomePage from "@/ui/pages/PlayerHomePage";
 
 export default function Page() {
-  return <HomeagePlayer />;
+  return <PlayerHomePage />;
 }

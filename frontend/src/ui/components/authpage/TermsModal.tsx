@@ -1,6 +1,6 @@
 "use client";
 
-import Modal from "./Modal";
+import Modal from "../basic/Modal";
 
 export default function TermsModal({
   open,
