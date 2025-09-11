@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { z } from "zod";
-import AuthHero from "@/ui/components/AuthHero";
-import SplitPage from "@/ui/components/SplitPage";
-import Field from "@/ui/components/Field";
-import PrimaryButton from "@/ui/components/PrimaryButton";
+import AuthHero from "@/ui/components/authpage/AuthHero";
+import SplitPage from "@/ui/components/authpage/SplitPage";
+import Field from "@/ui/components/basic/Field";
+import PrimaryButton from "@/ui/components/basic/PrimaryButton";
 
 const schema = z.object({
   email: z.string().email("Invalid email"),
