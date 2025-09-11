@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import SplitPage from "@/ui/components/SplitPage";
-import AuthHero from "@/ui/components/AuthHero";
-import Field from "@/ui/components/Field";
-import PrimaryButton from "@/ui/components/PrimaryButton";
-import TermsModal from "@/ui/components/modal/TermsModal";
+import SplitPage from "@/ui/components/authpage/SplitPage";
+import AuthHero from "@/ui/components/authpage/AuthHero";
+import Field from "@/ui/components/basic/Field";
+import PrimaryButton from "@/ui/components/basic/PrimaryButton";
+import TermsModal from "../components/authpage/TermsModal";
 import { z } from "zod";
 import { useRef, useState } from "react";
 

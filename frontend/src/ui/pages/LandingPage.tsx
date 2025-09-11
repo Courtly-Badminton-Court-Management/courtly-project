@@ -58,7 +58,7 @@ export default function LandingPage() {
             <div className="mt-6 flex flex-wrap gap-3">
               <a
                 href="#availability"
-                className="rounded-lg bg-courtDeep px-5 py-3 text-white font-semibold hover:bg-sea transition"
+                className="rounded-lg bg-pine px-5 py-3 text-white font-semibold hover:bg-sea transition"
               >
                 View availability
               </a>
