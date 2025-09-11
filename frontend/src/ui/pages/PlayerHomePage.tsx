@@ -10,7 +10,7 @@ import React from "react";
  * - Pure UI skeleton with Tailwind classes; no real data wiring yet.
  * - Replace placeholders with real components / queries later.
  */
-export default function HomeagePlayer() {
+export default function PlayerHomePage() {
   const daysShort = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]; 
   // Skeleton 5 weeks x 7 days
   const weeks = Array.from({ length: 5 }, () => Array.from({ length: 7 }));
