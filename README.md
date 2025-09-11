@@ -142,7 +142,7 @@ This will start:
 
 ---
 
-## 👥 Our Team
+## 👥 Our Team Members
 
 * **Grace** — Nichakorn Chanajitpairee (6410545452)
 * **Cream** — Parichaya Yangsiri (6410545517)
