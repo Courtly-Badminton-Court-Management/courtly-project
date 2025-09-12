@@ -1,0 +1,31 @@
+name: courtly-project-frontend-prod
+
+services:
+  - name: web
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+
+    image:
+      registry_type: DOCKER_REGISTRY
+      registry: docker.io
+      repository: proudhokori/courtly-project-frontend-prod
+      tag: latest
+
+    routes:
+      - path: /
+
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+    health_check:
+      http_path: /
+      port: 3000
+      initial_delay_seconds: 10
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
