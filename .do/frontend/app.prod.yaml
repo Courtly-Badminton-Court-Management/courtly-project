@@ -30,3 +30,9 @@ services:
       timeout_seconds: 5
       success_threshold: 1
       failure_threshold: 3
+
+domains:
+  - domain: courtlyeasy.app      # root domain
+    type: PRIMARY
+  - domain: www.courtlyeasy.app  # www subdomain
+    type: ALIAS
