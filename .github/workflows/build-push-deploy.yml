@@ -41,4 +41,4 @@ jobs:
         uses: digitalocean/app_action/deploy@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-          app_spec_location: .do/frontend/app.prod.yaml
+          app_name: courtly-project-frontend-prod
