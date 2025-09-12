@@ -1,35 +1,38 @@
+// src/ui/pages/LandingPage.tsx
+"use client";
+
 import Link from "next/link";
+import BrandMark from "@/ui/components/basic/BrandMark";
+import Button from "@/ui/components/basic/ฺButton";
 
 export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-courtBg text-onyx">
       {/* NAV */}
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
+        <Link href="/" className="flex items-center gap-3">
+          <BrandMark />
+        </Link>
+
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-platinum ring-2 ring-walnut grid place-items-center">
-            <span className="text-walnut">🏸</span>
-          </div>
-          <span className="text-2xl font-bold tracking-wide">COURTLY</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-lg border border-platinum px-4 py-2 text-sm hover:bg-white/60"
-          >
-            Sign in
+          <Link href="/login">
+            <Button
+              label="Sign in"
+              bgColor="bg-transparent"
+              textColor="text-onyx"
+              hoverBgColor="hover:bg-white/60"
+              className="border border-platinum"
+            />
           </Link>
-          <Link
-            href="/register"
-            className="rounded-lg bg-sea px-4 py-2 text-sm font-semibold text-white hover:bg-pine transition"
-          >
-            Create account
+          <Link href="/register">
+            <Button label="Create account" />
           </Link>
         </div>
       </nav>
 
       {/* HERO */}
       <header className="relative mx-auto max-w-6xl px-4 py-8 sm:py-12">
-        {/* court-y background decoration */}
+        {/* bg decoration */}
         <div
           className="absolute inset-0 -z-10 opacity-30 [mask-image:radial-gradient(60%_60%_at_50%_30%,black,transparent)]"
           aria-hidden
@@ -37,7 +40,6 @@ export default function LandingPage() {
           <svg className="h-full w-full" viewBox="0 0 1200 600" preserveAspectRatio="none">
             <rect x="0" y="0" width="1200" height="600" fill="#75B2A0" />
             <rect x="140" y="80" width="920" height="440" fill="none" stroke="#E2E2E2" strokeWidth="6"/>
-            {/* court lines */}
             <line x1="600" y1="80" x2="600" y2="520" stroke="#E2E2E2" strokeWidth="4"/>
             <line x1="140" y1="180" x2="1060" y2="180" stroke="#E2E2E2" strokeWidth="3"/>
             <line x1="140" y1="420" x2="1060" y2="420" stroke="#E2E2E2" strokeWidth="3"/>
@@ -55,20 +57,22 @@ export default function LandingPage() {
               See availability at a glance, pick your time, and you’re all set.
               No more DM back-and-forth.
             </p>
+
             <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="#availability"
-                className="rounded-lg bg-pine px-5 py-3 text-white font-semibold hover:bg-sea transition"
-              >
-                View availability
+              <a href="#availability">
+                <Button label="View availability" />
               </a>
-              <Link
-                href="/register"
-                className="rounded-lg border border-platinum px-5 py-3 font-semibold hover:bg-white/70"
-              >
-                Create account
+              <Link href="/register">
+                <Button
+                  label="Create account"
+                  bgColor="bg-transparent"
+                  textColor="text-onyx"
+                  hoverBgColor="hover:bg-white/70"
+                  className="border border-platinum"
+                />
               </Link>
             </div>
+
             <p className="mt-3 text-sm text-walnut">Friendly • Energetic • Accessible</p>
           </div>
 
@@ -77,9 +81,7 @@ export default function LandingPage() {
             <div className="rounded-lg bg-gradient-to-br from-platinum/60 to-white p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Today’s snapshot</h3>
-                <span className="rounded-md bg-cambridge px-2 py-1 text-xs text-white">
-                  Live
-                </span>
+                <span className="rounded-md bg-cambridge px-2 py-1 text-xs text-white">Live</span>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg border border-platinum p-3">
@@ -103,7 +105,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* AVAILABILITY SECTION (จะใส่ตารางจริงภายหลัง) */}
+      {/* AVAILABILITY */}
       <section id="availability" className="mx-auto max-w-6xl px-4 pb-16">
         <div className="rounded-2xl border border-platinum bg-white p-6 shadow-soft">
           <div className="mb-4 flex items-center justify-between">
@@ -130,12 +132,14 @@ export default function LandingPage() {
               .
             </p>
             <div className="flex gap-2">
-              <button className="rounded-lg border border-platinum px-4 py-2 text-sm hover:bg-white/70">
-                Previous
-              </button>
-              <button className="rounded-lg bg-sea px-4 py-2 text-sm font-semibold text-white hover:bg-pine">
-                Next
-              </button>
+              <Button
+                label="Previous"
+                bgColor="bg-transparent"
+                textColor="text-onyx"
+                hoverBgColor="hover:bg-white/70"
+                className="border border-platinum"
+              />
+              <Button label="Next" />
             </div>
           </div>
         </div>
