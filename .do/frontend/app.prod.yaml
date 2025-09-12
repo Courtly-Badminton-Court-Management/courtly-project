@@ -8,9 +8,9 @@ services:
     instance_size_slug: apps-s-1vcpu-1gb
 
     image:
-      registry: docker.io
       registry_type: DOCKER_HUB
-      repository: proudhokori/courtly-project-frontend-prod
+      registry: proudhokori
+      repository: courtly-project-frontend-prod
       tag: latest
 
     routes:
