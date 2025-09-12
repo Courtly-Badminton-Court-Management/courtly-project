@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/setup-cicid
 
 permissions:
   contents: read
