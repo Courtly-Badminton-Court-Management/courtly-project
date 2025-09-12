@@ -51,3 +51,4 @@ jobs:
           IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          app_name: courtly-project-frontend-dev
