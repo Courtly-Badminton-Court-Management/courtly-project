@@ -1,5 +1,5 @@
-import PlayerBooking from "@/ui/pages/PlayerBooking";
+import PlayerBookingPage from "@/ui/pages/player/PlayerBookingPage";
 
 export default function Page() {
-  return <PlayerBooking />;
+  return <PlayerBookingPage />;
 }
