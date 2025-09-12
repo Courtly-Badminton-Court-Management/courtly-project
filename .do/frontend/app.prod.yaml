@@ -1,4 +1,5 @@
 name: courtly-project-frontend-prod
+region: sgp
 
 services:
   - name: web
@@ -7,8 +8,8 @@ services:
     instance_size_slug: apps-s-1vcpu-1gb
 
     image:
-      registry_type: DOCKER_REGISTRY
       registry: docker.io
+      registry_type: DOCKER_HUB
       repository: proudhokori/courtly-project-frontend-prod
       tag: latest
 
