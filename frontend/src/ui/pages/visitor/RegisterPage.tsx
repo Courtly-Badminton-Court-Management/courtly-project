@@ -5,7 +5,7 @@ import SplitPage from "@/ui/components/authpage/SplitPage";
 import AuthHero from "@/ui/components/authpage/AuthHero";
 import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
-import TermsModal from "../components/authpage/TermsModal";
+import TermsModal from "../../components/authpage/TermsModal";
 import { z } from "zod";
 import { useRef, useState } from "react";
 

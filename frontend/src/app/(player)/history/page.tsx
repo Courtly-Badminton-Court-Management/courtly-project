@@ -1,5 +1,5 @@
-import PlayerHistory from "@/ui/pages/PlayerHistory";
+import PlayerHistoryPage from "@/ui/pages/player/PlayerHistoryPage";
 
 export default function Page() {
-  return <PlayerHistory />;
+  return <PlayerHistoryPage />;
 }
