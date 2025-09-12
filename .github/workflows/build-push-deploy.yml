@@ -31,11 +31,10 @@ jobs:
         id: vars
         run: |
           if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-            echo "repo=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}-frontend-prod" >> $GITHUB_OUTPUT
+            echo "repo=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-frontend-prod" >> $GITHUB_OUTPUT
           else
-            echo "repo=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.repository }}-frontend-dev" >> $GITHUB_OUTPUT
+            echo "repo=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-frontend-dev" >> $GITHUB_OUTPUT
           fi
-
       # 4. Build and push Docker image to Docker Hub
       - name: Build and push Docker image
         id: push
