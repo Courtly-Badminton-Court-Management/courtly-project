@@ -1,0 +1,20 @@
+# Node dependencies (copied from builder stage only)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+.next
+out
+dist
+
+# OS / editor junk
+.DS_Store
+*.swp
+*.swo
+*.idea
+*.vscode
+
+# Git files
+.git
+.gitignore
