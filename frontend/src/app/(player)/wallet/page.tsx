@@ -1,5 +1,5 @@
-import PlayerWallet from "@/ui/pages/PlayerWallet";
+import PlayerWalletPage from "@/ui/pages/player/PlayerWalletPage";
 
 export default function Page() {
-  return <PlayerWallet />;
+  return <PlayerWalletPage />;
 }
