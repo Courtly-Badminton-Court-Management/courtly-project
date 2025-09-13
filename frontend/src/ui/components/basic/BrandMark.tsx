@@ -5,7 +5,7 @@ export default function BrandMark({ size = 55 }: { size?: number }) {
     <div className="flex items-center gap-3">
       {/* โลโก้จริง (PNG/SVG) */}
       <Image
-        src="/brand/courtly-logo-no-text.png"
+        src="/brand/corutlylogosvg.svg"
         alt="Courtly logo"
         width={size}
         height={size}
@@ -18,7 +18,7 @@ export default function BrandMark({ size = 55 }: { size?: number }) {
         <span className="font-bold tracking-wide text-walnut text-xl md:text-xl lg:text-2xl">
           COURTLY
         </span>
-        <span className="text-[9px] md:text-xs font-medium text-walnut">
+        <span className="text-[9.5px] md:text-xs font-medium text-walnut">
           Easy Court, Easy Life
         </span>
       </div>

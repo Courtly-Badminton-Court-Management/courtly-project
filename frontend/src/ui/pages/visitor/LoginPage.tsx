@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import Image from "next/image";
+import { Suspense, useState } from "react";
 import { z } from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthHero from "@/ui/components/authpage/AuthHero";
@@ -9,48 +10,57 @@ import SplitPage from "@/ui/components/authpage/SplitPage";
 import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
 
+/** ── Types & Schema ─────────────────────────────────────────────────────── */
+type LoginForm = {
+  email: string;
+  password: string;
+  remember: boolean;
+};
+
 const schema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(1, "Required"),
   remember: z.boolean().optional().default(false),
 });
 
-export default function LoginPage() {
+type LoginResponse =
+  | { ok: true; role: "player" | "manager" }
+  | { ok: false; message?: string };
+
+/** ── Content (must be wrapped in Suspense) ──────────────────────────────── */
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
 
-  const [data, setData] = useState({
+  const [data, setData] = useState<LoginForm>({
     email: "",
     password: "",
     remember: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const handleChange =
-    (name: keyof typeof data) =>
+    <K extends keyof LoginForm>(name: K) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value =
-        e.target.type === "checkbox"
-          ? (e.target as any).checked
-          : e.target.value;
+      const isCheckbox = e.currentTarget.type === "checkbox";
+      const value = (isCheckbox ? e.currentTarget.checked : e.currentTarget.value) as LoginForm[K];
       setData((prev) => ({ ...prev, [name]: value }));
-      setErrors((prev) => ({ ...prev, [name]: "" }));
+      setErrors((prev) => ({ ...prev, [String(name)]: "" }));
     };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
 
     const parsed = schema.safeParse(data);
     if (!parsed.success) {
       const fieldErrs: Record<string, string> = {};
-      parsed.error.issues.forEach((i) => {
-        fieldErrs[i.path.join(".")] = i.message;
-      });
+      for (const issue of parsed.error.issues) {
+        fieldErrs[issue.path.join(".")] = issue.message;
+      }
       setErrors(fieldErrs);
       return;
     }
@@ -61,10 +71,7 @@ export default function LoginPage() {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: data.email,
-          password: data.password,
-        }),
+        body: JSON.stringify({ email: data.email, password: data.password }),
       });
 
       if (!res.ok) {
@@ -72,36 +79,28 @@ export default function LoginPage() {
         throw new Error(t || "Login failed");
       }
 
-      const payload = (await res.json()) as { ok: boolean; role: "player" | "manager" };
+      const payload: LoginResponse = await res.json();
+      if (!payload.ok) throw new Error(payload.message || "Login failed");
 
       if (nextPath) {
         router.replace(nextPath);
-        return;
+      } else {
+        router.replace(payload.role === "manager" ? "/dashboard" : "/home");
       }
-      router.replace(payload.role === "manager" ? "/dashboard" : "/home");
-    } catch (err: any) {
-      setFormError(err.message || "Something went wrong");
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      // TODO: Connect real Google OAuth
-      alert("🔓 Google Sign-In clicked!");
-      // เมื่อเชื่อมจริง ให้ทำ logic redirect เหมือน handleSubmit ด้านบน
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  const handleGoogleSignIn = () => {
+    window.alert("🔓 Google Sign-In clicked!");
   };
 
   const Right = (
     <>
-      <h2 className="text-4xl md:text-4xl font-extrabold mb-5">
+      <h2 className="mb-5 text-4xl font-extrabold md:text-4xl">
         <span className="text-pine">Welcome back!</span>{" "}
         <span className="text-walnut">Player!</span>
       </h2>
@@ -123,42 +122,30 @@ export default function LoginPage() {
           error={errors.email}
         />
 
-        <div className="space-y-1">
-          <Field
-            type={showPwd ? "text" : "password"}
-            label="Password"
-            name="password"
-            placeholder="Enter your password"
-            value={data.password}
-            onChange={handleChange("password")}
-            error={errors.password}
-          />
-          {/* ถ้าอยากให้โชว์/ซ่อนรหัสผ่าน:
-          <button type="button" className="text-xs underline"
-                  onClick={() => setShowPwd((v) => !v)}>
-            {showPwd ? "Hide password" : "Show password"}
-          </button>
-          */}
-        </div>
-
-        <div className="flex items-center justify-between"></div>
+        <Field
+          type="password"
+          label="Password"
+          name="password"
+          placeholder="Enter your password"
+          value={data.password}
+          onChange={handleChange("password")}
+          error={errors.password}
+        />
 
         <PrimaryButton
           type="submit"
           disabled={loading}
-          className="text-white"
+          className="mt-10 text-white"
           aria-busy={loading}
         >
           {loading ? "Signing in..." : "Sign in"}
         </PrimaryButton>
 
-        <PrimaryButton
-          type="button"
-          onClick={handleGoogleSignIn}
-          className="bg-smoke text-onyx"
-        >
-          <img src="/brand/google-icon.svg" alt="Google" className="h-5 w-5" />
-          <span className="font-medium">Sign in with Google (optional)</span>
+        <PrimaryButton type="button" onClick={handleGoogleSignIn} className="bg-smoke text-onyx">
+          <span className="inline-flex items-center gap-2">
+            <Image src="/brand/google-icon.svg" alt="Google" width={20} height={20} priority />
+            <span className="font-medium">Sign in with Google (optional)</span>
+          </span>
         </PrimaryButton>
 
         <p className="pt-2 text-center text-sm text-walnut">
@@ -177,11 +164,13 @@ export default function LoginPage() {
     </>
   );
 
+  return <SplitPage heroPosition="left" formSide={Right} heroSide={<AuthHero side="right" />} />;
+}
+
+export default function LoginPage() {
   return (
-    <SplitPage
-      heroPosition="left"
-      formSide={Right}
-      heroSide={<AuthHero side="right" />}
-    />
+    <Suspense fallback={<div className="p-6 text-sm text-neutral-600">Loading…</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
