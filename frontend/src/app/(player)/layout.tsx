@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import PlayerNavBar from "@/ui/components/PlayerNavBar";
 
-export default function PlayerLayout({ children }: { children: React.ReactNode }) {
+export default function PlayerLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <PlayerNavBar />

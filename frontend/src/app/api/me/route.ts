@@ -25,7 +25,7 @@ export async function GET() {
 
   // player
   const name = jar.get("userName")?.value ?? "Senior19";
-  const balanceStr = jar.get("balance")?.value ?? "150";
+  const balanceStr = jar.get("balance")?.value ?? "1000";
   const avatarUrl = jar.get("avatarUrl")?.value ?? null;
 
   const balanceNum = Number(balanceStr);
