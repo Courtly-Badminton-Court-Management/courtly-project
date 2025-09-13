@@ -33,16 +33,42 @@ const schema = z
     path: ["confirm"],
   });
 
+type RegisterPayload = {
+  username: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  password: string;
+  confirm: string;
+  accept: boolean;
+};
+
 export default function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const acceptRef = useRef<HTMLInputElement>(null);
 
-  async function onSubmit(formData: FormData) {
+  // ✨ เปลี่ยนจาก form action={onSubmit} → onSubmit handler
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setErrors({});
-    const payload = Object.fromEntries(formData) as Record<string, any>;
-    payload.accept = payload.accept === "on";
+
+    const formData = new FormData(e.currentTarget);
+    const raw = Object.fromEntries(formData.entries()) as Record<
+      string,
+      FormDataEntryValue
+    >;
+
+    const payload: RegisterPayload = {
+      username: String(raw.username ?? ""),
+      email: String(raw.email ?? ""),
+      firstname: String(raw.firstname ?? ""),
+      lastname: String(raw.lastname ?? ""),
+      password: String(raw.password ?? ""),
+      confirm: String(raw.confirm ?? ""),
+      accept: String(raw.accept ?? "") === "on",
+    };
 
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
@@ -57,14 +83,14 @@ export default function RegisterPage() {
 
     try {
       setLoading(true);
-      // TODO: call API register จริง
-      alert("Sign up success ✅\n" + JSON.stringify(parsed.data, null, 2));
-    } catch (e: any) {
-      setErrors({ root: e?.message ?? "Something went wrong" });
+      window.alert("Sign up success ✅\n" + JSON.stringify(parsed.data, null, 2));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Something went wrong";
+      setErrors({ root: msg });
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const Right = (
     <>
@@ -73,7 +99,8 @@ export default function RegisterPage() {
         <span className="text-walnut">Create an Account.</span>
       </h2>
 
-      <form action={onSubmit} className="space-y-3">
+      {/* ⬇️ เปลี่ยนเป็น onSubmit เพื่อเลี่ยง fdprocessedid (hydration mismatch) */}
+      <form onSubmit={handleSubmit} className="space-y-3">
         <Field
           label="Username"
           name="username"
@@ -147,9 +174,7 @@ export default function RegisterPage() {
           )}
         </div>
 
-        {errors.root && (
-          <p className="text-sm text-red-600">{errors.root}</p>
-        )}
+        {errors.root && <p className="text-sm text-red-600">{errors.root}</p>}
 
         <div className="mt-8">
           <PrimaryButton type="submit" disabled={loading} className="text-white">
@@ -171,7 +196,7 @@ export default function RegisterPage() {
         onAccept={() => {
           if (acceptRef.current) acceptRef.current.checked = true;
           setErrors((e) => {
-            const { accept, ...rest } = e;
+            const { accept: _accept, ...rest } = e; // ป้องกัน unused warning
             return rest;
           });
         }}
@@ -179,5 +204,7 @@ export default function RegisterPage() {
     </>
   );
 
-  return <SplitPage heroPosition="right" heroSide={<AuthHero side="left"/>} formSide={Right} />;
+  return (
+    <SplitPage heroPosition="right" heroSide={<AuthHero side="left" />} formSide={Right} />
+  );
 }

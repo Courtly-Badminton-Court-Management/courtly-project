@@ -8,7 +8,7 @@ const MANAGER_EMAILS = new Set<string>(["courtly.project@gmail.com"]);
 
 /** mock users ที่ "ต้อง" ตรวจรหัสผ่านให้ตรง */
 const USER_FIXTURES: Record<string, { password: string; role: Role }> = {
-  "ratchaprapa.c@ku.th": { password: "courtlyHokori25", role: "player" },
+  "ratchaprapa.c@ku.th": { password: "0", role: "player" },
   // เพิ่มได้ตามต้องการ...
 };
 
