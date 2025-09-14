@@ -9,6 +9,10 @@ import AuthHero from "@/ui/components/authpage/AuthHero";
 import SplitPage from "@/ui/components/authpage/SplitPage";
 import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
+import CopyToClipboard from "@/ui/components/basic/CopyToClipboard";
+
+
+
 
 /** ── Types & Schema ─────────────────────────────────────────────────────── */
 type LoginForm = {
@@ -155,10 +159,10 @@ function LoginContent() {
           </Link>
         </p>
 
-        <p className="text-xs text-neutral-500">
-          * Mock: <code>ratchaprapa.c@ku.th / courtlyHokori25</code> ⇒ role = player
-          <br />
-          * Mock: <code>courtly.project@gmail.com</code> ⇒ role = manager
+        <p className="mt-10 text-xs text-neutral-500">
+          * These emails and passwords are used only for mockup development process <br />
+            * For Player: <CopyToClipboard text="ratchaprapa.c@ku.th" /> <br />
+            * For Manager: <CopyToClipboard text="courtly.project@gmail.com" />
         </p>
       </form>
     </>
