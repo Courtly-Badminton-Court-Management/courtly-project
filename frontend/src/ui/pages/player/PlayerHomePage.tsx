@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/ui/components/basic/Button"; 
+import Button from "@/ui/components/basic/Button";
 import { SlotModal } from "@/ui/components/slots/SlotModal";
 
 /** Mock slots for the right panel (free-only representation) */

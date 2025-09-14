@@ -19,6 +19,7 @@ const HOURS = [
   "16:00 - 17:00",
   "17:00 - 18:00",
   "18:00 - 19:00",
+  
 ] as const;
 
 const SLOT_PRICE = 1;

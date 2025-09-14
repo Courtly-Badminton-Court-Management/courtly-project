@@ -10,6 +10,8 @@ export type SlotModalProps = {
   onNextDay?: () => void;
 };
 
+// ── Choose 1: 'en-US' (อังกฤษ) หรือ 'th-TH-u-ca-gregory' (ไทยปี ค.ศ.)
+const STABLE_LOCALE: "en-US" | "th-TH-u-ca-gregory" = "en-US";
 
 export function SlotModal({ dayData, onPrevDay, onNextDay }: SlotModalProps) {
   // 1) Sort by time
@@ -30,10 +32,13 @@ export function SlotModal({ dayData, onPrevDay, onNextDay }: SlotModalProps) {
     [sorted]
   );
 
+  // 3) Stable date string (same SSR/Client)
+  const dateLabel = useMemo(() => toReadableDate(dayData.date, STABLE_LOCALE), [dayData.date]);
+
   return (
-    <aside className="">      
-    <header className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{toReadableDate(dayData.date)}</h2>
+    <aside className="">
+      <header className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">{dateLabel}</h2>
         <div className="flex items-center gap-2">
           <button
             className="h-8 w-8 rounded-full grid place-items-center border border-slate-300 hover:bg-slate-50"
@@ -66,8 +71,12 @@ export function SlotModal({ dayData, onPrevDay, onNextDay }: SlotModalProps) {
   );
 }
 
-function toReadableDate(d: string) {
+function toReadableDate(d: string, locale: "en-US" | "th-TH-u-ca-gregory" = "en-US") {
   const [dd, mm, yy] = d.split("-").map((s) => parseInt(s, 10));
   const date = new Date(2000 + yy, mm - 1, dd);
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return date.toLocaleDateString(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
