@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import BrandMark from "@/ui/components/basic/BrandMark";
-import Button from "@/ui/components/basic/ฺButton";
+import Button from "@/ui/components/basic/Button";
 
 export default function LandingPage() {
   return (

@@ -9,7 +9,7 @@ import BrandMark from "./basic/BrandMark";
 import DesktopMenu from "./basic/DesktopMenu";
 import MobileMenu from "./basic/MobileMenu";
 import AvatarBlock from "./basic/AvatarBlock";
-import Button from "./basic/ฺButton";
+import Button from "./basic/Button";
 
 type AdminMe = {
   displayName: string | null;
