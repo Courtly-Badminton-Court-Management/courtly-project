@@ -67,6 +67,25 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  pgadmin:
+    image: dpage/pgadmin4:8
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@courtly.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1
+      PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: 1
+      # optionally:
+      # PGADMIN_LISTEN_PORT: 80  # or some other value inside container
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   courtly_pgdata:
   frontend_node_modules:
+  pgadmin_data:

@@ -5,6 +5,8 @@ Django settings for courtly project (Courtly MVP).
 from pathlib import Path
 import os
 import environ
+# ===== Database =====
+import dj_database_url
 
 # ===== Paths =====
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,6 +42,9 @@ INSTALLED_APPS = [
     "ops",        # BusinessHour, Closure, Maintenance, Audit
     "booking",    # Slot, Booking, BookingSlot
     "wallet",     # CoinLedger, TopupRequest
+
+    # OPENAPI DOCS
+    'drf_spectacular',
 ]
 
 # Custom User
@@ -76,24 +81,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "courtly.wsgi.application"
 
-# ===== Database =====
-if env("DB_NAME", default=None):
+
+# Prefer DATABASE_URL if set
+database_url = env("DATABASE_URL", default=None)
+
+if database_url:
+    DATABASES = {
+        "default": dj_database_url.parse(database_url, conn_max_age=60),
+    }
+else:
+    # Fall back to explicit POSTGRES_* variables
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("DB_NAME"),
-            "USER": env("DB_USER", default="postgres"),
-            "PASSWORD": env("DB_PASSWORD", default=""),
-            "HOST": env("DB_HOST", default="db"),  # docker-compose service name
-            "PORT": env("DB_PORT", default="5432"),
+            "NAME": env("POSTGRES_DB", default="postgres"),
+            "USER": env("POSTGRES_USER", default="postgres"),
+            "PASSWORD": env("POSTGRES_PASSWORD", default=""),
+            "HOST": env("POSTGRES_HOST", default="db"),
+            "PORT": env("POSTGRES_PORT", default="5432"),
             "CONN_MAX_AGE": 60,
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -131,6 +137,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # ===== CORS =====
@@ -142,3 +149,12 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your Project API',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}
