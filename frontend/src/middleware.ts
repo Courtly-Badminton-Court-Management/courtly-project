@@ -8,7 +8,7 @@ function readSession(req: NextRequest): { role: Role; exp: number } | null {
   if (!raw) return null;
   try {
     const obj = JSON.parse(raw);
-    if (typeof obj.exp !== "number" || Date.now() > obj.exp) return null; // expired
+    if (typeof obj.exp !== "number" || Date.now() > obj.exp) return null; // session expired
     if (obj.role !== "player" && obj.role !== "manager") return null;
     return { role: obj.role, exp: obj.exp };
   } catch {
@@ -16,7 +16,7 @@ function readSession(req: NextRequest): { role: Role; exp: number } | null {
   }
 }
 
-// เส้นทางภายในที่ "ต้องล็อกอิน"
+// Routes that require authentication
 const PROTECTED_PATHS = [
   // player
   "/home",
@@ -32,7 +32,7 @@ const PROTECTED_PATHS = [
   "/booking-control",
 ];
 
-// อนุญาตเส้นทางตาม role
+// Allowed routes for each role
 const ROLE_ALLOWLIST: Record<Role, RegExp[]> = {
   player: [
     /^\/home(?:\/|$)/,
@@ -61,7 +61,7 @@ function isAllowedForRole(pathname: string, role: Role): boolean {
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // หน้า public (เช่น /, /auth/*) ไม่บังคับ
+  // Public pages (e.g., /, /auth/*) do not require login
   if (!isProtectedPath(pathname)) return NextResponse.next();
 
   const session = readSession(req);
@@ -71,6 +71,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // If user is logged in but not allowed to access the route, redirect to their home page
   if (!isAllowedForRole(pathname, session.role)) {
     const dest = session.role === "manager" ? "/dashboard" : "/home";
     return NextResponse.redirect(new URL(dest, req.url));
@@ -79,7 +80,7 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-// ให้ทำงานทุก path แล้วเราเป็นคนคุมเองว่าอะไร protected
+// Apply middleware to every path; we handle which ones are protected manually
 export const config = {
   matcher: ["/:path*"],
 };
