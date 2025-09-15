@@ -1,0 +1,49 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.venv/
+venv/
+ENV/
+
+# ---- Django specific ----
+db.sqlite3
+media/
+static/
+staticfiles/
+uploads/
+
+# ---- Logs ----
+*.log
+logs/
+tmp/
+celerybeat-schedule
+*.pid
+
+# ---- Test & tooling ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+
+# ---- Env & secrets ----
+.env
+.env.*
+*.env
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+
+# ---- IDE ----
+.vscode/
+.idea/
