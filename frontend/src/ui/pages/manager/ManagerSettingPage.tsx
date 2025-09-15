@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/ui/components/basic/ฺButton";
+import Button from "@/ui/components/basic/Button";
 
 type Row = { day:string; open:string|null; close:string|null };
 

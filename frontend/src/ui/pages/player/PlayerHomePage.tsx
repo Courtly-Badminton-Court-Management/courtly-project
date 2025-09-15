@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/ui/components/basic/ฺButton";
+import Button from "@/ui/components/basic/Button";
 
 export default function PlayerHomePage() {
   const [upcoming] = useState([

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Button from "@/ui/components/basic/ฺButton";
+import Button from "@/ui/components/basic/Button";
 
 type Row = {
   id: string;

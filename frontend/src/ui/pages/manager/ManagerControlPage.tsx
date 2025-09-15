@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Button from "@/ui/components/basic/ฺButton";
+import Button from "@/ui/components/basic/Button";
 
 type Status = "available" | "booked" | "walkin" | "end" | "maint" | "checkedin";
 type Cell = { court: number; idx: number; status: Status; bookingId?: string; user?: string };
