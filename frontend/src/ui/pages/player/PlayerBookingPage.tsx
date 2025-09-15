@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
+
 
 /** ─────────────────────────────────────────────────────────────────────────
  * Mock constants (ปรับง่ายตอนต่อ backend)
@@ -233,10 +235,12 @@ export default function PlayerBookingPage() {
             >
               {/* court label */}
               <div className="flex items-center gap-2 px-3 py-2">
-                <span className="inline-flex h-7 w-10 items-center justify-center rounded-md bg-neutral-100 text-sm font-bold">
-                  {rIdx + 1}
-                </span>
-                <span className="text-sm text-neutral-700">Court</span>
+              <CourtNumberHero
+                  court={rIdx + 1}
+                  size={72}                            // พอดีกับคอลัมน์กว้าง 120px
+                  active={selected.some(s => s.court === rIdx + 1)} // ไฮไลต์ถ้ามีเลือกคอร์ทนี้
+                  labelWord="Court"
+              />
               </div>
 
               {/* slots */}
