@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/ui/components/basic/Button"; 
+import Button from "@/ui/components/basic/Button";
+
 import { SlotModal } from "@/ui/components/slots/SlotModal";
 
 /** Mock slots for the right panel (free-only representation) */
@@ -12,6 +13,7 @@ const sampleSlots: { time: string; courts: string[] }[] = [
   { time: "18:00 - 19:00", courts: ["Court 2", "Court 3"] },
   { time: "19:00 - 20:00", courts: ["Court 1"] },
 ];
+
 
 export default function PlayerHomePage() {
   const [upcoming] = useState([
