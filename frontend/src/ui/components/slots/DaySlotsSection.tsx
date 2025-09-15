@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SlotModal, type SlotModalProps } from "./SlotModal";
+import { SlotModal, type SlotModalProps } from "@/ui/components/homepage/SlotModal";
 
 type DaySlotsSectionProps = SlotModalProps & {
   ctaHref?: string;

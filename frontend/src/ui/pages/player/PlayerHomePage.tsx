@@ -2,7 +2,25 @@
 
 import { useState } from "react";
 import Button from "@/ui/components/basic/Button";
-import { SlotModal } from "@/ui/components/slots/SlotModal";
+import { SlotModal } from "@/ui/components/homepage/SlotModal";
+
+/* ── Types ─────────────────────────────────────────────────────────── */
+type SlotStatus = "available" | "booked" | "cancelled";
+
+type SlotItem = {
+  id: string;          // e.g. "1"
+  status: SlotStatus;  // "booked"
+  start_time: string;  // "16:00"
+  end_time: string;    // "17:00"
+  court: number;       // 4
+  courtName: string;   // "4"
+};
+
+type BookingItem = {
+  bookingId: string;   // e.g. "BK04300820251"
+  dateISO: string;     // e.g. "2025-09-05"
+  slots: SlotItem[];   // one booking can contain multiple slot IDs
+};
 
 /** Mock slots for the right panel (free-only representation) */
 const sampleSlots: { time: string; courts: string[] }[] = [
@@ -13,11 +31,37 @@ const sampleSlots: { time: string; courts: string[] }[] = [
   { time: "19:00 - 20:00", courts: ["Court 1"] },
 ];
 
-
 export default function PlayerHomePage() {
-  const [upcoming] = useState([
-    { id: "BK04300820251", date: "5 Sep 2025", time: "16:00 - 17:00", court: "Court 4" },
-    { id: "BK04300820252", date: "5 Sep 2025", time: "16:00 - 17:00", court: "Court 6" },
+  // ✅ Booking data now matches BookingItem
+  const [upcoming] = useState<BookingItem[]>([
+    {
+      bookingId: "BK04300820251",
+      dateISO: "2025-09-05",
+      slots: [
+        {
+          id: "1",
+          status: "booked",
+          start_time: "16:00",
+          end_time: "17:00",
+          court: 4,
+          courtName: "4",
+        },
+      ],
+    },
+    {
+      bookingId: "BK04300820252",
+      dateISO: "2025-09-05",
+      slots: [
+        {
+          id: "1",
+          status: "booked",
+          start_time: "16:00",
+          end_time: "17:00",
+          court: 6,
+          courtName: "6",
+        },
+      ],
+    },
   ]);
 
   return (
@@ -66,21 +110,43 @@ export default function PlayerHomePage() {
           />
         </div>
 
-        {/* Upcoming bookings */}
-        <aside className="rounded-2xl border bg-white p-4 shadow-sm">
+        {/* Upcoming bookings – full width under the two panels */}
+        <aside className="md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-lg font-semibold">Upcoming Booking</h3>
-          <ul className="space-y-3">
-            {upcoming.map((b) => (
-              <li key={b.id} className="rounded-xl border p-3">
-                <div className="text-sm text-neutral-500">{b.date}</div>
-                <div className="font-medium">
-                  {b.time} • {b.court}
+
+          <ul className="space-y-4">
+            {upcoming.map((bk) => (
+              <li key={bk.bookingId} className="rounded-xl border p-4">
+                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[220px_1fr_auto]">
+                  {/* Left: Booking ID */}
+                  <div className="text-sm text-neutral-600">
+                    <div className="text-neutral-500">Booking ID:</div>
+                    <div className="font-mono text-base">{bk.bookingId}</div>
+                  </div>
+
+                  {/* Center: one row per Slot ID */}
+                  <div className="space-y-4">
+                    {bk.slots.map((s) => (
+                      <div
+                        key={`${bk.bookingId}-${s.id}`}
+                        className="flex items-baseline justify-between gap-3 border-b border-neutral-200 pb-3 last:border-0 last:pb-0"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xl font-semibold">Court {s.courtName}</div>
+                          <div className="text-sm text-neutral-600">
+                            {fmtDateShort(bk.dateISO)}, {timeRange(s.start_time, s.end_time)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Right: actions */}
+                  <div className="flex flex-row items-center gap-2 md:justify-end">
+                    <Button label="Cancel" bgColor="bg-neutral-200" textColor="text-neutral-800" />
+                    <Button label="View Detail" />
+                  </div>
                 </div>
-                <div className="mt-2 flex gap-2">
-                  <Button label="View Detail" />
-                  <Button label="Cancel" bgColor="bg-neutral-200" textColor="text-neutral-800" />
-                </div>
-                <div className="mt-1 text-xs text-neutral-400">Booking ID: {b.id}</div>
               </li>
             ))}
           </ul>
@@ -115,4 +181,12 @@ function MonthGrid() {
       ))}
     </div>
   );
+}
+
+function fmtDateShort(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+function timeRange(a: string, b: string) {
+  return `${a} – ${b}`;
 }
