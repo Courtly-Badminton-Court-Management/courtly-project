@@ -22,6 +22,7 @@ class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
+        token["role"] = user.role
         token["username"] = user.username
         token["email"] = user.email or ""
         token["firstname"] = user.first_name or ""
@@ -37,4 +38,8 @@ class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     def get(self, request):
         return Response(MeSerializer(request.user).data)
+
+
+
+
 
