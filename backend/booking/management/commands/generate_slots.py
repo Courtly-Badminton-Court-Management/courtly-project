@@ -35,7 +35,6 @@ class Command(BaseCommand):
                     start_dt = datetime.combine(d, bh.open_time)
                     end_dt   = datetime.combine(d, bh.close_time)
 
-                    # ถ้าใช้ USE_TZ=True แนะนำให้ทำให้ aware
                     start_dt = make_aware(start_dt, tz)
                     end_dt   = make_aware(end_dt, tz)
 
