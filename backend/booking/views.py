@@ -88,3 +88,137 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 class BookingUIMockView(TemplateView):
     template_name = "booking/mock.html"
+
+# booking/views.py
+import uuid
+from datetime import datetime, timedelta
+from django.db import transaction
+from django.utils import timezone
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from .serializers import BookingCreateSerializer
+from .models import Slot, SlotStatus, Booking, BookingSlot, Court, Club
+
+
+def gen_booking_no() -> str:
+    # 12 ตัวอ่านง่าย เช่น BK-7F2C9E1A23
+    return f"BK-{uuid.uuid4().hex[:10].upper()}"
+
+def combine_dt(d, t):
+    """รวม date + time ให้เป็น aware datetime ตาม TIME_ZONE ของโปรเจกต์"""
+    dt = datetime.combine(d, t)
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+class BookingCreateView(APIView):
+    """
+    รับ payload:
+    {
+      "club": 1,
+      "items": [
+        {"court":4,"date":"2025-09-05","start":"10:00","end":"12:00"}
+      ]
+    }
+    - ล็อกแถว slot ที่เกี่ยวข้องด้วย select_for_update
+    - ตรวจว่า slot ทุกตัว status=available
+    - สร้าง Booking + BookingSlot
+    - อัปเดต SlotStatus เป็น booked
+    """
+    @transaction.atomic
+    def post(self, request):
+        ser = BookingCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        club_id = ser.validated_data["club"]
+        items   = ser.validated_data["items"]
+
+        # ตรวจ club/court มีจริง
+        try:
+            Club.objects.only("id").get(id=club_id)
+        except Club.DoesNotExist:
+            return Response({"detail": "Club not found"}, status=404)
+
+        created = []
+        total_slots = 0
+
+        for it in items:
+            court_id = it["court"]
+            date     = it["date"]
+            start_t  = it["start"]
+            end_t    = it["end"]
+
+            # court must exist and belong to club (ถ้า Court มี FK ไป Club ให้เช็คด้วย; ถ้าไม่มีก็ข้าม)
+            try:
+                Court.objects.only("id").get(id=court_id)
+            except Court.DoesNotExist:
+                return Response({"detail": f"Court {court_id} not found"}, status=404)
+
+            start_dt = combine_dt(date, start_t)
+            end_dt   = combine_dt(date, end_t)
+
+            if start_dt >= end_dt:
+                return Response({"detail": "Invalid time range"}, status=400)
+
+            # ดึง slot 30 นาทีทั้งหมดของ court ช่วงนี้ แล้วล็อกสำหรับเขียน
+            slots_qs = (
+                Slot.objects
+                .select_for_update()   # กันชนกันการจองพร้อมกัน
+                .filter(
+                    court_id=court_id,
+                    service_date=date,
+                    start_at__gte=start_dt,
+                    end_at__lte=end_dt,
+                )
+                .select_related("slot_status")
+                .order_by("start_at")
+            )
+
+            slots = list(slots_qs)
+
+            if not slots:
+                return Response({"detail": f"No slots found for court {court_id} in range"}, status=400)
+
+            # ตรวจทุก slot ต้องว่าง
+            not_available = [s.id for s in slots if not hasattr(s, "slot_status") or s.slot_status.status != "available"]
+            if not_available:
+                return Response(
+                    {"detail": f"Some slots are not available", "slot_ids": not_available},
+                    status=409
+                )
+
+            # สร้าง Booking + BookingSlot แล้ว mark เป็น booked
+            booking = Booking.objects.create(
+                booking_no=gen_booking_no(),
+                user=request.user if request.user.is_authenticated else None,
+                club_id=club_id,
+                court_id=court_id,
+                slot=slots[0],              # อ้าง slot แรกเป็น representative
+                status="confirmed",
+            )
+
+            for s in slots:
+                BookingSlot.objects.create(booking=booking, slot=s)
+                # อัปเดตสถานะ
+                if hasattr(s, "slot_status"):
+                    s.slot_status.status = "booked"
+                    s.slot_status.save(update_fields=["status", "updated_at"])
+                else:
+                    SlotStatus.objects.create(slot=s, status="booked")
+
+            created.append({
+                "booking_no": booking.booking_no,
+                "court": court_id,
+                "date": str(date),
+                "start": start_t.strftime("%H:%M"),
+                "end": end_t.strftime("%H:%M"),
+                "slots": [s.id for s in slots],
+            })
+            total_slots += len(slots)
+
+        return Response(
+            {"ok": True, "bookings": created, "total_slots": total_slots},
+            status=status.HTTP_201_CREATED
+        )
