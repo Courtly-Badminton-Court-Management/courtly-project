@@ -4,17 +4,11 @@
 import React from "react";
 
 type CourtNumberHeroProps = {
-  /** หมายเลขคอร์ทที่จะแสดง */
   court: number | string;
-  /** ใช้กำหนดขนาดเอง (กว้าง) ถ้า fitRowHeight=false */
   size?: number;
-  /** คลาสเสริม */
   className?: string;
-  /** ไฮไลต์เมื่อ active */
   active?: boolean;
-  /** คำใน aria-label เช่น "Court" / "สนาม" */
   labelWord?: string;
-  /** ให้ฟิตสูงเท่ากับความสูงแถว (40px) อัตโนมัติ */
   fitRowHeight?: boolean;
 };
 
@@ -26,31 +20,26 @@ export default function CourtNumberHero({
   labelWord = "Court",
   fitRowHeight = true,
 }: CourtNumberHeroProps) {
-  // ความสูงแถวของช่องเวลาในกริด (Tailwind h-10 = 40px)
   const ROW_H = 40;
-
-  // ถ้า fitRowHeight = true จะฟิตสูง 40px อัตโนมัติ
   const h = fitRowHeight ? ROW_H : Math.round(size * 0.62);
-
-  // อัตราส่วนของแผ่นคอร์ทจากงานวาด (154x92)
   const RATIO = 154 / 92;
   const w = Math.round(h * RATIO);
-
-  // ขนาดเหรียญตัวเลข อ้างอิงจากความกว้าง
   const badge = Math.max(20, Math.round(w * 0.28));
+
+  // ใช้สีสนามให้สว่างขึ้นเมื่อ active
+  const innerFill = active ? "var(--color-sea)" : "var(--color-pine)";
 
   return (
     <div
       className={[
         "relative inline-block select-none overflow-visible shrink-0",
-        active ? "drop-shadow-[0_4px_12px_rgba(16,95,70,0.28)]" : "",
+        active ? "drop-shadow-[0_8px_30px_var(--tw-shadow-color)] shadow-[var(--box-shadow-soft)]" : "",
         className,
       ].join(" ")}
       role="img"
       aria-label={`${labelWord} ${court}`}
       style={{ width: w, height: h }}
     >
-      {/* แผ่นคอร์ท (พอดี viewBox; ไม่มีเงาทิ้งด้านหลังเพื่อไม่ให้เกินแถว) */}
       <svg
         width={w}
         height={h}
@@ -59,35 +48,41 @@ export default function CourtNumberHero({
         className="block"
         aria-hidden="true"
       >
-        {/* พื้นคอร์ท */}
-        <rect x="0" y="0" width="154" height="92" rx="10" fill="#2a6e63" />
-        {/* ขอบคอร์ท */}
+        {/* แผ่นพื้นหลังโทนเข้ม/ขอบนอกโค้ง */}
+        <rect x="0" y="0" width="154" height="92" rx="10" fill="var(--color-court-deep)" />
+
+        {/* พื้นด้านใน + ขอบสีควัน (มุม 'เหลี่ยม' ตามที่ต้องการ) */}
         <rect
           x="6"
           y="6"
           width="142"
           height="80"
-          rx="8"
-          fill="#2f7d70"
-          stroke="#e7f5f0"
-          strokeWidth="3"
+          rx="2" /* ← เปลี่ยนเป็นเหลี่ยม */
+          fill={innerFill}
+          stroke="var(--color-smoke)"
+          strokeWidth="2"
+          style={{ transition: "fill .2s ease" }}
         />
-        {/* เส้นแบ่งครึ่ง */}
-        <line x1="77" y1="6" x2="77" y2="86" stroke="#e7f5f0" strokeWidth="3" />
-        {/* เส้น service box */}
-        <line x1="6" y1="28" x2="148" y2="28" stroke="#e7f5f0" strokeWidth="2" />
-        <line x1="6" y1="64" x2="148" y2="64" stroke="#e7f5f0" strokeWidth="2" />
+
+        {/* เส้นกลางสนาม */}
+        <line x1="77" y1="6" x2="77" y2="86" stroke="var(--color-smoke)" strokeWidth="3" />
+
+        {/* เส้น service (แนวนอน 2 เส้น) */}
+        <line x1="6" y1="28" x2="148" y2="28" stroke="var(--color-smoke)" strokeWidth="2" />
+        <line x1="6" y1="64" x2="148" y2="64" stroke="var(--color-smoke)" strokeWidth="2" />
+
+        {/* เส้นตรงปลายสนามสองฝั่ง (แนวตั้งด้านในกรอบ) */}
+        <line x1="20" y1="6" x2="20" y2="86" stroke="var(--color-smoke)" strokeWidth="2" />
+        <line x1="134" y1="6" x2="134" y2="86" stroke="var(--color-smoke)" strokeWidth="2" />
       </svg>
 
-      {/* เหรียญเลข (กึ่งกลางคอร์ท) */}
+      {/* เหรียญเลขกึ่งกลางสนาม */}
       <div
         className={[
           "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
           "grid place-items-center rounded-full border font-bold shadow-sm",
           "pointer-events-none",
-          active
-            ? "bg-white text-emerald-900 border-emerald-200"
-            : "bg-neutral-50 text-neutral-900 border-neutral-300",
+          active ? "bg-white text-pine border-cambridge" : "bg-smoke text-onyx border-dimgray",
         ].join(" ")}
         style={{
           width: badge,

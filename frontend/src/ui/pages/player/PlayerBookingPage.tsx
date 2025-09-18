@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
+import SlotCell from "@/ui/components/bookingpage/SlotCell";
+
 
 
 /** ─────────────────────────────────────────────────────────────────────────
@@ -248,35 +250,17 @@ export default function PlayerBookingPage() {
                 const isSelected = selected.some(
                   (s) => s.court === rIdx + 1 && s.hourIdx === cIdx
                 );
-
-                const base =
-                  "h-10 m-[3px] rounded-[4px] grid place-items-center text-xs font-semibold transition-colors";
-                const styleByStatus: Record<SlotStatus, string> = {
-                  available: "bg-white border border-neutral-200 hover:bg-neutral-50",
-                  booked: "bg-rose-900/70 text-white",
-                  walkin: "bg-amber-700/70 text-white",
-                  endgame: "bg-orange-400/70 text-white",
-                  maintenance: "bg-neutral-400/60 text-white",
-                };
-
-                const selectedStyle =
-                  "bg-teal-800 text-white ring-2 ring-teal-900/50 hover:bg-teal-700";
-
                 return (
-                  <button
+                  <SlotCell
                     key={cIdx}
-                    className={classNames(
-                      base,
-                      isSelected ? selectedStyle : styleByStatus[cell.status]
-                    )}
+                    status={cell.status as any}
+                    selected={isSelected}
                     onClick={() => toggleSelect(rIdx + 1, cIdx)}
-                    disabled={cell.status !== "available"}
-                    aria-label={`Court ${rIdx + 1} ${HOURS[cIdx]}`}
-                  >
-                    {isSelected ? "✓" : ""}
-                  </button>
+                    label={`Court ${rIdx + 1} ${HOURS[cIdx]}`}
+                  />
                 );
               })}
+              
             </div>
           ))}
         </div>
