@@ -3,6 +3,7 @@ Django settings for courtly project (Courtly MVP).
 """
 
 from pathlib import Path
+from datetime import timedelta
 import os
 import environ
 
@@ -11,15 +12,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ===== Env loader =====
 env = environ.Env()
-# โหลดไฟล์ .env ที่โฟลเดอร์โปรเจกต์ (ถ้าไม่มี ก็จะข้ามไปและใช้ตัวแปร ENV ที่ถูก inject จาก docker-compose)
-environ.Env.read_env(BASE_DIR / ".env")
+environ.Env.read_env(BASE_DIR / ".env")  # if missing, it's fine
 
 # ===== Security / Debug =====
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-secret-key-not-for-prod")
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
 
-# ใช้ค่าจาก ENV ได้ แต่ตั้งค่า default ให้ครอบคลุม dev/docker
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["*", "backend", "localhost", "127.0.0.1"])
+ALLOWED_HOSTS = env.list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=["*", "backend", "localhost", "127.0.0.1", "0.0.0.0"],
+)
+
+# ใช้ origin ของ frontend ที่จะส่ง cookie/CSRF มาหาเรา
 CSRF_TRUSTED_ORIGINS = env.list(
     "DJANGO_CSRF_TRUSTED",
     default=[
@@ -53,7 +57,6 @@ INSTALLED_APPS = [
     "wallet",     # CoinLedger, TopupRequest
 ]
 
-# Custom User
 AUTH_USER_MODEL = "accounts.User"
 
 # ===== Middleware =====
@@ -88,18 +91,11 @@ TEMPLATES = [
 WSGI_APPLICATION = "courtly.wsgi.application"
 
 # ===== Database =====
-# ลำดับความสำคัญ:
-# 1) DATABASE_URL (เช่น postgres://user:pass@db:5432/name)
-# 2) ชุดตัวแปร POSTGRES_* หรือ DB_* โดย host ดีฟอลต์ = 'db'
-# 3) ตกลง sqlite (dev)
 db_url = env("DATABASE_URL", default=None)
-
 if db_url:
-    # django-environ รองรับ parse DATABASE_URL โดยตรง
     default_db = env.db("DATABASE_URL")
     default_db["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
 else:
-    # รองรับทั้ง POSTGRES_* และ DB_* (ใส่อะไรก็ได้อย่างน้อย NAME/USER/PASS)
     name = env("POSTGRES_DB", default=env("DB_NAME", default=None))
     if name:
         default_db = {
@@ -107,17 +103,15 @@ else:
             "NAME": name,
             "USER": env("POSTGRES_USER", default=env("DB_USER", default="postgres")),
             "PASSWORD": env("POSTGRES_PASSWORD", default=env("DB_PASSWORD", default="")),
-            "HOST": env("POSTGRES_HOST", default=env("DB_HOST", default="db")),  # สำคัญ: default = 'db'
+            "HOST": env("POSTGRES_HOST", default=env("DB_HOST", default="db")),
             "PORT": env("POSTGRES_PORT", default=env("DB_PORT", default="5432")),
             "CONN_MAX_AGE": env.int("DB_CONN_MAX_AGE", default=60),
         }
     else:
-        # fallback: sqlite (dev)
         default_db = {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": env("SQLITE_NAME", default=str(BASE_DIR / "db.sqlite3")),
         }
-
 DATABASES = {"default": default_db}
 
 # ===== Password validation =====
@@ -130,21 +124,21 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # ===== Internationalization =====
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"   # เก็บเป็น UTC; เวลาแสดงผลค่อยแปลงเป็น Asia/Bangkok ฝั่ง UI/serializer
+TIME_ZONE = "UTC"   # เก็บเป็น UTC; ฝั่ง UI ค่อยแปลงเป็น Asia/Bangkok
 USE_I18N = True
 USE_TZ = True
 
 # ===== Static / Media =====
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 
-MEDIA_URL = "media/"
+MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ===== DRF =====
+# ===== DRF / Auth =====
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -155,7 +149,20 @@ REST_FRAMEWORK = {
     ],
 }
 
-# ===== CORS =====
+# อายุโทเค็น ปรับได้ด้วย ENV
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=env.int("JWT_ACCESS_MINUTES", default=60)
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=env.int("JWT_REFRESH_DAYS", default=7)
+    ),
+    "ROTATE_REFRESH_TOKENS": env.bool("JWT_ROTATE_REFRESH", default=False),
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
+# ===== CORS / CSRF for frontend =====
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS",
     default=[
@@ -166,4 +173,12 @@ CORS_ALLOWED_ORIGINS = env.list(
         "http://frontend:3000",
     ],
 )
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=True)
+
+# ถ้าใช้ cookie session/CSRf ระหว่างโดเมน ควรตั้งผ่าน ENV เมื่อขึ้นโปรดักชัน
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_HTTPONLY = env.bool("CSRF_COOKIE_HTTPONLY", default=False)
+SESSION_COOKIE_SAMESITE = env("SESSION_COOKIE_SAMESITE", default="Lax")
+CSRF_COOKIE_SAMESITE = env("CSRF_COOKIE_SAMESITE", default="Lax")

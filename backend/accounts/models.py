@@ -10,7 +10,17 @@ class User(AbstractUser):
     - Add 'accept' (terms & privacy)
     """
     email = models.EmailField(unique=True)
+
+    class Role(models.TextChoices):
+        PLAYER = "player", "Player"
+        MANAGER = "manager", "Manager"
+
+    role = models.CharField(
+        max_length=16,
+        choices=Role.choices,
+        default=Role.PLAYER,
+    )
     accept = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.username}"
+        return f"{self.username} ({self.role})"

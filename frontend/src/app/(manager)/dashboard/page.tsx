@@ -1,5 +1,3 @@
-import ManagerDashboardPage from "@/ui/pages/manager/ManagerDashboardPage";
-
-export default function Page() {
-  return <ManagerDashboardPage />;
+export default function ManagerDashboardPage() {
+  return <div className="p-6">Manager Dashboard</div>;
 }

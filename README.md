@@ -139,6 +139,7 @@ This will start:
 * Project Proposal: [Project Proposal PDF](https://drive.google.com/file/d/12xOk2idmqJrXaWnmxFgaFw4w6hojjo8z/view?usp=sharing)
 * Jira Board: [Courtly Jira](https://courtly-badminton.atlassian.net/jira/software/projects/SCRUM/boards/1)
 * GitHub Org: [Courtly-Badminton-Court-Managment](https://github.com/Courtly-Badminton-Court-Management)
+* 🎥 Presentation Video: [Presentation Video on Youtube](https://www.youtube.com/playlist?list=PLy2euUO-1ED_5BwWGAM6IQy1v_EnQUnwQ)
 
 ---
 

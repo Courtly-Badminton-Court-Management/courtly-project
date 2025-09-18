@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework import viewsets, filters
 from .models import Club, Court
 from .serializers import ClubSerializer, CourtSerializer
