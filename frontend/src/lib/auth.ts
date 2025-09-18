@@ -1,52 +1,83 @@
 // src/lib/auth.ts
-// Single source of truth – älä tuo näitä kahdesti missään.
 export type Tokens = { access: string; refresh: string };
-export type Me = { id: number; email: string; role: "player" | "manager" };
+export type Me = { id: number; username: string; email: string; role: "player" | "manager" | "admin" };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE!;
-const COOKIE_NAME = process.env.JWT_COOKIE || "auth_tokens";
+const API_BASE =
+  (process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
-/** Login via backend */
-export async function loginWithEmail(email: string, password: string): Promise<Tokens> {
-  const res = await fetch(`${API_BASE}/api/auth/login/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) {
-    const msg = await res.text().catch(() => "");
-    throw new Error(msg || `Login failed (${res.status})`);
-  }
-  return res.json();
-}
-
-/** Fetch user profile */
-export async function fetchMe(accessToken: string): Promise<Me> {
-  const res = await fetch(`${API_BASE}/api/auth/me/`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     cache: "no-store",
   });
-  if (!res.ok) throw new Error("Failed to load profile");
-  return res.json();
+  const text = await res.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch { /* keep raw text */ }
+  if (!res.ok) {
+    const msg =
+      (data && (data.detail || data.error || data.message || data.non_field_errors)) ||
+      text ||
+      `HTTP ${res.status}`;
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
+  return data as T;
 }
 
-/** Store tokens to cookie (client-side) */
+// ---------- NAMED EXPORTS (what your pages import) ----------
+
+// EXACT signature your Register page calls:
+export async function registerWithEmail(payload: {
+  username: string;
+  email: string;
+  password: string;
+  confirm: string;
+  firstname: string;
+  lastname: string;
+  accept: boolean;
+}): Promise<{ username: string; email: string; firstname: string; lastname: string }> {
+  return jsonFetch(`${API_BASE}/api/auth/register/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function loginWithEmail(identifier: string, password: string): Promise<Tokens> {
+  // Your backend expects { email, password }. If it accepts username too, keep the same field.
+  // If your backend requires "username" instead, switch key here based on a heuristic.
+  const body = { email: identifier, password };
+  return jsonFetch(`${API_BASE}/api/auth/login/`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export function saveTokens(tokens: Tokens) {
-  // simple cookie persist (fallback): secure settings recommended in prod
-  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(JSON.stringify(tokens))}; path=/; samesite=lax`;
+  if (typeof window === "undefined") return;
+  localStorage.setItem("access", tokens.access);
+  localStorage.setItem("refresh", tokens.refresh);
 }
 
-export function readTokens(): Tokens | null {
-  const m = document.cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
-  if (!m) return null;
-  try { return JSON.parse(decodeURIComponent(m[1])); } catch { return null; }
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access");
 }
 
-export function clearTokens() {
-  document.cookie = `${COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+export async function fetchMe(access?: string): Promise<Me> {
+  const token = access || getAccessToken();
+  if (!token) throw new Error("Not authenticated");
+  return jsonFetch(`${API_BASE}/api/auth/me/`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
-/** Role-based redirect helper */
 export function roleDestination(role: Me["role"]): string {
-  return role === "manager" ? "/dashboard" : "/home";
+  switch (role) {
+    case "manager":
+    case "admin":
+      return "/dashboard";
+    case "player":
+    default:
+      return "/home";
+  }
 }

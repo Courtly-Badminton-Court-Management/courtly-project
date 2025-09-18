@@ -2,158 +2,162 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";              // ✅ add
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import SplitPage from "@/ui/components/authpage/SplitPage";
 import AuthHero from "@/ui/components/authpage/AuthHero";
 import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
-import TermsModal from "../../components/authpage/TermsModal";
-import { z } from "zod";
-import { useRef, useState } from "react";
-import { postJSON } from "@/lib/api";
-import { logout } from "@/lib/auth";                      // ✅ add
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
-
-const schema = z
-  .object({
-    username: z.string().min(1, "Required"),
-    email: z.string().email("Invalid email"),
-    firstname: z.string().min(1, "Required"),
-    lastname: z.string().min(1, "Required"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters long")
-      .regex(/[a-z]/, "Must include a lowercase letter")
-      .regex(/[A-Z]/, "Must include an uppercase letter")
-      .regex(/[0-9]/, "Must include a number")
-      .regex(/[^A-Za-z0-9]/, "Must include a special character"),
-    confirm: z.string().min(1, "Required"),
-    accept: z.boolean().refine((v) => v === true, { message: "Please accept terms" }),
-  })
-  .refine((d) => d.password === d.confirm, { message: "Passwords do not match", path: ["confirm"] });
-
-type RegisterPayload = {
-  username: string;
-  email: string;
-  firstname: string;
-  lastname: string;
-  password: string;
-  confirm: string;
-  accept: boolean;
-};
+import { registerWithEmail } from "@/lib/auth";
 
 export default function RegisterPage() {
-  const router = useRouter();                              // ✅ add
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const router = useRouter();
+
+  // keep the same style as Login: controlled inputs + top error banner
+  const [username, setUsername] = useState("");
+  const [firstname, setFirstname] = useState("");
+  const [lastname, setLastname] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [accept, setAccept] = useState(false);
+
+  const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const acceptRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setErrors({});
+    setErr(null);
 
-    const fd = new FormData(e.currentTarget);
-    const payload: RegisterPayload = {
-      username: String(fd.get("username") ?? ""),
-      email: String(fd.get("email") ?? ""),
-      firstname: String(fd.get("firstname") ?? ""),
-      lastname: String(fd.get("lastname") ?? ""),
-      password: String(fd.get("password") ?? ""),
-      confirm: String(fd.get("confirm") ?? ""),
-      accept: String(fd.get("accept") ?? "") === "on",
-    };
+    // minimal client checks (to mirror simple Login UX)
+    if (!accept) return setErr("Please accept the terms to continue.");
+    if (password !== confirm) return setErr("Passwords do not match.");
 
-    // client-side validation
-    const parsed = schema.safeParse(payload);
-    if (!parsed.success) {
-      const map: Record<string, string> = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0]?.toString() || "root";
-        map[key] = issue.message;
-      }
-      setErrors(map);
-      return;
-    }
-
+    setLoading(true);
     try {
-      setLoading(true);
-
-      // ✅ Register (backend serializer maps firstname/lastname → first_name/last_name)
-      await postJSON(`${API_BASE}/api/auth/register/`, {
-        username: payload.username,
-        email: payload.email,
-        password: payload.password,
-        confirm: payload.confirm,
-        firstname: payload.firstname,
-        lastname: payload.lastname,
-        accept: payload.accept,
+      await registerWithEmail({
+        username,
+        email,
+        password,
+        confirm,
+        firstname,
+        lastname,
+        accept,
       });
-
-      // ✅ No autologin; clear any stale tokens just in case and go to /login with prefilled email
-      logout();
-      router.replace(`/login?email=${encodeURIComponent(payload.email)}`);
-      return;
+      router.replace("/login");
     } catch (e: any) {
-      const map: Record<string, string> = {};
-      if (typeof e?.status === "number") map.root = `HTTP ${e.status} ${e.statusText || ""}`.trim();
-      if (e && typeof e === "object") {
-        for (const [k, v] of Object.entries(e as Record<string, any>)) {
-          if (k === "status" || k === "statusText") continue;
-          if (k === "non_field_errors") { map.root = Array.isArray(v) ? v.join(", ") : String(v); continue; }
-          if (Array.isArray(v)) map[k] = v.join(", ");
-          else if (typeof v === "string") map[k] = v;
-        }
-      }
-      if (!Object.keys(map).length && typeof e?.detail === "string") map.root = e.detail;
-      if (!Object.keys(map).length) map.root = "Registration failed";
-      setErrors(map);
+      // show server message like LoginPage does
+      setErr(e?.message || "Registration failed");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const Right = (
     <>
       <h2 className="text-4xl md:text-4xl font-extrabold mb-5">
-        <span className="text-pine">Game on!</span> <span className="text-walnut">Create an Account.</span>
+        <span className="text-pine">Game on!</span>
       </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {errors.root && <div className="rounded-md border p-3 text-sm text-red-600">{errors.root}</div>}
+      <form onSubmit={onSubmit} className="space-y-3">
+        {err && (
+          <div className="rounded-md border p-3 text-sm text-red-600 whitespace-pre-wrap">
+            {err}
+          </div>
+        )}
 
-        <Field label="Username" name="username" placeholder="e.g. smashtiger88" error={errors.username} />
-        <Field type="email" label="Email" name="email" placeholder="e.g. player@email.com" error={errors.email} />
+        <Field
+          type="text"
+          label="Username"
+          name="username"
+          placeholder="e.g. smashtiger88"
+          value={username}
+          onChange={(e) => setUsername((e.target as HTMLInputElement).value)}
+          autoComplete="username"
+        />
+
+        <Field
+          type="email"
+          label="Email"
+          name="email"
+          placeholder="e.g. player@email.com"
+          value={email}
+          onChange={(e) => setEmail((e.target as HTMLInputElement).value)}
+          autoComplete="email"
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Firstname" name="firstname" placeholder="e.g. Tanawat" error={errors.firstname} />
-          <Field label="Lastname" name="lastname" placeholder="e.g. Srisawat" error={errors.lastname} />
+          <Field
+            type="text"
+            label="Firstname"
+            name="firstname"
+            placeholder="e.g. Tanawat"
+            value={firstname}
+            onChange={(e) => setFirstname((e.target as HTMLInputElement).value)}
+            autoComplete="given-name"
+          />
+          <Field
+            type="text"
+            label="Lastname"
+            name="lastname"
+            placeholder="e.g. Srisawat"
+            value={lastname}
+            onChange={(e) => setLastname((e.target as HTMLInputElement).value)}
+            autoComplete="family-name"
+          />
         </div>
 
-        <Field type="password" label="Password" name="password" placeholder="Must be 8+ characters, include symbols" error={errors.password} />
-        <Field type="password" label="Confirm password" name="confirm" placeholder="Re-enter your password" error={errors.confirm} />
+        <Field
+          type="password"
+          label="Password"
+          name="password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword((e.target as HTMLInputElement).value)}
+          autoComplete="new-password"
+        />
 
-        <label className="mt-8 flex items-center gap-2 text-sm text-onyx">
-          <input ref={acceptRef} type="checkbox" name="accept" className="h-4 w-4 rounded border-platinum text-sea focus:ring-sea" />
-          <span>I agree to the <button type="button" onClick={() => setShowTerms(true)} className="font-semibold text-sea underline underline-offset-2">Terms &amp; Conditions</button></span>
+        <Field
+          type="password"
+          label="Confirm password"
+          name="confirm"
+          placeholder="••••••••"
+          value={confirm}
+          onChange={(e) => setConfirm((e.target as HTMLInputElement).value)}
+          autoComplete="new-password"
+        />
+
+        {/* terms checkbox, styled simply to match page tone */}
+        <label className="mt-2 flex items-center gap-2 text-sm text-walnut">
+          <input
+            type="checkbox"
+            name="accept"
+            checked={accept}
+            onChange={(e) => setAccept((e.target as HTMLInputElement).checked)}
+            className="h-4 w-4"
+          />
+          <span>
+            I agree to the <span className="font-semibold underline">Terms &amp; Conditions</span>
+          </span>
         </label>
-        {errors.accept && <span className="text-xs text-red-600">{errors.accept}</span>}
 
-        <div className="mt-8">
+        <div className="mt-6">
           <PrimaryButton type="submit" disabled={loading} className="text-white">
             {loading ? "Please wait…" : "Sign up Now!"}
           </PrimaryButton>
         </div>
 
         <p className="pt-2 text-center text-sm text-walnut">
-          Already have an account? <Link href="/login" className="font-semibold text-sea underline">Sign In</Link>
+          Already have an account?{" "}
+          <Link href="/login" className="font-semibold text-sea underline">
+            Sign In
+          </Link>
         </p>
       </form>
-
-      <TermsModal open={showTerms} onClose={() => setShowTerms(false)} onAccept={() => { if (acceptRef.current) acceptRef.current.checked = true; }} />
     </>
   );
 
-  return <SplitPage heroPosition="right" heroSide={<AuthHero side="left" />} formSide={Right} />;
+  return (
+    <SplitPage heroPosition="right" heroSide={<AuthHero side="left" />} formSide={Right} />
+  );
 }
