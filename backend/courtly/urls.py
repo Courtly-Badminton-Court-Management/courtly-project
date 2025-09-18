@@ -11,4 +11,5 @@ urlpatterns = [
     path("api/bookings/", BookingCreateView.as_view(), name="booking-create"),
     path("api/", include(router.urls)),
     path("admin/", admin.site.urls),
+    path("api/auth/", include("accounts.urls")),
 ]
