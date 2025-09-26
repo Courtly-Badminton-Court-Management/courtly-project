@@ -10,6 +10,8 @@ __pycache__/
 venv/
 ENV/
 
+**/.idea/
+
 # ---- Django specific ----
 db.sqlite3
 media/

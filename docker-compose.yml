@@ -42,7 +42,7 @@ services:
         python manage.py runserver 0.0.0.0:8000
       "
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend:/app
     restart: unless-stopped
@@ -51,8 +51,8 @@ services:
     image: node:20-alpine
     working_dir: /app
     environment:
-      NEXT_PUBLIC_API_BASE: "http://localhost:8000"  # browser → backend
-      INTERNAL_API_BASE: "http://backend:8000"       # Next.js (server) → backend
+      NEXT_PUBLIC_API_BASE: "http://localhost:8000" # browser → backend
+      INTERNAL_API_BASE: "http://localhost:8000" # Next.js (server) → backend
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -71,12 +71,10 @@ services:
     image: dpage/pgadmin4:8
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@courtly.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1
       PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: 1
-      # optionally:
-      # PGADMIN_LISTEN_PORT: 80  # or some other value inside container
     ports:
       - "5050:80"
     volumes:
