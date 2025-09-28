@@ -10,15 +10,13 @@ import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
 import CopyToClipboard from "@/ui/components/basic/CopyToClipboard";
 
-// ✅ Import directly from Orval-generated client
 import { useAuthLoginCreate } from "@/api-client/endpoints/auth/auth";
+import { setTokens } from "@/lib/auth/tokenStore";
+import { setSessionCookie } from "@/lib/auth/session";
+import { customRequest } from "@/api-client/custom-client";
+import { extractRoleFromAccess, type Role } from "@/lib/auth/role";
 
-/** ── Types & Schema ─────────────────────────────────────────────────────── */
-type LoginForm = {
-  email: string;
-  password: string;
-  remember: boolean;
-};
+type LoginForm = { email: string; password: string; remember: boolean; };
 
 const schema = z.object({
   email: z.string().email("Invalid email"),
@@ -31,33 +29,38 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
 
-  const [data, setData] = useState<LoginForm>({
-    email: "",
-    password: "",
-    remember: false,
-  });
+  const [data, setData] = useState<LoginForm>({ email: "", password: "", remember: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  // ✅ Use generated mutation
   const loginMutation = useAuthLoginCreate({
     mutation: {
-      onSuccess: (payload: any) => {
-        // Your backend likely returns { access, refresh }
-        if (!payload?.access) {
-          setFormError("Login failed: missing token");
-          return;
+      onSuccess: async (payload: any) => {
+        const access = payload?.access;
+        const refresh = payload?.refresh;
+        if (!access) { setFormError("Login failed: missing token"); return; }
+
+        // 1) เก็บ token (memory + sessionStorage)
+        setTokens({ access, refresh: refresh ?? null }, true);
+
+        // 2) ถอด role จาก access; ถ้าไม่มี → fallback ไป /auth/me/
+        let role = extractRoleFromAccess(access) as Role | null;
+        if (!role) {
+          try {
+            const me: any = await customRequest({ url: "/api/auth/me/", method: "GET" });
+            role = (me?.role ?? "player") as Role;
+          } catch (e: any) {
+            setFormError(e?.message ?? "Failed to load profile");
+            return;
+          }
         }
 
-        // Save tokens (you can adjust to your storage strategy)
-        localStorage.setItem("access", payload.access);
-        localStorage.setItem("refresh", payload.refresh);
+        // 3) ตั้ง cookie ให้ middleware ใช้
+        setSessionCookie(role, 8);
 
-        if (nextPath) {
-          router.replace(nextPath);
-        } else {
-          router.replace("/dashboard"); // or role-based redirect
-        }
+        // 4) redirect
+        if (nextPath) router.replace(nextPath);
+        else router.replace(role === "manager" ? "/dashboard" : "/home");
       },
       onError: (err: any) => {
         setFormError(err?.message || "Something went wrong");
@@ -81,17 +84,11 @@ function LoginContent() {
     const parsed = schema.safeParse(data);
     if (!parsed.success) {
       const fieldErrs: Record<string, string> = {};
-      for (const issue of parsed.error.issues) {
-        fieldErrs[issue.path.join(".")] = issue.message;
-      }
+      for (const issue of parsed.error.issues) fieldErrs[issue.path.join(".")] = issue.message;
       setErrors(fieldErrs);
       return;
     }
-
-    // ✅ Call generated mutation
-    loginMutation.mutate({
-      data: { email: data.email, password: data.password },
-    });
+    loginMutation.mutate({ data: { email: data.email, password: data.password } });
   };
 
   const Right = (
@@ -108,40 +105,18 @@ function LoginContent() {
           </div>
         )}
 
-        <Field
-          type="email"
-          label="Email"
-          name="email"
-          placeholder="e.g. player@email.com"
-          value={data.email}
-          onChange={handleChange("email")}
-          error={errors.email}
-        />
+        <Field type="email" label="Email" name="email" placeholder="e.g. player@email.com"
+          value={data.email} onChange={handleChange("email")} error={errors.email} />
+        <Field type="password" label="Password" name="password" placeholder="Enter your password"
+          value={data.password} onChange={handleChange("password")} error={errors.password} />
 
-        <Field
-          type="password"
-          label="Password"
-          name="password"
-          placeholder="Enter your password"
-          value={data.password}
-          onChange={handleChange("password")}
-          error={errors.password}
-        />
-
-        <PrimaryButton
-          type="submit"
-          disabled={loginMutation.isPending}
-          className="mt-10 text-white"
-          aria-busy={loginMutation.isPending}
-        >
+        <PrimaryButton type="submit" disabled={loginMutation.isPending} className="mt-10 text-white" aria-busy={loginMutation.isPending}>
           {loginMutation.isPending ? "Signing in..." : "Sign in"}
         </PrimaryButton>
 
         <p className="pt-2 text-center text-sm text-walnut">
           Don’t have an account?{" "}
-          <Link href="/register" className="font-semibold text-sea underline">
-            Create one
-          </Link>
+          <Link href="/register" className="font-semibold text-sea underline">Create one</Link>
         </p>
 
         <p className="mt-10 text-xs text-neutral-500">

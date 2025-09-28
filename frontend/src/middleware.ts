@@ -23,13 +23,13 @@ const PROTECTED_PATHS = [
   "/wallet",
   "/booking",
   "/history",
-  "/about-us",
+  "/aboutus",
   // manager
   "/dashboard",
   "/approval",
   "/log",
   "/setting",
-  "/booking-control",
+  "/control",
 ];
 
 // Allowed routes for each role
@@ -39,14 +39,14 @@ const ROLE_ALLOWLIST: Record<Role, RegExp[]> = {
     /^\/wallet(?:\/|$)/,
     /^\/booking(?:\/|$)/,
     /^\/history(?:\/|$)/,
-    /^\/about-us(?:\/|$)/,
+    /^\/aboutus(?:\/|$)/,
   ],
   manager: [
     /^\/dashboard(?:\/|$)/,
     /^\/approval(?:\/|$)/,
     /^\/log(?:\/|$)/,
     /^\/setting(?:\/|$)/,
-    /^\/booking-control(?:\/|$)/,
+    /^\/control(?:\/|$)/,
   ],
 };
 

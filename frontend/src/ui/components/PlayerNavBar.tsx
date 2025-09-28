@@ -11,8 +11,13 @@ import MobileMenu from "./basic/MobileMenu";
 import AvatarBlock from "./basic/AvatarBlock";
 import Button from "./basic/Button";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { clientLogout } from "@/lib/auth/logout";
+import { customRequest } from "@/api-client/custom-client";
+
+
 type Me = {
-  userName: string | null;
+  username: string | null;
   balance: number | null;
   avatarUrl: string | null;
 };
@@ -30,10 +35,11 @@ const COIN_ICON = "/brand/cl-coin.svg"; // ← ปรับ path ให้ตร
 export default function PlayerNavBar() {
   const pathname = usePathname();
   const router = useRouter();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<Me>({
-    userName: null,
+    username: null,
     balance: null,
     avatarUrl: null,
   });
@@ -43,19 +49,20 @@ export default function PlayerNavBar() {
 
     (async () => {
       try {
-        const res = await fetch("/api/me", { credentials: "include" });
-        if (!res.ok) throw new Error("ME fetch failed");
-        const data = await res.json();
+        const data = await customRequest<{ username?: string; name?: string; balance?: number; avatarUrl?: string }>({
+          url: "/api/auth/me/",
+          method: "GET",
+        });
         if (!cancelled) {
           setMe({
-            userName: data?.userName ?? data?.name ?? "User",
+            username: data?.username ?? data?.name ?? "User",
             balance: typeof data?.balance === "number" ? data.balance : 0,
             avatarUrl: data?.avatarUrl ?? null,
           });
         }
       } catch {
         if (!cancelled) {
-          setMe({ userName: "Senior19", balance: 150, avatarUrl: null });
+          
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -71,14 +78,8 @@ export default function PlayerNavBar() {
     pathname === href || pathname.startsWith(`${href}/`);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
-    } catch {
-      // ignore
-    } finally {
-      router.push("/login");
-      router.refresh();
-    }
+    await clientLogout(qc);
+    router.replace("/login");
   };
 
   const BalanceChip = () => (
@@ -105,7 +106,7 @@ export default function PlayerNavBar() {
         <div className="hidden items-center gap-4 md:flex">
           <BalanceChip />
           <AvatarBlock
-            name={me.userName}
+            name={me.username}
             avatarUrl={me.avatarUrl}
             loading={loading}
             variant="neutral"
@@ -136,13 +137,14 @@ export default function PlayerNavBar() {
         <div className="border-t border-neutral-200 bg-white md:hidden">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3">
             <div className="flex items-center justify-between">
-              <BalanceChip />
+              
               <AvatarBlock
-                name={me.userName}
+                name={me.username}
                 avatarUrl={me.avatarUrl}
                 loading={loading}
                 variant="neutral"
               />
+              <BalanceChip />
             </div>
 
             {/* ใช้ MobileMenu ที่แยกไว้ */}
