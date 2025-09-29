@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Button from "@/ui/components/basic/Button";
 import { SlotModal } from "@/ui/components/homepage/SlotModal";
+import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
+
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 type SlotStatus = "available" | "booked" | "cancelled";
@@ -30,6 +32,20 @@ const sampleSlots: { time: string; courts: string[] }[] = [
   { time: "18:00 - 19:00", courts: ["Court 2", "Court 3"] },
   { time: "19:00 - 20:00", courts: ["Court 1"] },
 ];
+
+// Mock month data: 30 days, with two day-offs and one full day
+const monthDays: CalendarDay[] = Array.from({ length: 30 }, (_, i) => {
+  const day = i + 1;
+  // recycle the same 7-value pattern you had before
+  const pattern = [20, 35, 45, 62, 77, 88, 15];
+  const percent = pattern[i % pattern.length];
+
+  // mark the 13th & 26th as day off; 28th as full
+  if (day === 13 || day === 26) return { day, dayOff: true };
+  if (day === 28) return { day, percent: 100 };
+  return { day, percent };
+});
+
 
 export default function PlayerHomePage() {
   // ✅ Booking data now matches BookingItem
@@ -74,15 +90,10 @@ export default function PlayerHomePage() {
         </div>
       </header>
 
-      {/* Month overview (read-only mock) */}
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border bg-white p-4 shadow-sm md:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">September 2025</h2>
-            <div className="text-sm text-neutral-500">Day off + % availability</div>
+        <section className="grid gap-4 md:grid-cols-3 items-stretch">
+          <div className="md:col-span-2">
+            <CalendarModal title="September 2025" days={monthDays} />
           </div>
-          <MonthGrid />
-        </div>
 
         {/* Day slots card */}
         <div className="md:col-span-1 h-full flex flex-col rounded-2xl border bg-white p-4 shadow-sm">
@@ -153,33 +164,6 @@ export default function PlayerHomePage() {
         </aside>
       </section>
     </main>
-  );
-}
-
-/** ----- small helpers ----- */
-function MonthGrid() {
-  const days = Array.from({ length: 30 }, (_, i) => i + 1);
-  return (
-    <div className="grid grid-cols-7 gap-2">
-      {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
-        <div key={d} className="pb-1 text-center text-xs font-semibold text-neutral-500">
-          {d}
-        </div>
-      ))}
-      {days.map((d) => (
-        <div key={d} className="rounded-lg border bg-white p-2 text-center hover:border-emerald-300">
-          <div className="mb-2 text-sm font-medium">{d}</div>
-          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-            {([15, 20, 35, 45, 62, 77, 88][d % 7])}%
-          </span>
-          {d % 13 === 0 && (
-            <div className="mt-2 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
-              Day off
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
   );
 }
 

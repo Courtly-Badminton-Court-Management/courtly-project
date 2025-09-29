@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   },
   
   // Temporary fix for font/network issues
-  optimizeFonts: false, // Disable font optimization temporarily
+  // optimizeFonts: false, // Disable font optimization temporarily
   
   // TypeScript build error fixes
   typescript: {
