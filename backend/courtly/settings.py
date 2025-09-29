@@ -82,26 +82,20 @@ TEMPLATES = [
 WSGI_APPLICATION = "courtly.wsgi.application"
 
 
-# Prefer DATABASE_URL if set
-database_url = env("DATABASE_URL", default=None)
-
-if database_url:
-    DATABASES = {
-        "default": dj_database_url.parse(database_url, conn_max_age=60),
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("POSTGRES_DB", default="postgres"),
+        "USER": env("POSTGRES_USER", default="postgres"),
+        "PASSWORD": env("POSTGRES_PASSWORD", default=""),
+        "HOST": env("POSTGRES_HOST", default="db"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        'OPTIONS': {
+            'sslmode': env("POSTGRES_SSL_MODE", default='disable')
+        },
+        "CONN_MAX_AGE": 60,
     }
-else:
-    # Fall back to explicit POSTGRES_* variables
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("POSTGRES_DB", default="postgres"),
-            "USER": env("POSTGRES_USER", default="postgres"),
-            "PASSWORD": env("POSTGRES_PASSWORD", default=""),
-            "HOST": env("POSTGRES_HOST", default="db"),
-            "PORT": env("POSTGRES_PORT", default="5432"),
-            "CONN_MAX_AGE": 60,
-        }
-    }
+}
 
 # ===== Password validation =====
 AUTH_PASSWORD_VALIDATORS = [
