@@ -28,14 +28,14 @@ This causes problems such as:
 - Double bookings
 - Scattered proof of payment
 
-For venue managers, this leads to **high manual workload** and **limited visibility** into demand patterns:contentReference[oaicite:0]{index=0}.
+For venue managers, this leads to **high manual workload** and **limited visibility** into demand patterns.
 
 ---
 
 ## 👥 Stakeholders
 
 - **Players (End-users):** Want to view, and book available courts.  
-- **Court Managers/Owners:** Manage schedules, pricing, availability, and payments:contentReference[oaicite:1]{index=1}.
+- **Court Managers/Owners:** Manage schedules, pricing, availability, and payments.
 
 ---
 
@@ -54,17 +54,17 @@ For venue managers, this leads to **high manual workload** and **limited visibil
 ## 📝 User Stories (Highlights)
 
 ### For Players
-- **Registration & Account (EPIC A):** Sign up, email verification, login/logout, forgot password, profile:contentReference[oaicite:3]{index=3}.
-- **Visitor Mode (EPIC V):** Month/Day slot view without login, with CTA to register:contentReference[oaicite:4]{index=4}.
-- **Availability & Booking (EPIC B):** Multi-slot selection, booking with CL Coins, cancellation policy, booking history & PDF:contentReference[oaicite:5]{index=5}.
-- **Wallet & CL Coins (EPIC C):** View balance, top-up via slip, auto-deduct on booking, auto-refund on cancellation:contentReference[oaicite:6]{index=6}.
+- **Registration & Account (EPIC A):** Sign up, login/logout, profile.
+- **Visitor Mode (EPIC V):** Month/Day slot view without login, with CTA to register.
+- **Availability & Booking (EPIC B):** Multi-slot selection, booking with CL Coins, cancellation policy, booking history & PDF.
+- **Wallet & CL Coins (EPIC C):** View balance, top-up via slip, auto-deduct on booking, auto-refund on cancellation.
 
 ### For Managers
-- **Court & Schedule Management (EPIC M):** Opening hours, closures, auto-generate slots, calendar views:contentReference[oaicite:7]{index=7}.
-- **Check-in & Status Management (EPIC S):** Check-in by booking no./phone, slot maintenance, walk-ins, real-time status:contentReference[oaicite:8]{index=8}.
-- **Top-up & Wallet Ops (EPIC T):** Approve/reject slips, audit logs:contentReference[oaicite:9]{index=9}.
-- **Pricing & Promotions (EPIC P, optional):** Price rules, happy hours, discount codes:contentReference[oaicite:10]{index=10}.
-- **Reports & Analytics (EPIC N, optional):** Booking dashboards, heatmaps, coin reports:contentReference[oaicite:11]{index=11}.
+- **Court & Schedule Management (EPIC M):** Opening hours, closures, auto-generate slots, calendar views.
+- **Check-in & Status Management (EPIC S):** Check-in by booking no./phone, slot maintenance, walk-ins, real-time status.
+- **Top-up & Wallet Ops (EPIC T):** Approve/reject slips, audit logs.
+- **Pricing & Promotions (EPIC P, optional):** Price rules, happy hours, discount codes.
+- **Reports & Analytics (EPIC N, optional):** Booking dashboards, heatmaps, coin reports.
 
 ---
 
