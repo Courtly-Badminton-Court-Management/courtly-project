@@ -5,23 +5,22 @@ import Button from "@/ui/components/basic/Button";
 import { SlotModal } from "@/ui/components/homepage/SlotModal";
 import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
 
-
 /* ── Types ─────────────────────────────────────────────────────────── */
 type SlotStatus = "available" | "booked" | "cancelled";
 
 type SlotItem = {
-  id: string;          // e.g. "1"
-  status: SlotStatus;  // "booked"
-  start_time: string;  // "16:00"
-  end_time: string;    // "17:00"
-  court: number;       // 4
-  courtName: string;   // "4"
+  id: string;
+  status: SlotStatus;
+  start_time: string;
+  end_time: string;
+  court: number;
+  courtName: string;
 };
 
 type BookingItem = {
-  bookingId: string;   // e.g. "BK04300820251"
-  dateISO: string;     // e.g. "2025-09-05"
-  slots: SlotItem[];   // one booking can contain multiple slot IDs
+  bookingId: string;
+  dateISO: string;
+  slots: SlotItem[];
 };
 
 /** Mock slots for the right panel (free-only representation) */
@@ -33,50 +32,49 @@ const sampleSlots: { time: string; courts: string[] }[] = [
   { time: "19:00 - 20:00", courts: ["Court 1"] },
 ];
 
-// Mock month data: 30 days, with two day-offs and one full day
-const monthDays: CalendarDay[] = Array.from({ length: 30 }, (_, i) => {
-  const day = i + 1;
-  // recycle the same 7-value pattern you had before
+/** Build month data for a given year + zero-based month */
+function buildMonthDays(year: number, month0: number): CalendarDay[] {
+  const daysInMonth = new Date(year, month0 + 1, 0).getDate();
   const pattern = [20, 35, 45, 62, 77, 88, 15];
-  const percent = pattern[i % pattern.length];
 
-  // mark the 13th & 26th as day off; 28th as full
-  if (day === 13 || day === 26) return { day, dayOff: true };
-  if (day === 28) return { day, percent: 100 };
-  return { day, percent };
-});
-
+  const days: CalendarDay[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (d === 13 || d === 26) { days.push({ day: d, dayOff: true }); continue; }
+    if (d === 28) { days.push({ day: d, percent: 100 }); continue; }
+    days.push({ day: d, percent: pattern[(d - 1) % pattern.length] });
+  }
+  return days;
+}
 
 export default function PlayerHomePage() {
+  /** Visible month (start at September 2025) */
+  const [ym, setYm] = useState({ year: 2025, month0: 8 }); // 0-based month: 8 = September
+  const title = new Date(ym.year, ym.month0, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+  const monthDays = buildMonthDays(ym.year, ym.month0);
+
+  const prevMonth = () =>
+    setYm(({ year, month0 }) =>
+      month0 === 0 ? { year: year - 1, month0: 11 } : { year, month0: month0 - 1 }
+    );
+  const nextMonth = () =>
+    setYm(({ year, month0 }) =>
+      month0 === 11 ? { year: year + 1, month0: 0 } : { year, month0: month0 + 1 }
+    );
+
   // ✅ Booking data now matches BookingItem
   const [upcoming] = useState<BookingItem[]>([
     {
       bookingId: "BK04300820251",
       dateISO: "2025-09-05",
-      slots: [
-        {
-          id: "1",
-          status: "booked",
-          start_time: "16:00",
-          end_time: "17:00",
-          court: 4,
-          courtName: "4",
-        },
-      ],
+      slots: [{ id: "1", status: "booked", start_time: "16:00", end_time: "17:00", court: 4, courtName: "4" }],
     },
     {
       bookingId: "BK04300820252",
       dateISO: "2025-09-05",
-      slots: [
-        {
-          id: "1",
-          status: "booked",
-          start_time: "16:00",
-          end_time: "17:00",
-          court: 6,
-          courtName: "6",
-        },
-      ],
+      slots: [{ id: "1", status: "booked", start_time: "16:00", end_time: "17:00", court: 6, courtName: "6" }],
     },
   ]);
 
@@ -90,10 +88,15 @@ export default function PlayerHomePage() {
         </div>
       </header>
 
-        <section className="grid gap-4 md:grid-cols-3 items-stretch">
-          <div className="md:col-span-2">
-            <CalendarModal title="September 2025" days={monthDays} />
-          </div>
+      <section className="grid gap-4 md:grid-cols-3 items-stretch">
+        <div className="md:col-span-2">
+          <CalendarModal
+            title={title}
+            days={monthDays}
+            onPrevMonth={prevMonth}
+            onNextMonth={nextMonth}
+          />
+        </div>
 
         {/* Day slots card */}
         <div className="md:col-span-1 h-full flex flex-col rounded-2xl border bg-white p-4 shadow-sm">
@@ -121,27 +124,20 @@ export default function PlayerHomePage() {
           />
         </div>
 
-        {/* Upcoming bookings – full width under the two panels */}
+        {/* Upcoming bookings – full width */}
         <aside className="md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-lg font-semibold">Upcoming Booking</h3>
-
           <ul className="space-y-4">
             {upcoming.map((bk) => (
               <li key={bk.bookingId} className="rounded-xl border p-4">
                 <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[220px_1fr_auto]">
-                  {/* Left: Booking ID */}
                   <div className="text-sm text-neutral-600">
                     <div className="text-neutral-500">Booking ID:</div>
                     <div className="font-mono text-base">{bk.bookingId}</div>
                   </div>
-
-                  {/* Center: one row per Slot ID */}
                   <div className="space-y-4">
                     {bk.slots.map((s) => (
-                      <div
-                        key={`${bk.bookingId}-${s.id}`}
-                        className="flex items-baseline justify-between gap-3 border-b border-neutral-200 pb-3 last:border-0 last:pb-0"
-                      >
+                      <div key={`${bk.bookingId}-${s.id}`} className="flex items-baseline justify-between gap-3 border-b border-neutral-200 pb-3 last:border-0 last:pb-0">
                         <div className="min-w-0">
                           <div className="text-xl font-semibold">Court {s.courtName}</div>
                           <div className="text-sm text-neutral-600">
@@ -151,8 +147,6 @@ export default function PlayerHomePage() {
                       </div>
                     ))}
                   </div>
-
-                  {/* Right: actions */}
                   <div className="flex flex-row items-center gap-2 md:justify-end">
                     <Button label="Cancel" bgColor="bg-neutral-200" textColor="text-neutral-800" />
                     <Button label="View Detail" />
