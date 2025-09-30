@@ -24,7 +24,7 @@ export function TimeSlot({
         {slot.courts.map((c) => (
           <span
             key={c.id}
-            className="text-sm px-4 py-2 rounded-xl border bg-sea border-sea text-white shadow-sm"
+            className="text-sm px-4 py-2 rounded-xl border bg-pine border-pine text-white shadow-sm"
           >
             {c.label}
           </span>

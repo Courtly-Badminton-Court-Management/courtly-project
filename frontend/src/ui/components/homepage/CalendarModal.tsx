@@ -99,12 +99,12 @@ function bandForPercent(pct: number): { bandClass: string; label: string } {
   const clamped = Math.max(0, Math.min(100, Math.round(pct)));
   if (clamped >= 100) {
     // red
-    return { bandClass: "bg-cherry", label: "Full" };
+    return { bandClass: "bg-copper-rust", label: "Full" };
   }
   if (clamped >= 50) {
     // yellow / amber
     return { bandClass: "bg-lion", label: `${clamped}%` };
   }
   // green
-  return { bandClass: "bg-sea", label: `${clamped}%` };
+  return { bandClass: "bg-pine", label: `${clamped}%` };
 }
