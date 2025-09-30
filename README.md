@@ -94,7 +94,7 @@ git clone https://github.com/Courtly-Badminton-Court-Managment/courtly-project
 
 ### 2. Environment Setup
 
-#### Option A: Run with Cloud Postgres (DigitalOcean)
+#### 🌥️ Option A: Run with Cloud Postgres (DigitalOcean) 
 
 1. Request the `.env` file and connection details from the team.
 2. Create a `.env` file at the project root using the structure in `.env.example.docker-compose-postgres-on-cloud`
@@ -111,9 +111,9 @@ git clone https://github.com/Courtly-Badminton-Court-Managment/courtly-project
 
 ⚠️ **Note:** The real `.env` file and server credentials are private and must be requested from the team.
 
----
 
-#### Option B: Run Locally (for testing)
+
+#### 🖥️ Option B: Run Locally (for testing)
 
 1. Create a `.env` file at the project root by copying: ` .env.example`
 
