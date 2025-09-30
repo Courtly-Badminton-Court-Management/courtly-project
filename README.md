@@ -80,7 +80,7 @@ For venue managers, this leads to **high manual workload** and **limited visibil
 - PostgreSQL
 
 **Deployment**
-- Google Cloud or Heroku:contentReference[oaicite:12]{index=12}
+- DigitalOcean
 
 ---
 
@@ -89,51 +89,58 @@ For venue managers, this leads to **high manual workload** and **limited visibil
 ### 1. Clone repo
 ```bash
 git clone https://github.com/Courtly-Badminton-Court-Managment/courtly-project
-cd courtly-project
 ````
 
----
 
-### 2. Run Frontend
+### 2. Environment Setup
 
-```bash
-cd frontend
-npm install     # or npm ci
-npm run dev
-```
+#### Option A: Run with Cloud Postgres (DigitalOcean)
 
-👉 Default: `http://localhost:3000`
+1. Request the `.env` file and connection details from the team.
+2. Create a `.env` file at the project root using the structure in `.env.example.docker-compose-postgres-on-cloud`
+3. Start the project:
 
----
+   ```bash
+   docker compose -f docker-compose-postgres-on-cloud.yml up --build
+   ```
+4. Open **pgAdmin** at [http://localhost:5050](http://localhost:5050), then:
 
-### 3. Run Backend
+   * Add a new server
+   * Fill in the connection details (host, port, username, password, database)
+   * Save
 
-```bash
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1   # Windows PowerShell
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-```
-
-👉 Default: `http://localhost:8000`
+⚠️ **Note:** The real `.env` file and server credentials are private and must be requested from the team.
 
 ---
 
-### 4. Run with Docker (optional)
+#### Option B: Run Locally (for testing)
 
-```bash
-docker-compose up --build
-```
+1. Create a `.env` file at the project root by copying: ` .env.example`
 
-This will start:
+2. Update the database settings in `backend/courtly/settings.py`
 
-* Backend on `localhost:8000`
-* Frontend on `localhost:3000`
+   Example local database config:
+
+   ```python
+    DATABASES = {
+        "default": dj_database_url.parse(database_url, conn_max_age=60),
+        }
+   ```
+3. Start the project:
+
+   ```bash
+   docker compose up --build
+   ```
+
+
+
+### 3. Local URLs (when running)
+
+* **Frontend (Next.js)** → [http://localhost:3001](http://localhost:3001)
+* **Backend (Django REST)** → [http://localhost:8001](http://localhost:8001)
+* **pgAdmin** → [http://localhost:5050](http://localhost:5050)
 
 ---
-
 ## 📖 Documentation
 
 * Project Proposal: [Project Proposal PDF](https://drive.google.com/file/d/12xOk2idmqJrXaWnmxFgaFw4w6hojjo8z/view?usp=sharing)
@@ -158,5 +165,4 @@ This will start:
 * GitHub: [Courtly Organization](https://github.com/Courtly-Badminton-Court-Management)
 
 ---
-
 
