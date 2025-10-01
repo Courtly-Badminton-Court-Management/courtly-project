@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { SlotModal } from "@/ui/components/homepage/SlotModal";
 import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
 import UpcomingModal, { type BookingItem } from "@/ui/components/homepage/UpcomingModal";
@@ -78,12 +79,13 @@ export default function PlayerHomePage() {
     <main className="mx-auto max-w-6xl p-4 md:p-8">
       <header className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <span className="rounded-md bg-emerald-50 px-3 py-1 text-emerald-800">Senior19</span>
-          <span className="rounded-md bg-amber-50 px-3 py-1 font-semibold text-amber-700">150 Coins</span>
-        </div>
+        <Link
+          href="/booking"
+          className="inline-flex items-center rounded-2xl px-4 py-2 text-m font-semibold shadow-sm hover:shadow-md transition border border-platinum bg-pine text-white hover:bg-sea"
+        >
+          Book the courts!
+        </Link>
       </header>
-
       <section className="grid gap-4 md:grid-cols-3 items-stretch">
         <div className="md:col-span-2">
           <CalendarModal
@@ -122,7 +124,7 @@ export default function PlayerHomePage() {
 
         {/* Upcoming bookings – slot-per-row */}
         <div className="md:col-span-3">
-         <UpcomingModal
+          <UpcomingModal
             bookings={upcoming}
             onCancel={(bk) => {
               console.log("Cancel booking:", bk.bookingId);
