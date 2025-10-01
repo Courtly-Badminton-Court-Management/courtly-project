@@ -121,8 +121,8 @@ function LoginContent() {
 
         <p className="mt-10 text-xs text-neutral-500">
           * Mockup credentials <br />
-          * For Player: <CopyToClipboard text="ratchaprapa.c@ku.th" /> <br />
-          * For Manager: <CopyToClipboard text="courtly.project@gmail.com" />
+          * For Player: <CopyToClipboard text="ratchaprapa.c@ku.th" /> <CopyToClipboard text="Courtly_123" /> <br />
+          * For Manager: <CopyToClipboard text="courtly.project@gmail.com" /> <CopyToClipboard text="ISPcourtly_2025" />
         </p>
       </form>
     </>
