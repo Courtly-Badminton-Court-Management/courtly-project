@@ -1,27 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/ui/components/basic/Button";
 import { SlotModal } from "@/ui/components/homepage/SlotModal";
 import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
-
-/* ── Types ─────────────────────────────────────────────────────────── */
-type SlotStatus = "available" | "booked" | "cancelled";
-
-type SlotItem = {
-  id: string;
-  status: SlotStatus;
-  start_time: string;
-  end_time: string;
-  court: number;
-  courtName: string;
-};
-
-type BookingItem = {
-  bookingId: string;
-  dateISO: string;
-  slots: SlotItem[];
-};
+import UpcomingModal, { type BookingItem } from "@/ui/components/homepage/UpcomingModal";
 
 /** Mock slots for the right panel (free-only representation) */
 const sampleSlots: { time: string; courts: string[] }[] = [
@@ -32,7 +14,7 @@ const sampleSlots: { time: string; courts: string[] }[] = [
   { time: "19:00 - 20:00", courts: ["Court 1"] },
 ];
 
-/** Build month data for a given year + zero-based month */
+/** Build month data */
 function buildMonthDays(year: number, month0: number): CalendarDay[] {
   const daysInMonth = new Date(year, month0 + 1, 0).getDate();
   const pattern = [20, 35, 45, 62, 77, 88, 15];
@@ -48,7 +30,7 @@ function buildMonthDays(year: number, month0: number): CalendarDay[] {
 
 export default function PlayerHomePage() {
   /** Visible month (start at September 2025) */
-  const [ym, setYm] = useState({ year: 2025, month0: 8 }); // 0-based month: 8 = September
+  const [ym, setYm] = useState({ year: 2025, month0: 8 });
   const title = new Date(ym.year, ym.month0, 1).toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
@@ -64,17 +46,31 @@ export default function PlayerHomePage() {
       month0 === 11 ? { year: year + 1, month0: 0 } : { year, month0: month0 + 1 }
     );
 
-  // ✅ Booking data now matches BookingItem
+  /** Upcoming booking mock: */
   const [upcoming] = useState<BookingItem[]>([
     {
       bookingId: "BK04300820251",
       dateISO: "2025-09-05",
-      slots: [{ id: "1", status: "booked", start_time: "16:00", end_time: "17:00", court: 4, courtName: "4" }],
+      slots: [
+        { id: "S1", status: "booked", start_time: "16:00", end_time: "17:00", court: 4, courtName: "4" },
+        { id: "S2", status: "booked", start_time: "17:00", end_time: "18:00", court: 6, courtName: "6" },
+        { id: "S3", status: "booked", start_time: "18:00", end_time: "19:00", court: 2, courtName: "2" },
+      ],
     },
     {
       bookingId: "BK04300820252",
-      dateISO: "2025-09-05",
-      slots: [{ id: "1", status: "booked", start_time: "16:00", end_time: "17:00", court: 6, courtName: "6" }],
+      dateISO: "2025-09-07",
+      slots: [
+        { id: "S1", status: "booked", start_time: "10:00", end_time: "11:00", court: 1, courtName: "1" },
+        { id: "S2", status: "booked", start_time: "11:00", end_time: "12:00", court: 3, courtName: "3" },
+      ],
+    },
+    {
+      bookingId: "BK04300820251",
+      dateISO: "2025-09-12",
+      slots: [
+        { id: "S4", status: "booked", start_time: "15:00", end_time: "16:00", court: 5, courtName: "5" },
+      ],
     },
   ]);
 
@@ -124,47 +120,16 @@ export default function PlayerHomePage() {
           />
         </div>
 
-        {/* Upcoming bookings – full width */}
-        <aside className="md:col-span-3 rounded-2xl border bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-lg font-semibold">Upcoming Booking</h3>
-          <ul className="space-y-4">
-            {upcoming.map((bk) => (
-              <li key={bk.bookingId} className="rounded-xl border p-4">
-                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[220px_1fr_auto]">
-                  <div className="text-sm text-neutral-600">
-                    <div className="text-neutral-500">Booking ID:</div>
-                    <div className="font-mono text-base">{bk.bookingId}</div>
-                  </div>
-                  <div className="space-y-4">
-                    {bk.slots.map((s) => (
-                      <div key={`${bk.bookingId}-${s.id}`} className="flex items-baseline justify-between gap-3 border-b border-neutral-200 pb-3 last:border-0 last:pb-0">
-                        <div className="min-w-0">
-                          <div className="text-xl font-semibold">Court {s.courtName}</div>
-                          <div className="text-sm text-neutral-600">
-                            {fmtDateShort(bk.dateISO)}, {timeRange(s.start_time, s.end_time)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex flex-row items-center gap-2 md:justify-end">
-                    <Button label="Cancel" bgColor="bg-neutral-200" textColor="text-neutral-800" />
-                    <Button label="View Detail" />
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        {/* Upcoming bookings – slot-per-row */}
+        <div className="md:col-span-3">
+         <UpcomingModal
+            bookings={upcoming}
+            onCancel={(bk) => {
+              console.log("Cancel booking:", bk.bookingId);
+            }}
+          />
+        </div>
       </section>
     </main>
   );
-}
-
-function fmtDateShort(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-}
-function timeRange(a: string, b: string) {
-  return `${a} – ${b}`;
 }
