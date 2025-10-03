@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SlotModal } from "@/ui/components/homepage/SlotModal";
 import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
 import UpcomingModal, { type BookingItem } from "@/ui/components/homepage/UpcomingModal";
+import ImageSlider from "@/ui/components/homepage/ImageSlider";
 
 /** Mock slots for the right panel (free-only representation) */
 const sampleSlots: { time: string; courts: string[] }[] = [
@@ -28,6 +29,8 @@ function buildMonthDays(year: number, month0: number): CalendarDay[] {
   }
   return days;
 }
+
+
 
 export default function PlayerHomePage() {
   /** Visible month (start at September 2025) */
@@ -77,6 +80,10 @@ export default function PlayerHomePage() {
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
+      {/* Image Slider at the top */}
+      <div className="w-full mb-12">
+        <ImageSlider />
+      </div>
       <header className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <Link
