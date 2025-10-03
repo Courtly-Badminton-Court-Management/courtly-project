@@ -58,7 +58,6 @@ export default function PlayerHomePage() {
       slots: [
         { id: "S1", status: "booked", start_time: "16:00", end_time: "17:00", court: 4, courtName: "4" },
         { id: "S2", status: "booked", start_time: "17:00", end_time: "18:00", court: 6, courtName: "6" },
-        { id: "S3", status: "booked", start_time: "18:00", end_time: "19:00", court: 2, courtName: "2" },
       ],
     },
     {
@@ -66,14 +65,6 @@ export default function PlayerHomePage() {
       dateISO: "2025-09-07",
       slots: [
         { id: "S1", status: "booked", start_time: "10:00", end_time: "11:00", court: 1, courtName: "1" },
-        { id: "S2", status: "booked", start_time: "11:00", end_time: "12:00", court: 3, courtName: "3" },
-      ],
-    },
-    {
-      bookingId: "BK04300820251",
-      dateISO: "2025-09-12",
-      slots: [
-        { id: "S4", status: "booked", start_time: "15:00", end_time: "16:00", court: 5, courtName: "5" },
       ],
     },
   ]);
@@ -84,7 +75,19 @@ export default function PlayerHomePage() {
       <div className="w-full mb-12">
         <ImageSlider />
       </div>
-      <header className="mb-6 flex items-center justify-between">
+
+      {/* Upcoming bookings – slot-per-row */}
+        <div className="md:col-span-3 mb-12"> 
+          <UpcomingModal
+            bookings={upcoming}
+            onCancel={(bk) => {
+              console.log("Cancel booking:", bk.bookingId);
+            }}
+          />
+        </div>
+
+      {/* Dashboard Header */}
+      <header className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <Link
           href="/booking"
@@ -93,7 +96,9 @@ export default function PlayerHomePage() {
           Book the courts!
         </Link>
       </header>
-      <section className="grid gap-4 md:grid-cols-3 items-stretch">
+
+      {/* Dashboard Content */}
+      <section className="grid gap-6 md:grid-cols-3 items-stretch">
         <div className="md:col-span-2">
           <CalendarModal
             title={title}
@@ -129,15 +134,7 @@ export default function PlayerHomePage() {
           />
         </div>
 
-        {/* Upcoming bookings – slot-per-row */}
-        <div className="md:col-span-3">
-          <UpcomingModal
-            bookings={upcoming}
-            onCancel={(bk) => {
-              console.log("Cancel booking:", bk.bookingId);
-            }}
-          />
-        </div>
+        
       </section>
     </main>
   );
