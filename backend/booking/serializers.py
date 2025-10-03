@@ -18,9 +18,21 @@ class SlotSerializer(serializers.ModelSerializer):
 
 
 class BookingSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Booking
-        fields = ["id", "booking_no", "club", "court", "slot", "status", "created_at"]
+        fields = [
+            "id",
+            "booking_no",
+            "club",
+            "court",
+            "slot",
+            "status",
+            "created_at",
+            "user",   # ✅ include user_id
+        ]
+
 
 
 class BookingItemSerializer(serializers.Serializer):

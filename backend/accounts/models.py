@@ -19,5 +19,17 @@ class User(AbstractUser):
                             default=Role.PLAYER)
     accept = models.BooleanField(default=False)
 
+    coin_balance = models.PositiveIntegerField(default=0)
+
+    def add_coins(self, amount: int):
+        self.coin_balance += amount
+        self.save(update_fields=["coin_balance"])
+
+    def deduct_coins(self, amount: int):
+        if self.coin_balance < amount:
+            raise ValueError("Insufficient coins")
+        self.coin_balance -= amount
+        self.save(update_fields=["coin_balance"])
+
     def __str__(self):
         return f"{self.username} ({self.role})"

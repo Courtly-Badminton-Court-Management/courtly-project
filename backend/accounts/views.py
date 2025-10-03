@@ -6,6 +6,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView as DRFTokenRefresh
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .serializers import RegisterSerializer, MeSerializer
+from .serializers import AddCoinSerializer
+from wallet.models import Wallet
+
 
 User = get_user_model()
 
@@ -81,10 +84,34 @@ class TokenRefreshView(DRFTokenRefresh):
 
 
 # --- ME ---
+# class MeView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#     def get(self, request):
+#         data = MeSerializer(request.user).data
+#         # include role if your User has it; otherwise default
+#         data["role"] = getattr(request.user, "role", "player")
+#         return Response(data)
+
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
-        data = MeSerializer(request.user).data
-        # include role if your User has it; otherwise default
-        data["role"] = getattr(request.user, "role", "player")
+        user = request.user
+
+        wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"balance": 1000})
+
+        data = MeSerializer(user).data
+        data["role"] = getattr(user, "role", "player")
+        data["balance"] = wallet.balance
+
         return Response(data)
+
+
+class AddCoinView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        ser = AddCoinSerializer(data=request.data, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        user = ser.save()
+        return Response({"ok": True, "new_balance": user.coin_balance}, status=status.HTTP_200_OK)
