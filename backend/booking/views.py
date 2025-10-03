@@ -20,6 +20,7 @@ from .serializers import SlotSerializer, BookingSerializer, BookingCreateSeriali
 from django.db import models
 from wallet.models import CoinLedger
 from wallet.models import Wallet
+from .serializers import BookingHistorySerializer
 
 # ───────────────────────── helpers ─────────────────────────
 def gen_booking_no() -> str:
@@ -410,9 +411,200 @@ class BookingUIMockView(TemplateView):
 # booking/views.py
 
 
+# class BookingCreateView(APIView):
+#     """
+#     รับ payload:
+#     {
+#       "club": 1,
+#       "items": [
+#         {"court":4,"date":"2025-09-05","start":"10:00","end":"12:00"},
+#         {"court":5,"date":"2025-09-05","start":"14:00","end":"15:00"}
+#       ]
+#     }
+#     Flow:
+#     - ล็อก slot ที่เกี่ยวข้องด้วย select_for_update
+#     - ตรวจว่า slot ทุกตัว status=available
+#     - รวม coin cost (50 coins / slot)
+#     - ตรวจ balance จาก Wallet
+#     - ถ้าไม่พอ → return 402
+#     - ถ้าพอ → หัก coin จาก Wallet และสร้าง CoinLedger(type="capture")
+#     - สร้าง Booking + BookingSlot
+#     - อัปเดต SlotStatus เป็น booked
+#     - Response: { ok, bookings: [...], total_slots, total_cost, new_balance }
+#     """
+#
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     @transaction.atomic
+#     def post(self, request):
+#         try:
+#             ser = BookingCreateSerializer(data=request.data)
+#             ser.is_valid(raise_exception=True)
+#             club_id = ser.validated_data["club"]
+#             items = ser.validated_data["items"]
+#
+#             # ตรวจ club
+#             try:
+#                 Club.objects.only("id").get(id=club_id)
+#             except Club.DoesNotExist:
+#                 return Response({"detail": "Club not found"}, status=404)
+#
+#             if not items:
+#                 return Response({"detail": "No items to book"}, status=400)
+#
+#             # ใช้ court ของ item แรกเป็น primary court
+#             first_court_id = items[0]["court"]
+#
+#             booking = Booking.objects.create(
+#                 booking_no=gen_booking_no(),
+#                 user=request.user,
+#                 club_id=club_id,
+#                 court_id=first_court_id,
+#                 status="confirmed",
+#             )
+#
+#             total_slots = 0
+#             total_cost = 0
+#             created_slots = []
+#
+#             # วนเช็ค slot ของทุก item
+#             for it in items:
+#                 court_id = it["court"]
+#                 d: date = it["date"]
+#                 start_t = it["start"]
+#                 end_t = it["end"]
+#
+#                 # court exist?
+#                 try:
+#                     Court.objects.only("id").get(id=court_id)
+#                 except Court.DoesNotExist:
+#                     return Response({"detail": f"Court {court_id} not found"}, status=404)
+#
+#                 start_dt = combine_dt(d, start_t)
+#                 end_dt = combine_dt(d, end_t)
+#                 if start_dt >= end_dt:
+#                     return Response({"detail": "Invalid time range"}, status=400)
+#
+#                 base_qs = Slot.objects.filter(
+#                     court_id=court_id,
+#                     service_date=d,
+#                     start_at__gte=start_dt,
+#                     end_at__lte=end_dt,
+#                 ).order_by("start_at")
+#
+#                 if connection.vendor == "postgresql" and connection.features.has_select_for_update:
+#                     locked_ids = list(base_qs.select_for_update(of=("self",)).values_list("id", flat=True))
+#                 else:
+#                     locked_ids = list(base_qs.values_list("id", flat=True))
+#
+#                 slots_qs = Slot.objects.filter(id__in=locked_ids).select_related("slot_status").order_by("start_at")
+#                 slots = list(slots_qs)
+#                 if not slots:
+#                     return Response({"detail": f"No slots found for court {court_id} in range"}, status=400)
+#
+#                 # check available
+#                 not_available = [
+#                     s.id for s in slots
+#                     if not getattr(s, "slot_status", None) or s.slot_status.status != "available"
+#                 ]
+#                 if not_available:
+#                     return Response(
+#                         {"detail": "Some slots are not available", "slot_ids": not_available},
+#                         status=409,
+#                     )
+#
+#                 # ✅ ใช้ราคา fix 50 coin ต่อ slot
+#                 total_cost += len(slots) * 50
+#
+#                 # ผูก slot เข้ากับ booking
+#                 for s in slots:
+#                     BookingSlot.objects.create(booking=booking, slot=s)
+#                     if getattr(s, "slot_status", None):
+#                         s.slot_status.status = "booked"
+#                         s.slot_status.save(update_fields=["status", "updated_at"])
+#                     else:
+#                         SlotStatus.objects.create(slot=s, status="booked")
+#
+#                 created_slots.extend([s.id for s in slots])
+#                 total_slots += len(slots)
+#
+#             # ✅ เช็ค balance จาก Wallet
+#             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
+#
+#             if wallet.balance < total_cost:
+#                 return Response(
+#                     {"detail": "Not enough coins", "required": total_cost, "balance": wallet.balance},
+#                     status=402,
+#                 )
+#
+#             # ✅ หัก coin จาก Wallet และ log ลง Ledger
+#             wallet.balance -= total_cost
+#             wallet.save(update_fields=["balance"])
+#
+#             CoinLedger.objects.create(
+#                 user=request.user,
+#                 type="capture",
+#                 amount=-total_cost,
+#                 ref_booking=booking
+#             )
+#
+#             new_balance = wallet.balance
+#
+#             return Response(
+#                 {
+#                     "ok": True,
+#                     "bookings": [
+#                         {
+#                             "booking_no": booking.booking_no,
+#                             "club": club_id,
+#                             "court": first_court_id,
+#                             "slots": created_slots,
+#                         }
+#                     ],
+#                     "total_slots": total_slots,
+#                     "total_cost": total_cost,
+#                     "new_balance": new_balance,
+#                 },
+#                 status=status.HTTP_201_CREATED,
+#             )
+#
+#         except DatabaseError as e:
+#             return Response({"detail": f"Database error: {e.__class__.__name__}", "message": str(e)}, status=500)
+#         except Exception as e:
+#             return Response({"detail": str(e)}, status=400)
+#
+#
+# class BookingHistoryView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     def get(self, request):
+#         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
+#         data = []
+#         for b in qs:
+#             slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+#             slot_data = [
+#                 {
+#                     "slot": s.slot.id,
+#                     "slot__court": s.slot.court.id,
+#                     "slot__service_date": s.slot.service_date,
+#                     "slot__start_at": s.slot.start_at.strftime("%H:%M"),
+#                     "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+#                 }
+#                 for s in slots
+#             ]
+#             data.append({
+#                 "booking_no": b.booking_no,
+#                 "status": b.status,
+#                 "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
+#                 "slots": slot_data,
+#             })
+#         return Response(data)
+
+
 class BookingCreateView(APIView):
     """
-    รับ payload:
+    POST /api/bookings/
+    payload:
     {
       "club": 1,
       "items": [
@@ -420,16 +612,6 @@ class BookingCreateView(APIView):
         {"court":5,"date":"2025-09-05","start":"14:00","end":"15:00"}
       ]
     }
-    Flow:
-    - ล็อก slot ที่เกี่ยวข้องด้วย select_for_update
-    - ตรวจว่า slot ทุกตัว status=available
-    - รวม coin cost (50 coins / slot)
-    - ตรวจ balance จาก Wallet
-    - ถ้าไม่พอ → return 402
-    - ถ้าพอ → หัก coin จาก Wallet และสร้าง CoinLedger(type="capture")
-    - สร้าง Booking + BookingSlot
-    - อัปเดต SlotStatus เป็น booked
-    - Response: { ok, bookings: [...], total_slots, total_cost, new_balance }
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -456,7 +638,7 @@ class BookingCreateView(APIView):
 
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
-                user=request.user,
+                user=request.user,          # ✅ ผูกกับ user
                 club_id=club_id,
                 court_id=first_court_id,
                 status="confirmed",
@@ -466,10 +648,9 @@ class BookingCreateView(APIView):
             total_cost = 0
             created_slots = []
 
-            # วนเช็ค slot ของทุก item
             for it in items:
                 court_id = it["court"]
-                d: date = it["date"]
+                d = it["date"]
                 start_t = it["start"]
                 end_t = it["end"]
 
@@ -512,10 +693,9 @@ class BookingCreateView(APIView):
                         status=409,
                     )
 
-                # ✅ ใช้ราคา fix 50 coin ต่อ slot
+                # ✅ คิดราคา slot
                 total_cost += len(slots) * 50
 
-                # ผูก slot เข้ากับ booking
                 for s in slots:
                     BookingSlot.objects.create(booking=booking, slot=s)
                     if getattr(s, "slot_status", None):
@@ -527,7 +707,7 @@ class BookingCreateView(APIView):
                 created_slots.extend([s.id for s in slots])
                 total_slots += len(slots)
 
-            # ✅ เช็ค balance จาก Wallet
+            # ✅ Wallet check
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
 
             if wallet.balance < total_cost:
@@ -536,7 +716,7 @@ class BookingCreateView(APIView):
                     status=402,
                 )
 
-            # ✅ หัก coin จาก Wallet และ log ลง Ledger
+            # ✅ หัก coin และ log
             wallet.balance -= total_cost
             wallet.save(update_fields=["balance"])
 
@@ -552,14 +732,12 @@ class BookingCreateView(APIView):
             return Response(
                 {
                     "ok": True,
-                    "bookings": [
-                        {
-                            "booking_no": booking.booking_no,
-                            "club": club_id,
-                            "court": first_court_id,
-                            "slots": created_slots,
-                        }
-                    ],
+                    "booking": {
+                        "booking_no": booking.booking_no,
+                        "club": club_id,
+                        "court": first_court_id,
+                        "slots": created_slots,
+                    },
                     "total_slots": total_slots,
                     "total_cost": total_cost,
                     "new_balance": new_balance,
@@ -572,3 +750,34 @@ class BookingCreateView(APIView):
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
 
+
+class BookingHistoryView(APIView):
+    """
+    GET /api/history/
+    ดึง booking ของ user ที่ login อยู่
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
+        data = []
+        for b in qs:
+            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+            slot_data = [
+                {
+                    "slot": s.slot.id,
+                    "slot__court": s.slot.court.id,
+                    "slot__service_date": str(s.slot.service_date),
+                    "slot__start_at": s.slot.start_at.strftime("%H:%M"),
+                    "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+                }
+                for s in slots
+            ]
+            data.append({
+                "booking_no": b.booking_no,
+                "status": b.status,
+                "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "slots": slot_data,
+            })
+        return Response({"results": data})

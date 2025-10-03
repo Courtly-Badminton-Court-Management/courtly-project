@@ -16,7 +16,8 @@ router.register(r"slots", SlotViewSet, basename="slot")
 router.register(r"bookings-admin", BookingViewSet, basename="booking-admin")
 
 urlpatterns = [
-    path("api/bookings/", BookingCreateView.as_view(), name="booking-create"),
+    # path("api/bookings/", BookingCreateView.as_view(), name="booking-create"),
+    path("api/", include("booking.urls")),
     path("api/", include(router.urls)),
     path("admin/", admin.site.urls),
     path("api/wallet/", include("wallet.urls")),

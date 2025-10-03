@@ -30,16 +30,16 @@ class BookingSerializer(serializers.ModelSerializer):
             "slot",
             "status",
             "created_at",
-            "user",   # ✅ include user_id
+            "user",  # ✅ include user_id
         ]
-
 
 
 class BookingItemSerializer(serializers.Serializer):
     court = serializers.IntegerField()
-    date = serializers.DateField()   # "YYYY-MM-DD"
+    date = serializers.DateField()  # "YYYY-MM-DD"
     start = serializers.TimeField()  # "HH:MM"
     end = serializers.TimeField()  # "HH:MM"
+
 
 class BookingCreateSerializer(serializers.Serializer):
     club = serializers.IntegerField()
@@ -51,3 +51,17 @@ class BookingCreateSerializer(serializers.Serializer):
             if it["start"] >= it["end"]:
                 raise serializers.ValidationError("start time must be before end time")
         return data
+
+
+class BookingSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingSlot
+        fields = ["slot", "slot__court", "slot__service_date", "slot__start_at", "slot__end_at"]
+
+
+class BookingHistorySerializer(serializers.ModelSerializer):
+    slots = BookingSlotSerializer(source="bookingslot_set", many=True)
+
+    class Meta:
+        model = Booking
+        fields = ["booking_no", "status", "created_at", "slots"]
