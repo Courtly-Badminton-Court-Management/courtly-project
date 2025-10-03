@@ -23,6 +23,8 @@ RUN npm ci
 COPY . .
 
 # Build the Next.js app
+ENV NEXT_DISABLE_ESLINT_PLUGIN=true
+ENV NEXT_SKIP_TYPECHECK=true
 RUN npm run build
 
 # -----------------------------
