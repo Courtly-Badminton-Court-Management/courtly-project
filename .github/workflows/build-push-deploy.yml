@@ -69,8 +69,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-backend-prod:${{ github.sha }}
 
       # 4. Deploy to DigitalOcean
-      # - name: Deploy to DigitalOcean App Platform
-      #   uses: digitalocean/app_action/deploy@v2
-      #   with:
-      #     token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-      #     app_name: courtly-project-backend-prod
+      - name: Deploy to DigitalOcean App Platform
+        uses: digitalocean/app_action/deploy@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          app_name: courtly-project-backend-prod
