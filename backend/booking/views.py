@@ -781,3 +781,32 @@ class BookingHistoryView(APIView):
                 "slots": slot_data,
             })
         return Response({"results": data})
+
+
+class BookingAllView(APIView):
+    # permission_classes = [permissions.IsAdminUser]  # ✅ only admin
+    # permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
+        data = []
+        for b in qs:
+            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+            slot_data = [
+                {
+                    "slot": s.slot.id,
+                    "slot__court": s.slot.court.id,
+                    "slot__service_date": s.slot.service_date,
+                    "slot__start_at": s.slot.start_at.strftime("%H:%M"),
+                    "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+                }
+                for s in slots
+            ]
+            data.append({
+                "booking_no": b.booking_no,
+                "user": b.user.email if b.user else None,   # ✅ show user
+                "status": b.status,
+                "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "slots": slot_data,
+            })
+        return Response(data)

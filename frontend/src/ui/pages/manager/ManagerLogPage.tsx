@@ -145,6 +145,7 @@ import { useEffect, useState } from "react";
 
 type BookingHistory = {
   booking_no: string;
+  user: string; // ✅ เพิ่ม email ของ user
   status: string;
   created_at: string;
   slots: {
@@ -162,7 +163,6 @@ export default function ManagerLogPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function fetchWithAuth(url: string) {
-    // ✅ รองรับทั้ง accessToken และ access_token
     let token =
       localStorage.getItem("accessToken") ||
       localStorage.getItem("access_token");
@@ -178,7 +178,6 @@ export default function ManagerLogPage() {
       },
     });
 
-    // ✅ ถ้า access token หมดอายุ → refresh
     if (res.status === 401 || res.status === 403) {
       if (refresh) {
         const refreshRes = await fetch(
@@ -194,7 +193,6 @@ export default function ManagerLogPage() {
           const data = await refreshRes.json();
           token = data.access;
 
-          // ✅ เก็บกลับทั้งสองชื่อ key กันพลาด
           localStorage.setItem("accessToken", token);
           localStorage.setItem("access_token", token);
 
@@ -212,7 +210,7 @@ export default function ManagerLogPage() {
   }
 
   useEffect(() => {
-    fetchWithAuth("http://localhost:8001/api/history/")
+    fetchWithAuth("http://localhost:8001/api/bookings/all/") // ✅ ใช้ endpoint all
       .then(async (res) => {
         if (!res.ok) {
           const text = await res.text();
@@ -221,7 +219,7 @@ export default function ManagerLogPage() {
         return res.json();
       })
       .then((data) => {
-        console.log("history data >>>", data);
+        console.log("all bookings >>>", data);
 
         const records: BookingHistory[] = Array.isArray(data)
           ? data
@@ -230,24 +228,24 @@ export default function ManagerLogPage() {
         setLogs(records);
       })
       .catch((err) => {
-        console.error("fetch history error", err);
+        console.error("fetch all bookings error", err);
         setError(err.message);
       });
   }, []);
 
   const filtered = logs.filter((l) =>
-    [l.booking_no, l.status, l.created_at]
+    [l.booking_no, l.user, l.status, l.created_at]
       .join(" ")
       .toLowerCase()
       .includes(q.toLowerCase())
   );
 
   return (
-    <main className="mx-auto max-w-5xl p-4 md:p-8">
+    <main className="mx-auto max-w-6xl p-4 md:p-8">
       <header className="mb-4">
-        <h1 className="text-2xl font-bold">Booking History</h1>
+        <h1 className="text-2xl font-bold">All Bookings</h1>
         <p className="text-sm text-neutral-600">
-          Your past bookings with slot details.
+          Overview of all bookings across all users.
         </p>
       </header>
 
@@ -270,10 +268,11 @@ export default function ManagerLogPage() {
         <ul className="divide-y">
           {filtered.map((l, i) => (
             <li key={i} className="grid grid-cols-12 gap-2 py-3 text-sm">
-              <div className="col-span-3 font-medium">{l.created_at}</div>
-              <div className="col-span-3">{l.booking_no}</div>
-              <div className="col-span-3">{l.status}</div>
-              <div className="col-span-3 text-neutral-600">
+              <div className="col-span-2 font-medium">{l.created_at}</div>
+              <div className="col-span-2">{l.booking_no}</div>
+              <div className="col-span-2">{l.user}</div> {/* ✅ แสดง user email */}
+              <div className="col-span-2">{l.status}</div>
+              <div className="col-span-4 text-neutral-600">
                 {(l.slots || [])
                   .map(
                     (s) =>
