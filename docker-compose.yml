@@ -37,7 +37,6 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT}
     command: >
       sh -c "
-        /usr/local/bin/wait_for_db &&
         python manage.py migrate &&
         python manage.py runserver 0.0.0.0:8000
       "
