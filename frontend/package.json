@@ -22,7 +22,8 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.62.0",
     "tailwindcss": "^4.1.12",
-    "zod": "^4.1.9"
+    "zod": "^4.1.9",
+    "typescript": "^5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -32,7 +33,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "orval": "^7.12.2",
-    "prettier": "^3.6.2",
-    "typescript": "^5"
+    "prettier": "^3.6.2"
   }
 }

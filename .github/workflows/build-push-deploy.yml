@@ -1,4 +1,4 @@
-name: Build, Push, and Deploy Frontend
+name: Build, Push, and Deploy Frontend & Backend
 
 on:
   push:
@@ -12,7 +12,6 @@ permissions:
 jobs:
   build-push-deploy-frontend:
     runs-on: ubuntu-latest
-
     steps:
       # 1. Checkout repo
       - name: Checkout repository
@@ -20,25 +19,57 @@ jobs:
 
       # 2. Log in to Docker Hub
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 3. Build and push Docker image to Docker Hub
+      # 3. Build and push Docker image
       - name: Build and push Docker image
-        id: push
-        uses: docker/build-push-action@v6.5.0
+        uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: true
+          file: ./frontend/Dockerfile
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-frontend-prod:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-frontend-prod:${{ github.sha }}
 
-      # 4. Deploy to DigitalOcean App Platform
+      # 4. Deploy to DigitalOcean
       - name: Deploy to DigitalOcean App Platform
         uses: digitalocean/app_action/deploy@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           app_name: courtly-project-frontend-prod
+
+  build-push-deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 3. Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.postgres_on_cloud
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-backend-prod:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-backend-prod:${{ github.sha }}
+
+      # 4. Deploy to DigitalOcean
+      - name: Deploy to DigitalOcean App Platform
+        uses: digitalocean/app_action/deploy@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          app_name: courtly-project-backend-prod
