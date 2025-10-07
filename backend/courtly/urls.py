@@ -6,6 +6,7 @@ from accounts.views import RegisterView, LoginView, MeView
 from rest_framework_simplejwt.views import TokenRefreshView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from rest_framework.renderers import JSONRenderer
+from booking.views import BookingAllView
 
 # Custom view to serve JSON schema
 class SpectacularJSONAPIView(SpectacularAPIView):
@@ -16,9 +17,11 @@ router.register(r"slots", SlotViewSet, basename="slot")
 router.register(r"bookings-admin", BookingViewSet, basename="booking-admin")
 
 urlpatterns = [
-    path("api/bookings/", BookingCreateView.as_view(), name="booking-create"),
+    # path("api/bookings/", BookingCreateView.as_view(), name="booking-create"),
+    path("api/", include("booking.urls")),
     path("api/", include(router.urls)),
     path("admin/", admin.site.urls),
+    path("api/wallet/", include("wallet.urls")),
 
     # Auth
     path("api/auth/register/", RegisterView.as_view(), name="register"),
@@ -32,4 +35,5 @@ urlpatterns = [
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     path("api/auth/", include("accounts.urls")),
+    path("api/bookings/all/", BookingAllView.as_view(), name="booking-all"),
 ]

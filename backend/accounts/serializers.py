@@ -64,3 +64,11 @@ class MeSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email", "firstname", "lastname"]
         # If your User model actually has 'accept' and you want to expose it, add it here.
+
+class AddCoinSerializer(serializers.Serializer):
+    amount = serializers.IntegerField(min_value=1)
+
+    def save(self, **kwargs):
+        user: User = self.context["request"].user
+        user.add_coins(self.validated_data["amount"])
+        return user
