@@ -17,4 +17,5 @@ export interface PatchedBooking {
   slot?: number | null;
   status?: BookingStatusEnum;
   readonly created_at?: string;
+  readonly user?: number;
 }

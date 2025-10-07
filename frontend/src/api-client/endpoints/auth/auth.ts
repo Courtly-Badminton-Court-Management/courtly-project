@@ -57,6 +57,75 @@ type NonReadonly<T> = [T] extends [UnionToIntersection<T>]
     }
   : DistributeReadOnlyOverUnions<T>;
 
+export const authAddCoinsCreate = (signal?: AbortSignal) => {
+  return customRequest<void>({
+    url: `/api/auth/add-coins/`,
+    method: "POST",
+    signal,
+  });
+};
+
+export const getAuthAddCoinsCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof authAddCoinsCreate>>,
+    TError,
+    void,
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof authAddCoinsCreate>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["authAddCoinsCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof authAddCoinsCreate>>,
+    void
+  > = () => {
+    return authAddCoinsCreate();
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AuthAddCoinsCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof authAddCoinsCreate>>
+>;
+
+export type AuthAddCoinsCreateMutationError = unknown;
+
+export const useAuthAddCoinsCreate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof authAddCoinsCreate>>,
+      TError,
+      void,
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof authAddCoinsCreate>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationOptions = getAuthAddCoinsCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
 /**
  * POST /api/auth/login/ with {username,password} or {email,password}
 Returns: {access, refresh}
