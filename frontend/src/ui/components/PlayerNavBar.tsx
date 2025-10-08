@@ -1,10 +1,9 @@
-// src/ui/components/PlayerNavBar.tsx
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BrandMark from "./basic/BrandMark";
 import DesktopMenu from "./basic/DesktopMenu";
 import MobileMenu from "./basic/MobileMenu";
@@ -13,14 +12,13 @@ import Button from "./basic/Button";
 
 import { useQueryClient } from "@tanstack/react-query";
 import { clientLogout } from "@/lib/auth/logout";
-import { customRequest } from "@/api-client/custom-client";
 
-
-type Me = {
-  username: string | null;
-  balance: number | null;
-  avatarUrl: string | null;
-};
+// ✅ ใช้ hook จาก orval
+import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
+import {
+  useWalletMeRetrieve,
+  getWalletMeRetrieveQueryKey,
+} from "@/api-client/endpoints/wallet/wallet";
 
 const NAV_ITEMS = [
   { name: "Home", href: "/home" },
@@ -30,49 +28,27 @@ const NAV_ITEMS = [
   { name: "About Us", href: "/aboutus" },
 ] as const;
 
-const COIN_ICON = "/brand/cl-coin.svg"; // ← ปรับ path ให้ตรงโปรเจค
+const COIN_ICON = "/brand/cl-coin.svg";
 
 export default function PlayerNavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [me, setMe] = useState<Me>({
-    username: null,
-    balance: null,
-    avatarUrl: null,
-  });
 
-  useEffect(() => {
-    let cancelled = false;
+  // ── ดึงโปรไฟล์ (ชื่อผู้ใช้) ─────────────────────────
+  // หมายเหตุ: orval ของ endpoint นี้ type เป็น void แต่ response จริงมีข้อมูล
+  // เราเลยขอเป็น any เพื่ออ่านค่าออกมา
+  const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
+  const username: string =
+    meData?.username ?? meData?.name ?? meData?.email ?? "User";
+  const avatarUrl: string | null = meData?.avatarUrl ?? null;
 
-    (async () => {
-      try {
-        const data = await customRequest<{ username?: string; name?: string; balance?: number; avatarUrl?: string }>({
-          url: "/api/auth/me/",
-          method: "GET",
-        });
-        if (!cancelled) {
-          setMe({
-            username: data?.username ?? data?.name ?? "User",
-            balance: typeof data?.balance === "number" ? data.balance : 0,
-            avatarUrl: data?.avatarUrl ?? null,
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+  // ── ดึงยอดเหรียญ ผ่านคีย์กลาง /api/wallet/me/ ─────────────────────────
+  const { data: walletData, isLoading: balLoading } = useWalletMeRetrieve<any>();
+  const balance: number = typeof walletData?.balance === "number" ? walletData.balance : 0;
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const loading = meLoading || balLoading;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -86,7 +62,7 @@ export default function PlayerNavBar() {
     <div className="flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1.5">
       <Image src={COIN_ICON} alt="Coin" width={16} height={16} className="h-5 w-4.5" priority />
       <span className="text-sm font-semibold text-neutral-800">
-        {loading ? "—" : me.balance ?? 0}
+        {loading ? "—" : balance}
       </span>
     </div>
   );
@@ -106,8 +82,8 @@ export default function PlayerNavBar() {
         <div className="hidden items-center gap-4 md:flex">
           <BalanceChip />
           <AvatarBlock
-            name={me.username}
-            avatarUrl={me.avatarUrl}
+            name={username}
+            avatarUrl={avatarUrl}
             loading={loading}
             variant="neutral"
           />
@@ -137,20 +113,15 @@ export default function PlayerNavBar() {
         <div className="border-t border-neutral-200 bg-white md:hidden">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3">
             <div className="flex items-center justify-between">
-              
               <AvatarBlock
-                name={me.username}
-                avatarUrl={me.avatarUrl}
+                name={username}
+                avatarUrl={avatarUrl}
                 loading={loading}
                 variant="neutral"
               />
               <BalanceChip />
             </div>
-
-            {/* ใช้ MobileMenu ที่แยกไว้ */}
             <MobileMenu items={NAV_ITEMS} isActive={isActive} onClose={() => setOpen(false)} />
-
-            {/* ใช้ Button บน mobile แบบ full width */}
             <Button onClick={handleLogout} disabled={loading} full label="Logout" />
           </div>
         </div>
