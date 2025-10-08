@@ -1,3 +1,4 @@
+//src\lib\auth\role.ts
 export type Role = "player" | "manager";
 
 function decodeJwtPayload<T = any>(token: string): T | null {

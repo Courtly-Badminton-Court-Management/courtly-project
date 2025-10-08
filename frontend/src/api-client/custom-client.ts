@@ -1,6 +1,10 @@
 // courtly-project/frontend/src/api-client/custom-client.ts
 import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
-import { getAccess, getRefresh, setTokens, clearTokens } from "@/lib/auth/tokenStore";
+import {
+  getAccess, getRefresh, setTokens, clearTokens,
+  willExpireSoon, schedulePreemptiveRefresh
+} from "@/lib/auth/tokenStore";
+import { refreshAccessToken } from "@/lib/auth/refresh";
 import { setSessionCookie, clearSessionCookie } from "@/lib/auth/session";
 import { extractRoleFromAccess } from "@/lib/auth/role";
 
@@ -17,9 +21,12 @@ const PUBLIC_ENDPOINTS = [
 
 const isPublic = (url?: string) => !!url && PUBLIC_ENDPOINTS.some((p) => url.includes(p));
 
-// ---------- แนบ Bearer ----------
+// ---------- แนบ Bearer + "preemptive refresh ก่อนหมดอายุ" ----------
 axiosInstance.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
+    if (!isPublic(config.url) && willExpireSoon(90)) {
+      try { await refreshAccessToken(); } catch { /* ถ้าไม่ทัน ค่อยไปเจอ 401 แล้วค่อยจัดการ */ }
+    }
     if (!isPublic(config.url)) {
       const token = getAccess();
       if (token) {
@@ -32,7 +39,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// ---------- 401 → refresh (กันยิงซ้ำ) ----------
+// ---------- 401 → refresh (single-flight) ----------
 let refreshing = false;
 let waiters: Array<() => void> = [];
 
@@ -58,19 +65,7 @@ axiosInstance.interceptors.response.use(
       } else {
         refreshing = true;
         try {
-          const refresh = getRefresh();
-          if (!refresh) throw new Error("no refresh token");
-
-          const { data } = await axiosInstance.post("/api/auth/token/refresh/", { refresh });
-          const newAccess = (data as any)?.access;
-          if (!newAccess) throw new Error("no access in refresh");
-
-          setTokens({ access: newAccess, refresh }, true);
-
-          // อัปเดต cookie role จาก access ใหม่นี้ด้วย
-          const role = extractRoleFromAccess(newAccess);
-          if (role) setSessionCookie(role, 8);
-
+          await refreshAccessToken();  // << ขอ access ใหม่ด้วย refresh token
           waiters.forEach((fn) => fn());
           waiters = [];
         } catch {
@@ -83,11 +78,7 @@ axiosInstance.interceptors.response.use(
         }
       }
 
-      const token = getAccess();
-      if (token) {
-        orig.headers = orig.headers ?? {};
-        (orig.headers as any).Authorization = `Bearer ${token}`;
-      }
+      // ยิงคำขอเดิมซ้ำด้วย access ใหม่
       return axiosInstance.request(orig);
     }
 

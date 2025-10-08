@@ -1,3 +1,4 @@
+// src\ui\pages\visitor\LoginPage.tsx
 "use client";
 
 import Link from "next/link";
@@ -15,6 +16,8 @@ import { setTokens } from "@/lib/auth/tokenStore";
 import { setSessionCookie } from "@/lib/auth/session";
 import { customRequest } from "@/api-client/custom-client";
 import { extractRoleFromAccess, type Role } from "@/lib/auth/role";
+import { schedulePreemptiveRefresh } from "@/lib/auth/tokenStore";
+import { refreshAccessToken } from "@/lib/auth/refresh";
 
 type LoginForm = { email: string; password: string; remember: boolean; };
 
@@ -34,39 +37,36 @@ function LoginContent() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const loginMutation = useAuthLoginCreate({
-    mutation: {
-      onSuccess: async (payload: any) => {
-        const access = payload?.access;
-        const refresh = payload?.refresh;
-        if (!access) { setFormError("Login failed: missing token"); return; }
+  mutation: {
+    onSuccess: async (payload: any) => {
+      const access = payload?.access;
+      const refresh = payload?.refresh;
+      if (!access) { setFormError("Login failed: missing token"); return; }
 
-        // 1) เก็บ token (memory + sessionStorage)
-        setTokens({ access, refresh: refresh ?? null }, true);
+      
+      setTokens({ access, refresh: refresh ?? null }, data.remember ?? false);
+      schedulePreemptiveRefresh(() => { refreshAccessToken().catch(()=>{}); });
 
-        // 2) ถอด role จาก access; ถ้าไม่มี → fallback ไป /auth/me/
-        let role = extractRoleFromAccess(access) as Role | null;
-        if (!role) {
-          try {
-            const me: any = await customRequest({ url: "/api/auth/me/", method: "GET" });
-            role = (me?.role ?? "player") as Role;
-          } catch (e: any) {
-            setFormError(e?.message ?? "Failed to load profile");
-            return;
-          }
+      
+      let role = extractRoleFromAccess(access) as Role | null;
+      if (!role) {
+        try {
+          const me: any = await customRequest({ url: "/api/auth/me/", method: "GET" });
+          role = (me?.role ?? "player") as Role;
+        } catch (e: any) {
+          setFormError(e?.message ?? "Failed to load profile");
+          return;
         }
-
-        // 3) ตั้ง cookie ให้ middleware ใช้
-        setSessionCookie(role, 8);
-
-        // 4) redirect
-        if (nextPath) router.replace(nextPath);
-        else router.replace(role === "manager" ? "/dashboard" : "/home");
-      },
-      onError: (err: any) => {
-        setFormError(err?.message || "Something went wrong");
-      },
+      }
+      setSessionCookie(role, 8);
+      if (nextPath) router.replace(nextPath);
+      else router.replace(role === "manager" ? "/dashboard" : "/home");
     },
-  });
+    onError: (err: any) => {
+      setFormError(err?.message || "Something went wrong");
+    },
+  },
+});
 
   const handleChange =
     <K extends keyof LoginForm>(name: K) =>
@@ -121,7 +121,7 @@ function LoginContent() {
 
         <p className="mt-10 text-xs text-neutral-500">
           * Mockup credentials <br />
-          * For Player: <CopyToClipboard text="ratchaprapa.c@ku.th" /> <CopyToClipboard text="Courtly_123" /> <br />
+          * For Player: <CopyToClipboard text="test2@example.com" /> <CopyToClipboard text="Courtly_123" /> <br />
           * For Manager: <CopyToClipboard text="courtly.project@gmail.com" /> <CopyToClipboard text="ISPcourtly_2025" />
         </p>
       </form>

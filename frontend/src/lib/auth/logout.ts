@@ -1,3 +1,4 @@
+// frontend\src\lib\auth\logout.ts
 "use client";
 
 import { QueryClient } from "@tanstack/react-query";
