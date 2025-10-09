@@ -1,7 +1,7 @@
 // \src\ui\pages\player\PlayerBookingPage.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { classNames, ymdAddDays, ymdLabel } from "@/lib/booking/datetime";
 import SlotGrid from "@/ui/components/bookingpage/SlotGrid";
 import BookingSummaryModal from "@/ui/components/bookingpage/BookingSummaryModal";
@@ -16,7 +16,7 @@ import BookingDateNavigator from "@/ui/components/bookingpage/BookingDateNavigat
 /* =========================================================================
    CONFIG
    ========================================================================= */
-const CLUB_ID = 1
+const CLUB_ID = 1;
 
 /* =========================================================================
    PAGE
@@ -28,12 +28,17 @@ export default function PlayerBookingPage() {
   const [openConfirm, setOpenConfirm] = useState(false);
   const [bookingNos, setBookingNos] = useState<string[]>([]);
 
-  // data จาก Orval ผ่าน adapters (มี priceGrid + minutesPerCell แล้ว)
+  // data
   const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell, isLoading } = useDayGrid({
     clubId: CLUB_ID,
     ymd,
   });
   const { balance: coins } = useWalletBalance();
+
+  // clear selected slots whenever the day changes (one-day booking rule)
+  useEffect(() => {
+    setSelected([]);
+  }, [ymd]);
 
   // grouping (คิดราคาจริงจาก priceGrid)
   const groups = useMemo(
@@ -54,7 +59,7 @@ export default function PlayerBookingPage() {
     );
   }
 
-    async function handleConfirm() {
+  async function handleConfirm() {
     try {
       const items = groups.map((g) => {
         const start = cols[g.startIdx].start;
@@ -63,9 +68,8 @@ export default function PlayerBookingPage() {
         return { court: courtId, date: ymd, start, end };
       });
 
-      const res: any = await create(CLUB_ID, items); // ⬅️ ตอนนี้ res คือ payload จริงแล้ว
+      const res: any = await create(CLUB_ID, items);
 
-      // รองรับทั้งกรณีหลายรายการและเดี่ยว และรองรับชื่อฟิลด์หลายแบบ
       const ids: string[] = (() => {
         if (!res) return [];
         if (Array.isArray(res.bookings)) {
@@ -74,8 +78,7 @@ export default function PlayerBookingPage() {
             .filter(Boolean)
             .map(String);
         }
-        const single =
-          res.booking_no ?? res.bookingNo ?? res.id ?? res.code ?? null;
+        const single = res.booking_no ?? res.bookingNo ?? res.id ?? res.code ?? null;
         return single ? [String(single)] : [];
       })();
 
@@ -88,9 +91,9 @@ export default function PlayerBookingPage() {
     }
   }
 
-
   function shiftDay(delta: number) {
     setYmd((prev) => ymdAddDays(prev, delta));
+    setSelected([]); // clear immediately on click too
   }
 
   const dateLabel = ymdLabel(ymd);
@@ -118,19 +121,25 @@ export default function PlayerBookingPage() {
       </div>
 
       {/* Controls row: Date (left) + Legend (right) */}
-<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <BookingDateNavigator
-    dateLabel={dateLabel}
-    onPrev={() => shiftDay(-1)}
-    onNext={() => shiftDay(1)}
-  />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <BookingDateNavigator
+          dateLabel={dateLabel}
+          onPrev={() => shiftDay(-1)}
+          onNext={() => shiftDay(1)}
+        />
 
-  {/* Legend ด้านขวา */}
-  <PlayerSlotStatusLegend className="sm:ml-4" />
-</div>
+        {/* Legend ด้านขวา */}
+        <PlayerSlotStatusLegend className="sm:ml-4" />
+      </div>
 
       {/* Grid */}
-      <SlotGrid cols={cols as Col[]} grid={grid} courtNames={courtNames} selected={selected} onToggle={toggleSelect} />
+      <SlotGrid
+        cols={cols as Col[]}
+        grid={grid}
+        courtNames={courtNames}
+        selected={selected}
+        onToggle={toggleSelect}
+      />
 
       {/* Summary Modal */}
       <BookingSummaryModal
@@ -145,7 +154,11 @@ export default function PlayerBookingPage() {
       />
 
       {/* Confirmed Modal */}
-      <BookingConfirmedModal open={openConfirm} onClose={() => setOpenConfirm(false)} bookingNos={bookingNos} />
+      <BookingConfirmedModal
+        open={openConfirm}
+        onClose={() => setOpenConfirm(false)}
+        bookingNos={bookingNos}
+      />
     </div>
   );
 }

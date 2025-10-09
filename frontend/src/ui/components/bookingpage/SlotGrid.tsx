@@ -75,86 +75,93 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
 
   const pricePerSlot = getCellPriceCoins();
 
+  const gridTemplate = { gridTemplateColumns: `160px repeat(${cols.length}, 1fr)` };
+
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
       {/* Header Row */}
       <div className="px-3 py-2 text-sm font-bold text-neutral-700">Time</div>
 
-      {/* Top header: time bands */}
-      <div className="grid" style={{ gridTemplateColumns: `160px repeat(${cols.length}, 1fr)` }}>
-        <div /> {/* Empty corner cell */}
-        {hourBands.map((b, i) => (
-          <div
-            key={i}
-            className="px-1 py-1 flex items-center justify-center"
-            style={{ gridColumn: `span ${b.span} / span ${b.span}` }}
-          >
-            <div className="whitespace-nowrap tabular-nums rounded-md border border-neutral-200 bg-neutral-100 px-2 py-[2px] text-[10px] font-semibold text-neutral-600">
-              {b.label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Grid rows */}
-      <div className="mt-1">
-        {grid.map((row, rIdx) => (
-          <div
-            key={rIdx}
-            className="grid border-t border-neutral-100"
-            style={{ gridTemplateColumns: `160px repeat(${cols.length}, 1fr)` }}
-          >
-            {/* Court label cell */}
-            <div className="flex items-center gap-2 px-3 py-2">
-              <CourtNumberHero
-                court={rIdx + 1}
-                size={72}
-                active={selected.some((s) => s.courtRow === rIdx + 1)}
-                labelWord={courtNames[rIdx] ?? "Court"}
-                className="shrink-0"
-              />
-              <div className="text-sm font-semibold text-neutral-700">
-                {courtNames[rIdx]}
+      {/* One shared horizontal scroll container for header + body */}
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          {/* Top header: time bands */}
+          <div className="grid" style={gridTemplate}>
+            <div /> {/* Empty corner cell */}
+            {hourBands.map((b, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-center px-1 py-1"
+                style={{ gridColumn: `span ${b.span} / span ${b.span}` }}
+              >
+                <div className="whitespace-nowrap tabular-nums rounded-md border border-neutral-200 bg-neutral-100 px-2 py-[2px] text-[10px] font-semibold text-neutral-600 text-center">
+                  {b.label}
+                </div>
               </div>
-            </div>
-
-            {/* Time cells */}
-            {row.map((cell, cIdx) => {
-              const group = normalizeForPlayer(cell.status);
-              const isSelected =
-                selected.some(
-                  (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
-                ) && cell.status === "available";
-              const disabled = cell.status !== "available";
-
-              const title =
-                group === "available"
-                  ? `Available • ${pricePerSlot} coins (30 min)`
-                  : group === "bookedLike"
-                  ? "Booked"
-                  : group === "maintenance"
-                  ? "Maintenance"
-                  : "Ended";
-
-              return (
-                <button
-                  key={cIdx}
-                  className={cx(
-                    "h-10 m-[3px] rounded-[4px] grid place-items-center text-xs font-semibold transition-colors",
-                    isSelected ? selectedStyle : styleByGroup[group],
-                    disabled && "cursor-not-allowed"
-                  )}
-                  onClick={() => onToggle(rIdx + 1, cIdx)}
-                  disabled={disabled}
-                  aria-label={`${courtNames[rIdx]} ${cols[cIdx]?.label} ${title}`}
-                  title={title}
-                >
-                  {isSelected ? "✓" : ""}
-                </button>
-              );
-            })}
+            ))}
           </div>
-        ))}
+
+          {/* Grid rows */}
+          <div className="mt-1">
+            {grid.map((row, rIdx) => (
+              <div
+                key={rIdx}
+                className="grid border-t border-neutral-100"
+                style={gridTemplate}
+              >
+                {/* Court label cell */}
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <CourtNumberHero
+                    court={rIdx + 1}
+                    size={72}
+                    active={selected.some((s) => s.courtRow === rIdx + 1)}
+                    labelWord={courtNames[rIdx] ?? "Court"}
+                    className="shrink-0"
+                  />
+                  <div className="text-sm font-semibold text-neutral-700">
+                    {courtNames[rIdx]}
+                  </div>
+                </div>
+
+                {/* Time cells */}
+                {row.map((cell, cIdx) => {
+                  const group = normalizeForPlayer(cell.status);
+                  const isSelected =
+                    selected.some(
+                      (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
+                    ) && cell.status === "available";
+                  const disabled = cell.status !== "available";
+
+                  const title =
+                    group === "available"
+                      ? `Available • ${pricePerSlot} coins (30 min)`
+                      : group === "bookedLike"
+                      ? "Booked"
+                      : group === "maintenance"
+                      ? "Maintenance"
+                      : "Ended";
+
+                  return (
+                    <button
+                      key={cIdx}
+                      className={cx(
+                        "m-[3px] grid h-10 place-items-center rounded-[4px] text-xs font-semibold transition-colors",
+                        isSelected ? selectedStyle : styleByGroup[group],
+                        disabled && "cursor-not-allowed"
+                      )}
+                      onClick={() => onToggle(rIdx + 1, cIdx)}
+                      disabled={disabled}
+                      aria-label={`${courtNames[rIdx]} ${cols[cIdx]?.label} ${title}`}
+                      title={title}
+                    >
+                      {isSelected ? "✓" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
