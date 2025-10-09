@@ -25,7 +25,7 @@ services:
     image: node:20-alpine
     working_dir: /app
     environment:
-      NEXT_PUBLIC_API_BASE: "http://localhost:8000" # browser → backend
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8001" # browser → backend
       INTERNAL_API_BASE: "http://localhost:8000" # Next.js (server) → backend
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"

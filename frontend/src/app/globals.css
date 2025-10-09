@@ -9,18 +9,28 @@
 @theme {
   --color-onyx: #414141;
   --color-brown-sugar: #a86d59;
-  --color-cherry: #dea4af;
+  --color-pig: #dea4af;
+  --color-cherry: #A6485A;
   --color-platinum: #e2e2e2;
   --color-smoke: #E9E6E2;
-  --color-dimgray: #68615A;
+  --color-dimgray: #9F9C97;
   --color-silver: #CDBCBC;
   --color-cambridge: #75b2a0;
   --color-sea: #2e8762;
   --color-pine: #1e7068;
   --color-walnut: #696159;
   --color-lion: #a3834c;
-  --color-court-bg: #ede5da;
-  --color-court-deep: #2b6f66;
+
+  --color-available: #FFFFFF;
+  --color-checkin: #7AAE9A;
+  --color-booked: #A6485A;
+  --color-walkin: #A3834C;
+  --color-endgame: #A6A6A6;
+  --color-maintenance: #A5A3A9;
+  --color-expired: #D9D9D9;
+  --color-noshow: #CDBCBC;
+
+
   
   --box-shadow-soft: 0 8px 30px rgba(0,0,0,.08);
   --font-family-sans: var(--font-poppins), ui-sans-serif, system-ui;

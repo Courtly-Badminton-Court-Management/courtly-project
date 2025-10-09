@@ -1,3 +1,4 @@
+// src\lib\auth\session.ts
 export type Role = "player" | "manager";
 
 export function setSessionCookie(role: Role, hours = 8) {

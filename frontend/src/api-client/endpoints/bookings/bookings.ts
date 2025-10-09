@@ -5,28 +5,34 @@
  * Your project description
  * OpenAPI spec version: 1.0.0
  */
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
   QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult,
 } from "@tanstack/react-query";
 
 import { customRequest } from "../../custom-client";
 
 /**
- * รับ payload:
+ * POST /api/bookings/
+payload:
 {
   "club": 1,
   "items": [
-    {"court":4,"date":"2025-09-05","start":"10:00","end":"12:00"}
+    {"court":4,"date":"2025-09-05","start":"10:00","end":"12:00"},
+    {"court":5,"date":"2025-09-05","start":"14:00","end":"15:00"}
   ]
 }
-- ล็อกแถว Slot ที่เกี่ยวข้องด้วย select_for_update(OF SELF)
-- ตรวจว่า slot ทุกตัว status=available
-- สร้าง Booking + BookingSlot
-- อัปเดต SlotStatus เป็น booked
  */
 export const bookingsCreate = (signal?: AbortSignal) => {
   return customRequest<void>({ url: `/api/bookings/`, method: "POST", signal });
@@ -93,3 +99,143 @@ export const useBookingsCreate = <TError = unknown, TContext = unknown>(
 
   return useMutation(mutationOptions, queryClient);
 };
+export const bookingsAllRetrieve = (signal?: AbortSignal) => {
+  return customRequest<void>({
+    url: `/api/bookings/all/`,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getBookingsAllRetrieveQueryKey = () => {
+  return [`/api/bookings/all/`] as const;
+};
+
+export const getBookingsAllRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+      TError,
+      TData
+    >
+  >;
+}) => {
+  const { query: queryOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getBookingsAllRetrieveQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof bookingsAllRetrieve>>
+  > = ({ signal }) => bookingsAllRetrieve(signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type BookingsAllRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof bookingsAllRetrieve>>
+>;
+export type BookingsAllRetrieveQueryError = unknown;
+
+export function useBookingsAllRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof bookingsAllRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useBookingsAllRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof bookingsAllRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useBookingsAllRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useBookingsAllRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getBookingsAllRetrieveQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
