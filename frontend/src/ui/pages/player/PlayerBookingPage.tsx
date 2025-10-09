@@ -1,3 +1,4 @@
+// \src\ui\pages\player\PlayerBookingPage.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -9,6 +10,8 @@ import BookingConfirmedModal from "@/ui/components/bookingpage/BookingConfirmedM
 import { useDayGrid, useWalletBalance, useCreateBookings } from "@/lib/booking/api";
 import type { Col, SelectedSlot } from "@/lib/booking/model";
 import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
+import PlayerSlotStatusLegend from "@/ui/components/bookingpage/PlayerSlotStatusLegend";
+import BookingDateNavigator from "@/ui/components/bookingpage/BookingDateNavigator";
 
 /* =========================================================================
    CONFIG
@@ -114,16 +117,17 @@ export default function PlayerBookingPage() {
         </div>
       </div>
 
-      {/* Date row */}
-      <div className="mb-3 flex items-center gap-3 text-[15px] font-semibold text-neutral-800">
-        <button className="grid h-8 w-8 place-items-center rounded-md border border-neutral-200 hover:bg-neutral-50" onClick={() => shiftDay(-1)}>
-          ‹
-        </button>
-        <div>{dateLabel}</div>
-        <button className="grid h-8 w-8 place-items-center rounded-md border border-neutral-200 hover:bg-neutral-50" onClick={() => shiftDay(1)}>
-          ›
-        </button>
-      </div>
+      {/* Controls row: Date (left) + Legend (right) */}
+<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <BookingDateNavigator
+    dateLabel={dateLabel}
+    onPrev={() => shiftDay(-1)}
+    onNext={() => shiftDay(1)}
+  />
+
+  {/* Legend ด้านขวา */}
+  <PlayerSlotStatusLegend className="sm:ml-4" />
+</div>
 
       {/* Grid */}
       <SlotGrid cols={cols as Col[]} grid={grid} courtNames={courtNames} selected={selected} onToggle={toggleSelect} />
