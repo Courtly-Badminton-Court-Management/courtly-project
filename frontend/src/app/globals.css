@@ -31,6 +31,9 @@
   --color-noshow: #CDBCBC;
 
 
+  --color-court-bg: #ede5da;
+  --color-court-deep: #2b6f66;
+  --color-copper-rust: #9e494f;
   
   --box-shadow-soft: 0 8px 30px rgba(0,0,0,.08);
   --font-family-sans: var(--font-poppins), ui-sans-serif, system-ui;
