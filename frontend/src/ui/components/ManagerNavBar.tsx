@@ -11,6 +11,10 @@ import MobileMenu from "./basic/MobileMenu";
 import AvatarBlock from "./basic/AvatarBlock";
 import Button from "./basic/Button";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { clientLogout } from "@/lib/auth/logout";
+import { customRequest } from "@/api-client/custom-client";
+
 type AdminMe = {
   displayName: string | null;
   avatarUrl: string | null;
@@ -27,6 +31,7 @@ const NAV_ITEMS = [
 export default function ManagerNavBar() {
   const pathname = usePathname();
   const router = useRouter();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<AdminMe>({ displayName: null, avatarUrl: null });
@@ -36,11 +41,13 @@ export default function ManagerNavBar() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/me", { credentials: "include" });
-        const data = res.ok ? await res.json() : null;
+        const data = await customRequest<{ username?: string; avatarUrl?: string }>({
+          url: "/api/auth/me/",
+          method: "GET",
+        });
         if (!cancelled) {
           setMe({
-            displayName: data?.displayName ?? "Admin",
+            displayName: data?.username ?? "Admin",
             avatarUrl: data?.avatarUrl ?? null,
           });
         }
@@ -59,11 +66,8 @@ export default function ManagerNavBar() {
     pathname === href || pathname.startsWith(`${href}/`);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
-    } catch {}
-    router.push("/login");
-    router.refresh();
+    await clientLogout(qc);
+    router.replace("/login");
   };
 
   return (

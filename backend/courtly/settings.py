@@ -5,20 +5,22 @@ Django settings for courtly project (Courtly MVP).
 from pathlib import Path
 import os
 import environ
+# ===== Database =====
+import dj_database_url
 
 # ===== Paths =====
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Load .env so os.getenv works locally
-environ.Env.read_env(BASE_DIR / '.env')
 
+# Load environment variables from .env
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / ".env")
 
 # ===== Security / Debug =====
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-not-for-prod")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if os.getenv("DJANGO_ALLOWED_HOSTS") else []
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-secret-key-not-for-prod")
+DEBUG = env.bool("DJANGO_DEBUG", default=True)
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
-# (ถ้าใช้ dev ผ่าน ngrok/Domain ให้เพิ่มที่นี่ด้วย)
-CSRF_TRUSTED_ORIGINS = [u for u in os.getenv("DJANGO_CSRF_TRUSTED", "").split(",") if u]
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED", default=[])
 
 # ===== Installed apps =====
 INSTALLED_APPS = [
@@ -32,6 +34,7 @@ INSTALLED_APPS = [
 
     # 3rd-party
     "rest_framework",
+    "corsheaders",
 
     # Local apps
     "accounts",   # Custom User
@@ -39,13 +42,17 @@ INSTALLED_APPS = [
     "ops",        # BusinessHour, Closure, Maintenance, Audit
     "booking",    # Slot, Booking, BookingSlot
     "wallet",     # CoinLedger, TopupRequest
+
+    # OPENAPI DOCS
+    'drf_spectacular',
 ]
 
-# # ใช้ Custom User ตามที่เราสร้าง
+# Custom User
 AUTH_USER_MODEL = "accounts.User"
 
 # ===== Middleware =====
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -74,27 +81,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "courtly.wsgi.application"
 
-## ===== Database =====
-# Use Postgres if DB_* vars exist; fallback to SQLite
-if os.getenv("DB_NAME"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME"),
-            "USER": os.getenv("DB_USER", "postgres"),
-            "PASSWORD": os.getenv("DB_PASSWORD", ""),
-            "HOST": os.getenv("DB_HOST", "db"),  # 'db' matches docker-compose service
-            "PORT": os.getenv("DB_PORT", "5432"),
-            "CONN_MAX_AGE": 60,
-        }
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": env("POSTGRES_DB", default="postgres"),
+        "USER": env("POSTGRES_USER", default="postgres"),
+        "PASSWORD": env("POSTGRES_PASSWORD", default=""),
+        "HOST": env("POSTGRES_HOST", default="db"),
+        "PORT": env("POSTGRES_PORT", default="5432"),
+        'OPTIONS': {
+            'sslmode': env("POSTGRES_SSL_MODE", default='disable')
+        },
+        "CONN_MAX_AGE": 60,
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 # ===== Password validation =====
 AUTH_PASSWORD_VALIDATORS = [
@@ -104,9 +105,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# ===== i18n / tz =====
+# ===== Internationalization =====
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"   # เก็บเป็น UTC; เวลาแสดงผลใช้ tz ของ Club (เช่น Asia/Bangkok)
+TIME_ZONE = "UTC"   # store as UTC; display with Club tz (e.g., Asia/Bangkok)
 USE_I18N = True
 USE_TZ = True
 
@@ -120,15 +121,40 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ===== DRF (พื้นฐาน) =====
+# ===== DRF =====
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
-        # ถ้าจะใช้ JWT ค่อยเพิ่ม simplejwt ภายหลัง
-        # "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# ===== CORS =====
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+] + env.list("DJANGO_CORS_ORIGINS", default=[])
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+] + env.list("DJANGO_CSRF_TRUSTED", default=[])
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your Project API',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}

@@ -1,21 +1,24 @@
-// src/ui/components/PlayerNavBar.tsx
 "use client";
 
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BrandMark from "./basic/BrandMark";
 import DesktopMenu from "./basic/DesktopMenu";
 import MobileMenu from "./basic/MobileMenu";
 import AvatarBlock from "./basic/AvatarBlock";
 import Button from "./basic/Button";
 
-type Me = {
-  userName: string | null;
-  balance: number | null;
-  avatarUrl: string | null;
-};
+import { useQueryClient } from "@tanstack/react-query";
+import { clientLogout } from "@/lib/auth/logout";
+
+// ✅ ใช้ hook จาก orval
+import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
+import {
+  useWalletMeRetrieve,
+  getWalletMeRetrieveQueryKey,
+} from "@/api-client/endpoints/wallet/wallet";
 
 const NAV_ITEMS = [
   { name: "Home", href: "/home" },
@@ -25,67 +28,41 @@ const NAV_ITEMS = [
   { name: "About Us", href: "/aboutus" },
 ] as const;
 
-const COIN_ICON = "/brand/cl-coin.svg"; // ← ปรับ path ให้ตรงโปรเจค
+const COIN_ICON = "/brand/cl-coin.svg";
 
 export default function PlayerNavBar() {
   const pathname = usePathname();
   const router = useRouter();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [me, setMe] = useState<Me>({
-    userName: null,
-    balance: null,
-    avatarUrl: null,
-  });
 
-  useEffect(() => {
-    let cancelled = false;
+  // ── ดึงโปรไฟล์ (ชื่อผู้ใช้) ─────────────────────────
+  // หมายเหตุ: orval ของ endpoint นี้ type เป็น void แต่ response จริงมีข้อมูล
+  // เราเลยขอเป็น any เพื่ออ่านค่าออกมา
+  const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
+  const username: string =
+    meData?.username ?? meData?.name ?? meData?.email ?? "User";
+  const avatarUrl: string | null = meData?.avatarUrl ?? null;
 
-    (async () => {
-      try {
-        const res = await fetch("/api/me", { credentials: "include" });
-        if (!res.ok) throw new Error("ME fetch failed");
-        const data = await res.json();
-        if (!cancelled) {
-          setMe({
-            userName: data?.userName ?? data?.name ?? "User",
-            balance: typeof data?.balance === "number" ? data.balance : 0,
-            avatarUrl: data?.avatarUrl ?? null,
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          setMe({ userName: "Senior19", balance: 150, avatarUrl: null });
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+  // ── ดึงยอดเหรียญ ผ่านคีย์กลาง /api/wallet/me/ ─────────────────────────
+  const { data: walletData, isLoading: balLoading } = useWalletMeRetrieve<any>();
+  const balance: number = typeof walletData?.balance === "number" ? walletData.balance : 0;
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const loading = meLoading || balLoading;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
-    } catch {
-      // ignore
-    } finally {
-      router.push("/login");
-      router.refresh();
-    }
+    await clientLogout(qc);
+    router.replace("/login");
   };
 
   const BalanceChip = () => (
     <div className="flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1.5">
       <Image src={COIN_ICON} alt="Coin" width={16} height={16} className="h-5 w-4.5" priority />
       <span className="text-sm font-semibold text-neutral-800">
-        {loading ? "—" : me.balance ?? 0}
+        {loading ? "—" : balance}
       </span>
     </div>
   );
@@ -105,8 +82,8 @@ export default function PlayerNavBar() {
         <div className="hidden items-center gap-4 md:flex">
           <BalanceChip />
           <AvatarBlock
-            name={me.userName}
-            avatarUrl={me.avatarUrl}
+            name={username}
+            avatarUrl={avatarUrl}
             loading={loading}
             variant="neutral"
           />
@@ -136,19 +113,15 @@ export default function PlayerNavBar() {
         <div className="border-t border-neutral-200 bg-white md:hidden">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3">
             <div className="flex items-center justify-between">
-              <BalanceChip />
               <AvatarBlock
-                name={me.userName}
-                avatarUrl={me.avatarUrl}
+                name={username}
+                avatarUrl={avatarUrl}
                 loading={loading}
                 variant="neutral"
               />
+              <BalanceChip />
             </div>
-
-            {/* ใช้ MobileMenu ที่แยกไว้ */}
             <MobileMenu items={NAV_ITEMS} isActive={isActive} onClose={() => setOpen(false)} />
-
-            {/* ใช้ Button บน mobile แบบ full width */}
             <Button onClick={handleLogout} disabled={loading} full label="Logout" />
           </div>
         </div>

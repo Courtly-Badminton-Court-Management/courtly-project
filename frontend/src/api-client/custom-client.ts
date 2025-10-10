@@ -1,0 +1,93 @@
+// courtly-project/frontend/src/api-client/custom-client.ts
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
+import {
+  getAccess, getRefresh, setTokens, clearTokens,
+  willExpireSoon, schedulePreemptiveRefresh
+} from "@/lib/auth/tokenStore";
+import { refreshAccessToken } from "@/lib/auth/refresh";
+import { setSessionCookie, clearSessionCookie } from "@/lib/auth/session";
+import { extractRoleFromAccess } from "@/lib/auth/role";
+
+const axiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL, // ex. http://localhost:8000
+  withCredentials: true,
+});
+
+const PUBLIC_ENDPOINTS = [
+  "/api/auth/login/",
+  "/api/auth/register/",
+  "/api/auth/token/refresh/",
+];
+
+const isPublic = (url?: string) => !!url && PUBLIC_ENDPOINTS.some((p) => url.includes(p));
+
+// ---------- แนบ Bearer + "preemptive refresh ก่อนหมดอายุ" ----------
+axiosInstance.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    if (!isPublic(config.url) && willExpireSoon(90)) {
+      try { await refreshAccessToken(); } catch { /* ถ้าไม่ทัน ค่อยไปเจอ 401 แล้วค่อยจัดการ */ }
+    }
+    if (!isPublic(config.url)) {
+      const token = getAccess();
+      if (token) {
+        config.headers = config.headers ?? {};
+        (config.headers as any).Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+// ---------- 401 → refresh (single-flight) ----------
+let refreshing = false;
+let waiters: Array<() => void> = [];
+
+function nukeAndRedirect() {
+  clearTokens();
+  clearSessionCookie();
+  if (typeof window !== "undefined") window.location.href = "/login";
+}
+
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const status = error.response?.status;
+    const orig = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
+
+    if (!orig || isPublic(orig.url)) return Promise.reject(error);
+
+    if (status === 401 && !orig._retry) {
+      orig._retry = true;
+
+      if (refreshing) {
+        await new Promise<void>((res) => waiters.push(res));
+      } else {
+        refreshing = true;
+        try {
+          await refreshAccessToken();  // << ขอ access ใหม่ด้วย refresh token
+          waiters.forEach((fn) => fn());
+          waiters = [];
+        } catch {
+          waiters.forEach((fn) => fn());
+          waiters = [];
+          nukeAndRedirect();
+          return Promise.reject(error);
+        } finally {
+          refreshing = false;
+        }
+      }
+
+      // ยิงคำขอเดิมซ้ำด้วย access ใหม่
+      return axiosInstance.request(orig);
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+// ---------- ให้ Orval เรียก ----------
+export const customRequest = async <T>(config: AxiosRequestConfig): Promise<T> => {
+  const response = await axiosInstance.request<T>(config);
+  return response.data;
+};

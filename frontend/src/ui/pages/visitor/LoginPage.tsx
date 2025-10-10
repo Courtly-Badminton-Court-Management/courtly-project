@@ -1,7 +1,7 @@
+// src\ui\pages\visitor\LoginPage.tsx
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { Suspense, useState } from "react";
 import { z } from "zod";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,15 +11,15 @@ import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
 import CopyToClipboard from "@/ui/components/basic/CopyToClipboard";
 
+import { useAuthLoginCreate } from "@/api-client/endpoints/auth/auth";
+import { setTokens } from "@/lib/auth/tokenStore";
+import { setSessionCookie } from "@/lib/auth/session";
+import { customRequest } from "@/api-client/custom-client";
+import { extractRoleFromAccess, type Role } from "@/lib/auth/role";
+import { schedulePreemptiveRefresh } from "@/lib/auth/tokenStore";
+import { refreshAccessToken } from "@/lib/auth/refresh";
 
-
-
-/** ── Types & Schema ─────────────────────────────────────────────────────── */
-type LoginForm = {
-  email: string;
-  password: string;
-  remember: boolean;
-};
+type LoginForm = { email: string; password: string; remember: boolean; };
 
 const schema = z.object({
   email: z.string().email("Invalid email"),
@@ -27,24 +27,46 @@ const schema = z.object({
   remember: z.boolean().optional().default(false),
 });
 
-type LoginResponse =
-  | { ok: true; role: "player" | "manager" }
-  | { ok: false; message?: string };
-
-/** ── Content (must be wrapped in Suspense) ──────────────────────────────── */
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next");
 
-  const [data, setData] = useState<LoginForm>({
-    email: "",
-    password: "",
-    remember: false,
-  });
+  const [data, setData] = useState<LoginForm>({ email: "", password: "", remember: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const loginMutation = useAuthLoginCreate({
+  mutation: {
+    onSuccess: async (payload: any) => {
+      const access = payload?.access;
+      const refresh = payload?.refresh;
+      if (!access) { setFormError("Login failed: missing token"); return; }
+
+      
+      setTokens({ access, refresh: refresh ?? null }, data.remember ?? false);
+      schedulePreemptiveRefresh(() => { refreshAccessToken().catch(()=>{}); });
+
+      
+      let role = extractRoleFromAccess(access) as Role | null;
+      if (!role) {
+        try {
+          const me: any = await customRequest({ url: "/api/auth/me/", method: "GET" });
+          role = (me?.role ?? "player") as Role;
+        } catch (e: any) {
+          setFormError(e?.message ?? "Failed to load profile");
+          return;
+        }
+      }
+      setSessionCookie(role, 8);
+      if (nextPath) router.replace(nextPath);
+      else router.replace(role === "manager" ? "/dashboard" : "/home");
+    },
+    onError: (err: any) => {
+      setFormError(err?.message || "Something went wrong");
+    },
+  },
+});
 
   const handleChange =
     <K extends keyof LoginForm>(name: K) =>
@@ -55,51 +77,18 @@ function LoginContent() {
       setErrors((prev) => ({ ...prev, [String(name)]: "" }));
     };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
 
     const parsed = schema.safeParse(data);
     if (!parsed.success) {
       const fieldErrs: Record<string, string> = {};
-      for (const issue of parsed.error.issues) {
-        fieldErrs[issue.path.join(".")] = issue.message;
-      }
+      for (const issue of parsed.error.issues) fieldErrs[issue.path.join(".")] = issue.message;
       setErrors(fieldErrs);
       return;
     }
-
-    try {
-      setLoading(true);
-
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: data.email, password: data.password }),
-      });
-
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Login failed");
-      }
-
-      const payload: LoginResponse = await res.json();
-      if (!payload.ok) throw new Error(payload.message || "Login failed");
-
-      if (nextPath) {
-        router.replace(nextPath);
-      } else {
-        router.replace(payload.role === "manager" ? "/dashboard" : "/home");
-      }
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = () => {
-    window.alert("🔓 Google Sign-In clicked!");
+    loginMutation.mutate({ data: { email: data.email, password: data.password } });
   };
 
   const Right = (
@@ -116,53 +105,24 @@ function LoginContent() {
           </div>
         )}
 
-        <Field
-          type="email"
-          label="Email"
-          name="email"
-          placeholder="e.g. player@email.com"
-          value={data.email}
-          onChange={handleChange("email")}
-          error={errors.email}
-        />
+        <Field type="email" label="Email" name="email" placeholder="e.g. player@email.com"
+          value={data.email} onChange={handleChange("email")} error={errors.email} />
+        <Field type="password" label="Password" name="password" placeholder="Enter your password"
+          value={data.password} onChange={handleChange("password")} error={errors.password} />
 
-        <Field
-          type="password"
-          label="Password"
-          name="password"
-          placeholder="Enter your password"
-          value={data.password}
-          onChange={handleChange("password")}
-          error={errors.password}
-        />
-
-        <PrimaryButton
-          type="submit"
-          disabled={loading}
-          className="mt-10 text-white"
-          aria-busy={loading}
-        >
-          {loading ? "Signing in..." : "Sign in"}
-        </PrimaryButton>
-
-        <PrimaryButton type="button" onClick={handleGoogleSignIn} className="bg-smoke text-onyx">
-          <span className="inline-flex items-center gap-2">
-            <Image src="/brand/google-icon.svg" alt="Google" width={20} height={20} priority />
-            <span className="font-medium">Sign in with Google (optional)</span>
-          </span>
+        <PrimaryButton type="submit" disabled={loginMutation.isPending} className="mt-10 text-white" aria-busy={loginMutation.isPending}>
+          {loginMutation.isPending ? "Signing in..." : "Sign in"}
         </PrimaryButton>
 
         <p className="pt-2 text-center text-sm text-walnut">
           Don’t have an account?{" "}
-          <Link href="/register" className="font-semibold text-sea underline">
-            Create one
-          </Link>
+          <Link href="/register" className="font-semibold text-sea underline">Create one</Link>
         </p>
 
         <p className="mt-10 text-xs text-neutral-500">
-          * These emails and passwords are used only for mockup development process <br />
-            * For Player: <CopyToClipboard text="ratchaprapa.c@ku.th" /> <br />
-            * For Manager: <CopyToClipboard text="courtly.project@gmail.com" />
+          * Mockup credentials <br />
+          * For Player: <CopyToClipboard text="test2@example.com" /> <CopyToClipboard text="Courtly_123" /> <br />
+          * For Manager: <CopyToClipboard text="courtly.project@gmail.com" /> <CopyToClipboard text="ISPcourtly_2025" />
         </p>
       </form>
     </>
@@ -178,3 +138,5 @@ export default function LoginPage() {
     </Suspense>
   );
 }
+
+
