@@ -9,6 +9,7 @@
 /**
  * Accepts either {"username","password"} or {"email","password"}.
 Makes 'username' optional so posting only email works.
+Also updates last_login and returns { firstLogin, user }.
  */
 export interface CourtlyTokenObtainPair {
   username?: string;
