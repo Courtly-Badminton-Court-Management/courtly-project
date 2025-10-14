@@ -33,15 +33,12 @@ function makeHourBands(cols: Col[]) {
 
 const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Boolean).join(" ");
 
-/** กลุ่มสีสำหรับฝั่ง Player */
 type PlayerGroup = "available" | "bookedLike" | "maintenance" | "ended";
-
-/** map สถานะจริง → กลุ่มสีที่ผู้เล่นเห็น */
 function normalizeForPlayer(status: SlotStatus): PlayerGroup {
   if (status === "available") return "available";
   if (status === "maintenance") return "maintenance";
   if (status === "booked" || status === "walkin" || status === "checkin") return "bookedLike";
-  return "ended"; // endgame / expired / noshow
+  return "ended";
 }
 
 /* =========================================================================
@@ -61,7 +58,6 @@ type Props = {
 export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }: Props) {
   const hourBands = useMemo(() => makeHourBands(cols), [cols]);
 
-  // สีจาก globals.css (Tailwind CSS variables)
   const styleByGroup: Record<PlayerGroup, string> = {
     available:
       "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-available)]/80",
@@ -69,46 +65,38 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
     maintenance: "bg-[var(--color-maintenance)] text-white",
     ended: "bg-[var(--color-expired)] text-[var(--color-walnut)]",
   };
-
   const selectedStyle =
     "bg-[var(--color-pine)] text-white ring-2 ring-[var(--color-sea)]/40 hover:opacity-95";
 
   const pricePerSlot = getCellPriceCoins();
 
+  // First column for court label (fixed width), then N time columns.
   const gridTemplate = { gridTemplateColumns: `160px repeat(${cols.length}, 1fr)` };
 
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
-      {/* Header Row */}
-      <div className="px-3 py-2 text-sm font-bold text-neutral-700">Time</div>
-
-      {/* One shared horizontal scroll container for header + body */}
+      {/* Single scroll container for header + body */}
       <div className="overflow-x-auto">
         <div className="min-w-max">
-          {/* Top header: time bands */}
-          <div className="grid" style={gridTemplate}>
-            <div /> {/* Empty corner cell */}
+          {/* ===== Header row: "Court" | [hour chips spanning time columns] ===== */}
+          <div className="grid items-center border-b border-neutral-100 pb-1" style={gridTemplate}>
+            <div className="px-3 py-2 text-sm font-bold text-neutral-700">Court / Time</div>
             {hourBands.map((b, i) => (
               <div
                 key={i}
-                className="flex items-center justify-center px-1 py-1"
+                className="mx-1 my-1 flex items-center justify-center whitespace-nowrap tabular-nums rounded-md bg-neutral-100 px-2 py-[3px] text-[12px] font-semibold text-neutral-600 text-center"
                 style={{ gridColumn: `span ${b.span} / span ${b.span}` }}
+                aria-label={`Hour band ${b.label}`}
               >
-                <div className="whitespace-nowrap tabular-nums rounded-md border border-neutral-200 bg-neutral-100 px-2 py-[2px] text-[10px] font-semibold text-neutral-600 text-center">
-                  {b.label}
-                </div>
+                {b.label}
               </div>
             ))}
           </div>
 
-          {/* Grid rows */}
+          {/* ===== Grid rows ===== */}
           <div className="mt-1">
             {grid.map((row, rIdx) => (
-              <div
-                key={rIdx}
-                className="grid border-t border-neutral-100"
-                style={gridTemplate}
-              >
+              <div key={rIdx} className="grid" style={gridTemplate}>
                 {/* Court label cell */}
                 <div className="flex items-center gap-2 px-3 py-2">
                   <CourtNumberHero
@@ -118,23 +106,20 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
                     labelWord={courtNames[rIdx] ?? "Court"}
                     className="shrink-0"
                   />
-                  <div className="text-sm font-semibold text-neutral-700">
-                    {courtNames[rIdx]}
-                  </div>
+                  <div className="text-sm font-semibold text-neutral-700 ">{courtNames[rIdx]}</div>
                 </div>
 
                 {/* Time cells */}
                 {row.map((cell, cIdx) => {
                   const group = normalizeForPlayer(cell.status);
                   const isSelected =
-                    selected.some(
-                      (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
-                    ) && cell.status === "available";
+                    selected.some((s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx) &&
+                    cell.status === "available";
                   const disabled = cell.status !== "available";
 
                   const title =
                     group === "available"
-                      ? `Available • ${pricePerSlot} coins (30 min)`
+                      ? `Available (30 min)`
                       : group === "bookedLike"
                       ? "Booked"
                       : group === "maintenance"
