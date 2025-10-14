@@ -104,7 +104,7 @@ export default function DateNavigator({
 
   return (
     <div
-      className={`flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-2 py-1.5 text-neutral-800 shadow-sm ${className}`}
+      className={`flex items-center justify-between gap-1 rounded-xl  bg-white px-2 py-1.5 text-neutral-800 `}
       role="group"
       aria-label="Date navigation"
     >
@@ -115,8 +115,8 @@ export default function DateNavigator({
           onClick={() => canPrev && setDate(addDays(date, -1))}
           aria-label="Previous day"
           disabled={!canPrev}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 transition
-                     hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition
+                     hover:text-silver disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -137,8 +137,8 @@ export default function DateNavigator({
       <button
         type="button"
         onClick={openPicker}
-        className="group mx-auto flex max-w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5
-                   hover:bg-neutral-50 transition"
+        className="group w-55 mx-auto flex max-w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 bg-neutral-50
+                   hover:bg-neutral-100 transition"
         aria-label="Open calendar"
         title="Open calendar"
       >
@@ -159,8 +159,8 @@ export default function DateNavigator({
           onClick={() => canNext && setDate(addDays(date, 1))}
           aria-label="Next day"
           disabled={!canNext}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 transition
-                     hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition
+                     hover:text-silver disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
