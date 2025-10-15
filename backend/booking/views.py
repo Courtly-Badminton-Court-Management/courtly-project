@@ -332,6 +332,7 @@ class BookingAllView(APIView):
                 for s in slots
             ]
             data.append({
+                "id": b.id,
                 "booking_no": b.booking_no,
                 "user": b.user.email if b.user else None,   # ✅ show user
                 "status": b.status,
@@ -353,39 +354,61 @@ class BookingCancelView(APIView):
 
     @transaction.atomic
     def post(self, request, booking_id):
+        # Try to find the booking
         try:
             booking = Booking.objects.get(id=booking_id)
         except Booking.DoesNotExist:
-            return Response({"detail": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Booking not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        # ✅ Allow: owner or admin only
-        if booking.user != request.user and not request.user.is_staff:
-            return Response({"detail": "You do not have permission to cancel this booking"}, status=status.HTTP_403_FORBIDDEN)
+        # ✅ Allow only the owner or manager to cancel
+        user_role = getattr(request.user, "role", None)
+        if booking.user != request.user and user_role != "manager":
+            return Response(
+                {"detail": "You do not have permission to cancel this booking"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        # ✅ Prevent duplicate cancellation
         if booking.status == "cancelled":
-            return Response({"detail": "Booking already cancelled"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Booking already cancelled"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # --- Reset slot statuses to available ---
-        booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot", "slot__slot_status")
+        # --- Reset all related slots to 'available' ---
+        booking_slots = (
+            BookingSlot.objects
+            .filter(booking=booking)
+            .select_related("slot", "slot__slot_status")
+        )
         total_refund = 0
+
         for bs in booking_slots:
             slot = bs.slot
-            total_refund += slot.price_coins
+            total_refund += getattr(slot, "price_coins", 0)
+
+            # Reset slot status
             if hasattr(slot, "slot_status"):
                 slot.slot_status.status = "available"
-                slot.slot_status.save(update_fields=["status", "updated_at"])
+                slot.slot_status.save(update_fields=["status"])
             else:
                 SlotStatus.objects.create(slot=slot, status="available")
 
         # --- Update booking status ---
         booking.status = "cancelled"
-        booking.save(update_fields=["status", "updated_at"])
+        booking.save(update_fields=["status"])
 
-        # --- Refund coins to the original booking owner's wallet ---
-        wallet, _ = Wallet.objects.get_or_create(user=booking.user, defaults={"balance": 0})
+        # --- Refund coins to the booking owner ---
+        wallet, _ = Wallet.objects.get_or_create(
+            user=booking.user, defaults={"balance": 0}
+        )
         wallet.balance += total_refund
         wallet.save(update_fields=["balance"])
 
+        # --- Log refund transaction ---
         CoinLedger.objects.create(
             user=booking.user,
             type="refund",
@@ -393,8 +416,14 @@ class BookingCancelView(APIView):
             ref_booking=booking,
         )
 
-        return Response({
-            "detail": "Booking cancelled successfully, refund issued",
-            "refund_amount": total_refund,
-            "new_balance": wallet.balance,
-        }, status=status.HTTP_200_OK)
+        # ✅ Return success response
+        return Response(
+            {
+                "detail": "Booking cancelled successfully, refund issued",
+                "refund_amount": total_refund,
+                "new_balance": wallet.balance,
+                "cancelled_by": request.user.email,
+                "role": user_role,
+            },
+            status=status.HTTP_200_OK,
+        )
