@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={poppins.variable}>
-      <body className="min-h-dvh bg-courtBg text-onyx font-sans">
+      <body className="min-h-dvh bg-cream text-onyx font-sans">
         <Providers>
           <AuthBootstrap />
           {children}

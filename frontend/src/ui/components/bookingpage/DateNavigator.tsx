@@ -116,7 +116,7 @@ export default function DateNavigator({
           aria-label="Previous day"
           disabled={!canPrev}
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition
-                     hover:text-silver disabled:opacity-40 disabled:cursor-not-allowed"
+                     hover:text-dimgray disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -160,7 +160,7 @@ export default function DateNavigator({
           aria-label="Next day"
           disabled={!canNext}
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition
-                     hover:text-silver disabled:opacity-40 disabled:cursor-not-allowed"
+                     hover:text-dimgray disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>

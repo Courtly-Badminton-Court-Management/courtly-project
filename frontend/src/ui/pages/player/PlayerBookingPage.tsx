@@ -126,16 +126,20 @@ export default function PlayerBookingPage() {
     setSelected([]);
   }
 
-  const dateLabel = ymdLabel(ymd);
+
   const selCount = selected.length;
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6">
       {/* Title and subtext */}
-      <div className="mb-4 flex">
-        <h1 className="text-[22px] font-extrabold tracking-tight text-teal-900">
-          Pick Time & Court
+      <div className="mb-4">
+        <h1 className="text-[22px] font-bold tracking-tight text-pine">
+          Let’s Book Your Game!
         </h1>
+        <p className="text-[14px] font-semibold tracking-tight text-dimgray">
+          Choose your court and time below to make a booking.
+        </p>
+        
       </div>
 
       {/* Header row: Date navigator + actions all in one line */}
