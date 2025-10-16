@@ -1,9 +1,7 @@
 # booking/views.py
-
-from pathlib import Path
 import uuid
 import calendar
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from django.conf import settings
 from django.db import connection, transaction, DatabaseError
@@ -17,19 +15,19 @@ from rest_framework.views import APIView
 
 from .models import Slot, SlotStatus, Booking, BookingSlot, Court, Club
 from .serializers import SlotSerializer, BookingSerializer, BookingCreateSerializer
-from django.db import models
 from wallet.models import CoinLedger
 from wallet.models import Wallet
-from .serializers import BookingHistorySerializer
+
 
 # ───────────────────────── helpers ─────────────────────────
 def gen_booking_no() -> str:
-    # 12 ตัวอ่านง่าย เช่น BK-7F2C9E1A23
+    # eg BK-7F2C9E1A23
     return f"BK-{uuid.uuid4().hex[:10].upper()}"
 
 
 def combine_dt(d: date, t) -> datetime:
-    """รวม date + time ให้เป็น aware datetime ตาม TIME_ZONE ของโปรเจกต์"""
+    """Combine the date and time into an aware datetime
+     according to the project's TIME_ZONE."""
     dt = datetime.combine(d, t)
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.get_current_timezone())
@@ -157,7 +155,7 @@ class BookingCreateView(APIView):
 
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
-                user=request.user,          # ✅ ผูกกับ user
+                user=request.user,  # ✅ ผูกกับ user
                 club_id=club_id,
                 court_id=first_court_id,
                 status="confirmed",
@@ -250,28 +248,28 @@ class BookingCreateView(APIView):
             new_balance = wallet.balance
 
             return Response(
-    {
-        "ok": True,
-        "booking": {
-            "id": booking.id,                # ✅ NEW: booking id
-            "booking_no": booking.booking_no,
-            "club": club_id,
-            "court": first_court_id,
-            "slots": created_slots,
-        },
-        # ✅ NEW: เผื่อ FE บางจุดยังอ่านจาก res.bookings
-        "bookings": [
-            {
-                "id": booking.id,
-                "booking_no": booking.booking_no,
-            }
-        ],
-        "total_slots": total_slots,
-        "total_cost": total_cost,
-        "new_balance": new_balance,
-    },
-    status=status.HTTP_201_CREATED,
-)
+                {
+                    "ok": True,
+                    "booking": {
+                        "id": booking.id,  # ✅ NEW: booking id
+                        "booking_no": booking.booking_no,
+                        "club": club_id,
+                        "court": first_court_id,
+                        "slots": created_slots,
+                    },
+                    # ✅ NEW: เผื่อ FE บางจุดยังอ่านจาก res.bookings
+                    "bookings": [
+                        {
+                            "id": booking.id,
+                            "booking_no": booking.booking_no,
+                        }
+                    ],
+                    "total_slots": total_slots,
+                    "total_cost": total_cost,
+                    "new_balance": new_balance,
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
         except DatabaseError as e:
             return Response({"detail": f"Database error: {e.__class__.__name__}", "message": str(e)}, status=500)
@@ -334,7 +332,7 @@ class BookingAllView(APIView):
             data.append({
                 "id": b.id,
                 "booking_no": b.booking_no,
-                "user": b.user.email if b.user else None,   # ✅ show user
+                "user": b.user.email if b.user else None,  # ✅ show user
                 "status": b.status,
                 "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "slots": slot_data,
