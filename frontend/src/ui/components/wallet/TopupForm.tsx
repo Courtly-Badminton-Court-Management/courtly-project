@@ -1,7 +1,8 @@
 "use client";
 
-import Button from "@/ui/components/basic/Button";
 import React from "react";
+import Image from "next/image";
+import Button from "@/ui/components/basic/Button";
 
 export type TopupFormValues = {
   amount: number | "";
@@ -33,25 +34,50 @@ export default function TopupForm({
 
   return (
     <section className="rounded-2xl border bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-xl font-semibold">Top-Up Wallet</h3>
+      <h3 className="mb-5 text-2xl font-bold">Top-Up Wallet</h3>
 
-      {/* QR + Guidelines */}
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border p-4">
-          <div className="mb-3 h-36 w-36 rounded-lg bg-neutral-100" />
-          <div className="text-2xl font-semibold">Kbank</div>
-          <div className="text-lg">Acc No: 123-456-789</div>
-          <div className="text-lg">Name: Court’s Owner</div>
-          <div className="mt-2 text-sm text-neutral-500">PromptPayQR</div>
+      {/* Header: QR + Bank info + Guidelines */}
+      <div className="mb-8 grid gap-6 md:grid-cols-[1.5fr_1.8fr]">
+        {/* Left card */}
+        <div>
+          <div className="rounded-3xl border p-6 shadow-sm h-full">
+            <div className="grid items-center gap-5 md:grid-cols-[160px_1fr]">
+              {/* QR Mock */}
+              <div className="flex flex-col items-center">
+                <Image
+                  src="/brand/qr-code.png"
+                  alt="PromptPay QR"
+                  width={150}
+                  height={150}
+                  className="rounded-lg object-contain"
+                />
+                <span className="mt-2 text-base text-neutral-500">PromptPayQR</span>
+              </div>
+
+              {/* Bank info */}
+              <div className="min-w-0">
+                <div className="mb-2 text-3xl font-extrabold">Kbank</div>
+                <div className="mb-1 text-lg font-semibold">
+                  Acc No: <span className="font-medium tracking-wide">123-456-789</span>
+                </div>
+                <div className="text-lg font-semibold">
+                  Name: <span className="font-medium">Court’s Owner</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-2xl border p-4">
-          <div className="text-lg font-semibold mb-2">Top-Up Guidelines</div>
-          <ul className="list-disc pl-5 space-y-1 text-neutral-700">
-            <li>Minimum top-up: <b>100 THB</b>.</li>
-            <li>Upload a clear transfer slip image (JPG/PNG).</li>
-            <li>Coins are credited after admin verification.</li>
-          </ul>
+        {/* Right card: Guidelines (wider) */}
+        <div>
+          <div className="rounded-3xl border p-6 shadow-sm h-full">
+            <div className="mb-4 text-2xl font-bold">Top-Up Guidelines</div>
+            <ul className="space-y-3 text-x leading-relaxed text-neutral-800 md:text-xl">
+              <li>• Minimum top-up: <b>100 THB</b>.</li>
+              <li>• Upload a clear transfer slip image (JPG/PNG).</li>
+              <li>• Coins are credited after admin verification.</li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -64,11 +90,14 @@ export default function TopupForm({
             placeholder="Minimum 100"
             value={values.amount}
             onChange={(e) =>
-              onChange({ amount: e.target.value === "" ? "" : Number(e.target.value) })
+              onChange({
+                amount: e.target.value === "" ? "" : Number(e.target.value),
+              })
             }
             className="w-full rounded-xl border px-3 py-2"
           />
         </Field>
+
         <Field label="Date of payment*">
           <input
             type="date"
@@ -77,6 +106,7 @@ export default function TopupForm({
             className="w-full rounded-xl border px-3 py-2"
           />
         </Field>
+
         <Field label="Time of payment*">
           <input
             type="time"
@@ -85,6 +115,7 @@ export default function TopupForm({
             className="w-full rounded-xl border px-3 py-2"
           />
         </Field>
+
         <Field label="Upload your payment slip*">
           <input
             type="file"
@@ -104,7 +135,7 @@ export default function TopupForm({
         </Field>
       </div>
 
-      <div className="mt-5 flex gap-2">
+      <div className="mt-6 flex gap-2">
         <Button label="Submit Request" disabled={!canSubmit} onClick={onSubmit} />
         <Button
           label="Reset"

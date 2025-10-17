@@ -45,10 +45,6 @@ export default function PlayerWalletPage() {
   // —— layout ————————————————————————————————————————————————
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
-      {/* Title */}
-      {/* <header className="mb-4">
-        <h1 className="text-2xl font-bold">My Wallet</h1>
-      </header> */}
 
       {/* Wallet Balance */}
       <WalletBalance balanceCoins={balance} userName="Senior19" />
