@@ -64,12 +64,21 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         first_day = date(y, m, 1)
         last_day = date(y, m, calendar.monthrange(y, m)[1])
 
+        # Prevent viewing past months
+        today = timezone.localdate()
+        if last_day < today:
+            return Response(
+                {"detail": "Cannot view past months."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Filter to show only current and future slots
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
             .filter(
                 court__club_id=club_id,
-                service_date__gte=first_day,
+                service_date__gte=max(first_day, today),
                 service_date__lte=last_day,
             )
             .order_by("service_date", "court_id", "start_at")
@@ -140,6 +149,14 @@ class BookingCreateView(APIView):
             first_court_id = items[0]["court"]
             first_date = items[0]["date"]
 
+            # Prevent booking for past dates
+            today = timezone.localdate()
+            if first_date < today:
+                return Response(
+                    {"detail": f"Cannot book for a past date: {first_date}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
                 user=request.user,
@@ -156,6 +173,14 @@ class BookingCreateView(APIView):
             for it in items:
                 court_id = it["court"]
                 d = it["date"]
+
+                # Check each slot date - prevent booking past dates
+                if d < today:
+                    return Response(
+                        {"detail": f"Cannot book for a past date: {d}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 start_t = it["start"]
                 end_t = it["end"]
 
@@ -328,8 +353,8 @@ class BookingAllView(APIView):
 class BookingCancelView(APIView):
     """
     POST /api/bookings/<booking_no>/cancel/
-    - Cancel a booking by booking_no (not ID)
-    - Refund coins and release slots if cancelled >24 hours before start time
+    Cancel a booking by booking_no (not ID)
+    Refund coins and release slots if cancelled >24 hours before start time
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -416,6 +441,7 @@ class BookingCancelView(APIView):
         )
 
 
+# ─────────────────────── Slot Status Update ───────────────────────
 class SlotStatusUpdateView(APIView):
     """
     POST /api/slots/<slot_id>/set-status/<new_status>/
@@ -451,11 +477,9 @@ class SlotStatusUpdateView(APIView):
                 status=400,
             )
 
-        # Update slot status
         slot_status.status = new_status
         slot_status.save(update_fields=["status", "updated_at"])
 
-        # Sync related booking if applicable
         bs = BookingSlot.objects.filter(slot=slot_status.slot).first()
         if bs:
             bs.booking.status = new_status
