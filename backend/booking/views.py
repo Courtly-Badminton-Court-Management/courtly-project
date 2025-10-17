@@ -2,6 +2,8 @@
 import uuid
 import calendar
 from datetime import date, datetime
+from datetime import timedelta, datetime
+
 
 from django.conf import settings
 from django.db import connection, transaction, DatabaseError
@@ -311,57 +313,147 @@ class BookingHistoryView(APIView):
 
 
 class BookingAllView(APIView):
-    # permission_classes = [permissions.IsAdminUser]  # ✅ only admin
     # permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # ✅ Retrieve the most recent 200 bookings, including related user info
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
+
         for b in qs:
+            # ✅ Fetch all slots linked to this booking
             slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+
+            # ✅ Prepare slot details for each booking
             slot_data = [
                 {
-                    "slot": s.slot.id,
-                    "slot__court": s.slot.court.id,
-                    "slot__service_date": s.slot.service_date,
-                    "slot__start_at": s.slot.start_at.strftime("%H:%M"),
-                    "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+                    "court_name": s.slot.court.name,
+                    "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
+                    "start_time": s.slot.start_at.strftime("%H:%M"),
+                    "end_time": s.slot.end_at.strftime("%H:%M"),
                 }
                 for s in slots
             ]
+
+            # ✅ Format and append booking details
             data.append({
-                "id": b.id,
-                "booking_no": b.booking_no,
-                "user": b.user.email if b.user else None,  # ✅ show user
+                "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "booking_id": b.booking_no,
+                "total_cost": f"{b.total_cost} coins" if hasattr(b, "total_cost") else None,
+                "booking_date": b.booking_date.strftime("%Y-%m-%d") if hasattr(b, "booking_date") else None,
                 "status": b.status,
-                "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "slots": slot_data,
             })
+
+        # ✅ Return the serialized booking data as JSON
         return Response(data)
 
 
-# ─────────────────────── Cancel booking (Refund) ───────────────────────
+# # ─────────────────────── Cancel booking (Refund) ───────────────────────
+# class BookingCancelView(APIView):
+#     """
+#     POST /api/bookings/<booking_id>/cancel/
+#     - Change booking status to "cancelled"
+#     - Refund coins back to the wallet
+#     - Set all related slot_status records back to "available"
+#     """
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     @transaction.atomic
+#     def post(self, request, booking_id):
+#         # Try to find the booking
+#         try:
+#             booking = Booking.objects.get(id=booking_id)
+#         except Booking.DoesNotExist:
+#             return Response(
+#                 {"detail": "Booking not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+#
+#         # ✅ Allow only the owner or manager to cancel
+#         user_role = getattr(request.user, "role", None)
+#         if booking.user != request.user and user_role != "manager":
+#             return Response(
+#                 {"detail": "You do not have permission to cancel this booking"},
+#                 status=status.HTTP_403_FORBIDDEN,
+#             )
+#
+#         # ✅ Prevent duplicate cancellation
+#         if booking.status == "cancelled":
+#             return Response(
+#                 {"detail": "Booking already cancelled"},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#
+#         # --- Reset all related slots to 'available' ---
+#         booking_slots = (
+#             BookingSlot.objects
+#             .filter(booking=booking)
+#             .select_related("slot", "slot__slot_status")
+#         )
+#         total_refund = 0
+#
+#         for bs in booking_slots:
+#             slot = bs.slot
+#             total_refund += getattr(slot, "price_coins", 0)
+#
+#             # Reset slot status
+#             if hasattr(slot, "slot_status"):
+#                 slot.slot_status.status = "available"
+#                 slot.slot_status.save(update_fields=["status"])
+#             else:
+#                 SlotStatus.objects.create(slot=slot, status="available")
+#
+#         # --- Update booking status ---
+#         booking.status = "cancelled"
+#         booking.save(update_fields=["status"])
+#
+#         # --- Refund coins to the booking owner ---
+#         wallet, _ = Wallet.objects.get_or_create(
+#             user=booking.user, defaults={"balance": 0}
+#         )
+#         wallet.balance += total_refund
+#         wallet.save(update_fields=["balance"])
+#
+#         # --- Log refund transaction ---
+#         CoinLedger.objects.create(
+#             user=booking.user,
+#             type="refund",
+#             amount=total_refund,
+#             ref_booking=booking,
+#         )
+#
+#         # ✅ Return success response
+#         return Response(
+#             {
+#                 "detail": "Booking cancelled successfully, refund issued",
+#                 "refund_amount": total_refund,
+#                 "new_balance": wallet.balance,
+#                 "cancelled_by": request.user.email,
+#                 "role": user_role,
+#             },
+#             status=status.HTTP_200_OK,
+#         )
 class BookingCancelView(APIView):
     """
     POST /api/bookings/<booking_id>/cancel/
     - Change booking status to "cancelled"
     - Refund coins back to the wallet
     - Set all related slot_status records back to "available"
+    - Allow cancellation only if more than 24 hours before start time
     """
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, booking_id):
-        # Try to find the booking
         try:
             booking = Booking.objects.get(id=booking_id)
         except Booking.DoesNotExist:
             return Response(
                 {"detail": "Booking not found"},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        # ✅ Allow only the owner or manager to cancel
         user_role = getattr(request.user, "role", None)
         if booking.user != request.user and user_role != "manager":
             return Response(
@@ -369,17 +461,52 @@ class BookingCancelView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # ✅ Prevent duplicate cancellation
         if booking.status == "cancelled":
             return Response(
                 {"detail": "Booking already cancelled"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --- Reset all related slots to 'available' ---
+        # -------------------------------
+        # Check 24-hour cancellation rule
+        # -------------------------------
+        first_slot = (
+            BookingSlot.objects.filter(booking=booking)
+            .select_related("slot")
+            .order_by("slot__service_date", "slot__start_at")
+            .first()
+        )
+
+        if not first_slot:
+            return Response(
+                {"detail": "No slot information found for this booking"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Combine date + time
+        slot_datetime = datetime.combine(
+            first_slot.slot.service_date, first_slot.slot.start_at
+        )
+        slot_datetime = timezone.make_aware(slot_datetime, timezone.get_current_timezone())
+
+        # Compare
+        now = timezone.now()
+        cancel_deadline = slot_datetime - timedelta(hours=24)
+        if now > cancel_deadline:
+            return Response(
+                {
+                    "detail": "Cannot cancel within 24 hours of booking start time.",
+                    "booking_start": slot_datetime,
+                    "cancel_deadline": cancel_deadline,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # -------------------------------
+        # Proceed to cancel
+        # -------------------------------
         booking_slots = (
-            BookingSlot.objects
-            .filter(booking=booking)
+            BookingSlot.objects.filter(booking=booking)
             .select_related("slot", "slot__slot_status")
         )
         total_refund = 0
@@ -388,25 +515,21 @@ class BookingCancelView(APIView):
             slot = bs.slot
             total_refund += getattr(slot, "price_coins", 0)
 
-            # Reset slot status
             if hasattr(slot, "slot_status"):
                 slot.slot_status.status = "available"
                 slot.slot_status.save(update_fields=["status"])
             else:
                 SlotStatus.objects.create(slot=slot, status="available")
 
-        # --- Update booking status ---
         booking.status = "cancelled"
         booking.save(update_fields=["status"])
 
-        # --- Refund coins to the booking owner ---
         wallet, _ = Wallet.objects.get_or_create(
             user=booking.user, defaults={"balance": 0}
         )
         wallet.balance += total_refund
         wallet.save(update_fields=["balance"])
 
-        # --- Log refund transaction ---
         CoinLedger.objects.create(
             user=booking.user,
             type="refund",
@@ -414,7 +537,6 @@ class BookingCancelView(APIView):
             ref_booking=booking,
         )
 
-        # ✅ Return success response
         return Response(
             {
                 "detail": "Booking cancelled successfully, refund issued",
