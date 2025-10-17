@@ -47,4 +47,4 @@ class Command(BaseCommand):
                     bs.booking.save(update_fields=["status"])
                 updated += 1
 
-        self.stdout.write(self.style.SUCCESS(f"✅ Updated {updated} slot statuses"))
+        self.stdout.write(self.style.SUCCESS(f"Updated {updated} slot statuses"))
