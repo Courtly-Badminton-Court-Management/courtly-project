@@ -8,6 +8,6 @@ router.register(r"bookings-admin", BookingViewSet, basename="booking-admin")
 urlpatterns = [
     path("bookings/", BookingCreateView.as_view(), name="booking-create"),
     path("history/", BookingHistoryView.as_view(), name="booking-history"),
-    path("bookings/<int:booking_id>/cancel/", BookingCancelView.as_view(), name="booking-cancel"),
+    path("bookings/<str:booking_no>/cancel/", BookingCancelView.as_view(), name="booking-cancel"),
 ] + router.urls
 

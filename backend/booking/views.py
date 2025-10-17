@@ -16,16 +16,6 @@ from .models import Slot, SlotStatus, Booking, BookingSlot, Court, Club
 from .serializers import SlotSerializer, BookingSerializer, BookingCreateSerializer
 from wallet.models import CoinLedger, Wallet
 
-# ───────────────────────── helpers ─────────────────────────
-def combine_dt(d: date, t) -> datetime:
-    """Combine the date and time into an aware datetime according to the project's TIME_ZONE."""
-    dt = datetime.combine(d, t)
-    # 🔧 Force convert to UTC because Slot.start_at / end_at are stored in UTC
-    if timezone.is_naive(dt):
-        dt = timezone.make_aware(dt, timezone=timezone.get_current_timezone())
-    # ✅ Convert to UTC to match database
-    return dt.astimezone(timezone.utc)
-
 
 # ───────────────────────── helpers ─────────────────────────
 def gen_booking_no() -> str:
@@ -34,7 +24,7 @@ def gen_booking_no() -> str:
 
 
 def combine_dt(d: date, t) -> datetime:
-    """Combine the date and time into an aware datetime according to TIME_ZONE"""
+    """Combine date and time into timezone-aware datetime."""
     if isinstance(t, str):
         t = datetime.strptime(t, "%H:%M").time()
     dt = datetime.combine(d, t)
@@ -43,9 +33,14 @@ def combine_dt(d: date, t) -> datetime:
     return dt
 
 
-# ─────────────────────── Slot (read-only) ───────────────────────
-from django.utils import timezone
+def calculate_able_to_cancel(first_slot):
+    """Return True if cancellation is allowed (>24h before start)."""
+    slot_start = first_slot.slot.start_at
+    slot_local = timezone.localtime(slot_start)
+    return timezone.now() <= slot_local - timedelta(hours=24)
 
+
+# ─────────────────────── Slot (read-only) ───────────────────────
 class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Slot.objects.all()
     serializer_class = SlotSerializer
@@ -87,8 +82,6 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
 
         for s in qs:
             day_key = s.service_date.strftime("%d-%m-%y")
-
-            # ✅ แปลงเวลาจาก UTC → Asia/Bangkok ก่อนส่งออก
             start_local = timezone.localtime(s.start_at, tz)
             end_local = timezone.localtime(s.end_at, tz)
 
@@ -141,13 +134,10 @@ class BookingCreateView(APIView):
     @transaction.atomic
     def post(self, request):
         try:
-            # 🪄 เพิ่มจุด Debug ตรวจ payload ที่ frontend ส่งมา
             print("📦 RAW DATA:", request.data)
-
             ser = BookingCreateSerializer(data=request.data)
             ser.is_valid(raise_exception=False)
 
-            # 🪄 ดู error จาก serializer (ถ้ามี)
             if ser.errors:
                 print("❌ Serializer errors:", ser.errors)
                 return Response(
@@ -155,12 +145,10 @@ class BookingCreateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # ✅ ผ่าน validation แล้ว
             ser.is_valid(raise_exception=True)
             club_id = ser.validated_data["club"]
             items = ser.validated_data["items"]
 
-            # ✅ ตรวจ club
             try:
                 Club.objects.only("id").get(id=club_id)
             except Club.DoesNotExist:
@@ -178,7 +166,7 @@ class BookingCreateView(APIView):
                 club_id=club_id,
                 court_id=first_court_id,
                 status="confirmed",
-                booking_date=first_date,  # ✅ save play date
+                booking_date=first_date,
             )
 
             total_slots = 0
@@ -191,7 +179,6 @@ class BookingCreateView(APIView):
                 start_t = it["start"]
                 end_t = it["end"]
 
-                # ✅ ตรวจว่า court มีจริงไหม
                 try:
                     Court.objects.only("id").get(id=court_id)
                 except Court.DoesNotExist:
@@ -202,7 +189,6 @@ class BookingCreateView(APIView):
                 if start_dt >= end_dt:
                     return Response({"detail": "Invalid time range"}, status=400)
 
-                # ✅ หา slot ในช่วงเวลานั้น
                 base_qs = Slot.objects.filter(
                     court_id=court_id,
                     service_date=d,
@@ -231,11 +217,9 @@ class BookingCreateView(APIView):
                         status=409,
                     )
 
-                # ✅ รวมราคา
                 for slot in slots:
                     total_cost += slot.price_coins
 
-                # ✅ ผูก slot กับ booking
                 for s in slots:
                     BookingSlot.objects.create(booking=booking, slot=s)
                     if hasattr(s, "slot_status"):
@@ -247,7 +231,6 @@ class BookingCreateView(APIView):
                 created_slots.extend([s.id for s in slots])
                 total_slots += len(slots)
 
-            # ✅ Wallet check
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
             if wallet.balance < total_cost:
                 print("💰 Not enough coins:", wallet.balance, "<", total_cost)
@@ -256,7 +239,6 @@ class BookingCreateView(APIView):
                     status=402,
                 )
 
-            # ✅ หัก coin
             wallet.balance -= total_cost
             wallet.save(update_fields=["balance"])
             CoinLedger.objects.create(user=request.user, type="capture", amount=-total_cost, ref_booking=booking)
@@ -264,7 +246,6 @@ class BookingCreateView(APIView):
             booking.total_cost = total_cost
             booking.save(update_fields=["total_cost"])
 
-            # ✅ สำเร็จ
             print(f"✅ Booking created: {booking.booking_no}, cost={total_cost}, slots={created_slots}")
 
             return Response(
@@ -295,7 +276,7 @@ class BookingCreateView(APIView):
             return Response({"detail": str(e)}, status=400)
 
 
-# ─────────────────────── Booking History ───────────────────────
+# ─────────────────────── Booking History (Player) ───────────────────────
 class BookingHistoryView(APIView):
     """
     GET /api/history/
@@ -305,10 +286,15 @@ class BookingHistoryView(APIView):
     def get(self, request):
         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
         data = []
+
         for b in qs:
             slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+            first_slot = slots.first()
+            able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+
             slot_data = [
                 {
+                    "slot_id": s.slot.id,
                     "court_name": s.slot.court.name,
                     "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
                     "start_time": s.slot.start_at.strftime("%H:%M"),
@@ -316,6 +302,7 @@ class BookingHistoryView(APIView):
                 }
                 for s in slots
             ]
+
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
@@ -324,20 +311,29 @@ class BookingHistoryView(APIView):
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
                 "status": b.status,
+                "able_to_cancel": able_to_cancel,
                 "slots": slot_data,
             })
         return Response({"results": data})
 
 
-# ─────────────────────── All Bookings (for manager) ───────────────────────
+# ─────────────────────── All Bookings (Manager/Admin) ───────────────────────
 class BookingAllView(APIView):
+    """
+    GET /api/all-bookings/
+    """
     def get(self, request):
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
+
         for b in qs:
             slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+            first_slot = slots.first()
+            able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+
             slot_data = [
                 {
+                    "slot_id": s.slot.id,
                     "court_name": s.slot.court.name,
                     "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
                     "start_time": s.slot.start_at.strftime("%H:%M"),
@@ -345,6 +341,7 @@ class BookingAllView(APIView):
                 }
                 for s in slots
             ]
+
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
@@ -352,6 +349,7 @@ class BookingAllView(APIView):
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
                 "status": b.status,
+                "able_to_cancel": able_to_cancel,
                 "slots": slot_data,
             })
         return Response(data)
@@ -360,16 +358,17 @@ class BookingAllView(APIView):
 # ─────────────────────── Cancel Booking ───────────────────────
 class BookingCancelView(APIView):
     """
-    POST /api/bookings/<booking_id>/cancel/
-    - Cancel booking if >24hr before start
-    - Refund coins and release slots
+    POST /api/bookings/<booking_no>/cancel/
+    - Cancel a booking by booking_no (not ID)
+    - Refund coins and release slots if cancelled >24 hours before start time
+    - Return able_to_cancel: boolean
     """
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
-    def post(self, request, booking_id):
+    def post(self, request, booking_no):
         try:
-            booking = Booking.objects.get(id=booking_id)
+            booking = Booking.objects.get(booking_no=booking_no)
         except Booking.DoesNotExist:
             return Response({"detail": "Booking not found"}, status=404)
 
@@ -389,24 +388,31 @@ class BookingCancelView(APIView):
         if not first_slot:
             return Response({"detail": "No slot info found"}, status=400)
 
-        slot_datetime = timezone.make_aware(
-            datetime.combine(first_slot.slot.service_date, first_slot.slot.start_at),
-            timezone.get_current_timezone()
-        )
-        if timezone.now() > slot_datetime - timedelta(hours=24):
+        able_to_cancel = calculate_able_to_cancel(first_slot)
+        if not able_to_cancel:
+            slot_local = timezone.localtime(first_slot.slot.start_at)
             return Response(
-                {"detail": "Cannot cancel within 24 hours of start time"},
+                {
+                    "detail": "Cannot cancel within 24 hours of start time",
+                    "able_to_cancel": False,
+                    "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                    "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
+                },
                 status=400,
             )
 
         booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot", "slot__slot_status")
         total_refund = 0
+        released_slots = []
+
         for bs in booking_slots:
             slot = bs.slot
             total_refund += getattr(slot, "price_coins", 0)
+            released_slots.append(slot.id)
+
             if hasattr(slot, "slot_status"):
                 slot.slot_status.status = "available"
-                slot.slot_status.save(update_fields=["status"])
+                slot.slot_status.save(update_fields=["status", "updated_at"])
             else:
                 SlotStatus.objects.create(slot=slot, status="available")
 
@@ -417,15 +423,26 @@ class BookingCancelView(APIView):
         wallet.balance += total_refund
         wallet.save(update_fields=["balance"])
 
-        CoinLedger.objects.create(user=booking.user, type="refund", amount=total_refund, ref_booking=booking)
+        CoinLedger.objects.create(
+            user=booking.user,
+            type="refund",
+            amount=total_refund,
+            ref_booking=booking,
+        )
 
+        slot_local = timezone.localtime(first_slot.slot.start_at)
         return Response(
             {
-                "detail": "Booking cancelled successfully, refund issued",
+                "detail": "Booking cancelled successfully",
+                "booking_no": booking.booking_no,
                 "refund_amount": total_refund,
+                "released_slots": released_slots,
                 "new_balance": wallet.balance,
                 "cancelled_by": request.user.email,
                 "role": user_role,
+                "able_to_cancel": True,
+                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
             },
             status=200,
         )
