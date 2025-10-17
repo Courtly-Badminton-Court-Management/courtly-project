@@ -87,11 +87,12 @@ export default function TopupApproval({ rows, onView }: Props) {
                     </Td>
                     <Td>
                       <button
-                        onClick={() => onView?.(r)}
+                        type="button"               
+                        onClick={() => onView?.(r)} 
                         className="rounded-xl bg-pine px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800"
-                      >
+                        >
                         View Detail
-                      </button>
+                    </button>
                     </Td>
                   </tr>
                 ))}
