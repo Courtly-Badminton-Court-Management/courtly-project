@@ -1,54 +1,79 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/ui/components/basic/Button";
-
-type Row = { id:string; dt:string; amount:number; user:string; status:"Pending"|"Approved" };
+import TopupApproval, { TopupRow } from "@/ui/components/wallet/TopupApproval";
 
 export default function ManagerApprovalPage() {
-  const [rows, setRows] = useState<Row[]>([
-    { id:"REQ02419824379", dt:"5 Sep 2025, 12:54 PM", amount:200, user:"Mata Nakee", status:"Pending" },
-    { id:"REQ02419824368", dt:"5 Sep 2025, 10:39 AM", amount:100, user:"Peony Smith", status:"Pending" },
-    { id:"REQ02419824353", dt:"5 Sep 2025, 09:03 AM", amount:300, user:"Somkid Meetung", status:"Pending" },
+  const [rows, setRows] = useState<TopupRow[]>([
+    {
+      id: "REQ02419824379",
+      user: "Mata Nakee",
+      amount: 200,
+      dt: "5 Sep 2025, 12:54 PM",
+      status: "Pending",
+    },
+    {
+      id: "REQ02419824368",
+      user: "Peony Smith",
+      amount: 100,
+      dt: "5 Sep 2025, 10:39 AM",
+      status: "Pending",
+    },
+    {
+      id: "REQ02419824353",
+      user: "Somkid Meetung",
+      amount: 300,
+      dt: "5 Sep 2025, 09:03 AM",
+      status: "Pending",
+    },
   ]);
-  const [open, setOpen] = useState<Row | null>(null);
+
+  const [open, setOpen] = useState<TopupRow | null>(null);
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold">Top-Up Requests</h1>
-        <p className="text-sm text-amber-700">⚠ Approvals can only be made during business hours. Off-hours requests remain pending.</p>
-      </header>
+      <TopupApproval
+        rows={rows}
+        onView={(row) => setOpen(row)}
+      />
 
-      <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-        <table className="w-full min-w-[800px] text-sm">
-          <thead className="bg-neutral-50">
-            <tr><Th>Request ID</Th><Th>Datetime</Th><Th>Amount</Th><Th>User</Th><Th>Status</Th><Th>Actions</Th></tr>
-          </thead>
-          <tbody>
-            {rows.map((r)=>(
-              <tr key={r.id} className="border-b last:border-0">
-                <Td>{r.id}</Td><Td>{r.dt}</Td><Td>+{r.amount} Coins</Td><Td>{r.user}</Td>
-                <Td><span className="rounded-md bg-yellow-50 px-2 py-1 text-xs font-semibold text-yellow-700">{r.status}</span></Td>
-                <Td><Button label="Open" onClick={()=>setOpen(r)} /></Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
+      {/* Detail / approval modal */}
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-xl font-bold">Top-Up Approval</h3>
-            <p className="mb-4 text-sm text-neutral-700">
-              Amount: {open.amount} Coins<br/>Datetime: {open.dt}<br/>Request ID: {open.id}<br/>User: {open.user}
-            </p>
-            <div className="flex gap-2">
-              <Button label="Approve" onClick={()=>{
-                setRows(prev=>prev.map(x=>x.id===open.id?{...x,status:"Approved"}:x)); setOpen(null);
-              }} />
-              <Button label="Reject" bgColor="bg-neutral-200" textColor="text-neutral-800" onClick={()=>setOpen(null)} />
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-3 text-xl font-bold">Top-Up Detail</h3>
+            <div className="space-y-1 text-sm">
+              <p><b>Request ID:</b> {open.id}</p>
+              <p><b>User:</b> {open.user}</p>
+              <p>
+                <b>Amount:</b>{" "}
+                <span className="font-bold text-emerald-700">+{open.amount} Coins</span>
+              </p>
+              <p><b>Datetime:</b> {open.dt}</p>
+              <p><b>Status:</b> {open.status}</p>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => {
+                  setRows((prev) =>
+                    prev.map((r) =>
+                      r.id === open.id ? { ...r, status: "Approved" } : r
+                    )
+                  );
+                  setOpen(null);
+                }}
+                className="rounded-xl bg-pine px-4 py-2 font-semibold text-white hover:bg-emerald-800"
+              >
+                Approve
+              </button>
+
+              <button
+                onClick={() => setOpen(null)}
+                className="rounded-xl bg-neutral-200 px-4 py-2 font-semibold text-neutral-800 hover:bg-neutral-300"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -56,6 +81,3 @@ export default function ManagerApprovalPage() {
     </main>
   );
 }
-
-const Th = ({ children }: any) => <th className="p-3 text-left text-xs font-semibold">{children}</th>;
-const Td = ({ children }: any) => <td className="p-3">{children}</td>;
