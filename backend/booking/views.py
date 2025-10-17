@@ -48,11 +48,9 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, url_path="month-view", methods=["GET"])
     def month_view(self, request):
-        """
-        GET /api/slots/month-view?club=1&month=2025-09
-        """
+        """GET /api/slots/month-view?club=1&month=2025-09"""
         raw_club = request.query_params.get("club")
-        month_str = request.query_params.get("month")  # YYYY-MM
+        month_str = request.query_params.get("month")
 
         try:
             club_id = int(raw_club)
@@ -119,33 +117,15 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 # ─────────────────────── Create Booking ───────────────────────
 class BookingCreateView(APIView):
-    """
-    POST /api/bookings/
-    payload:
-    {
-      "club": 1,
-      "items": [
-        {"court":4,"date":"2025-10-18","start":"12:00","end":"13:00"}
-      ]
-    }
-    """
+    """POST /api/bookings/"""
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
         try:
-            print("📦 RAW DATA:", request.data)
             ser = BookingCreateSerializer(data=request.data)
-            ser.is_valid(raise_exception=False)
-
-            if ser.errors:
-                print("❌ Serializer errors:", ser.errors)
-                return Response(
-                    {"detail": "Serializer validation failed", "errors": ser.errors},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
             ser.is_valid(raise_exception=True)
+
             club_id = ser.validated_data["club"]
             items = ser.validated_data["items"]
 
@@ -203,7 +183,6 @@ class BookingCreateView(APIView):
 
                 slots = list(Slot.objects.filter(id__in=locked_ids).select_related("slot_status"))
                 if not slots:
-                    print(f"❌ No slots found for court {court_id}, date={d}, range={start_t}-{end_t}")
                     return Response(
                         {"detail": f"No slots found for court {court_id} in range"},
                         status=400,
@@ -211,7 +190,6 @@ class BookingCreateView(APIView):
 
                 not_available = [s.id for s in slots if getattr(s, "slot_status", None) and s.slot_status.status != "available"]
                 if not_available:
-                    print(f"⚠️ Some slots not available: {not_available}")
                     return Response(
                         {"detail": "Some slots are not available", "slot_ids": not_available},
                         status=409,
@@ -233,7 +211,6 @@ class BookingCreateView(APIView):
 
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
             if wallet.balance < total_cost:
-                print("💰 Not enough coins:", wallet.balance, "<", total_cost)
                 return Response(
                     {"detail": "Not enough coins", "required": total_cost, "balance": wallet.balance},
                     status=402,
@@ -245,8 +222,6 @@ class BookingCreateView(APIView):
 
             booking.total_cost = total_cost
             booking.save(update_fields=["total_cost"])
-
-            print(f"✅ Booking created: {booking.booking_no}, cost={total_cost}, slots={created_slots}")
 
             return Response(
                 {
@@ -266,21 +241,17 @@ class BookingCreateView(APIView):
             )
 
         except DatabaseError as e:
-            print("💥 DatabaseError:", e)
             return Response(
                 {"detail": f"Database error: {e.__class__.__name__}", "message": str(e)},
                 status=500,
             )
         except Exception as e:
-            print("💥 Exception:", e)
             return Response({"detail": str(e)}, status=400)
 
 
 # ─────────────────────── Booking History (Player) ───────────────────────
 class BookingHistoryView(APIView):
-    """
-    GET /api/history/
-    """
+    """GET /api/history/"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -319,9 +290,7 @@ class BookingHistoryView(APIView):
 
 # ─────────────────────── All Bookings (Manager/Admin) ───────────────────────
 class BookingAllView(APIView):
-    """
-    GET /api/all-bookings/
-    """
+    """GET /api/all-bookings/"""
     def get(self, request):
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
@@ -361,7 +330,6 @@ class BookingCancelView(APIView):
     POST /api/bookings/<booking_no>/cancel/
     - Cancel a booking by booking_no (not ID)
     - Refund coins and release slots if cancelled >24 hours before start time
-    - Return able_to_cancel: boolean
     """
     permission_classes = [permissions.IsAuthenticated]
 
