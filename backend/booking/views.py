@@ -414,3 +414,55 @@ class BookingCancelView(APIView):
             },
             status=200,
         )
+
+
+class SlotStatusUpdateView(APIView):
+    """
+    POST /api/slots/<slot_id>/set-status/<new_status>/
+    Only managers can manually change slot statuses.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, slot_id, new_status):
+        user_role = getattr(request.user, "role", None)
+        if user_role != "manager":
+            return Response({"detail": "Only managers can change status."}, status=403)
+
+        try:
+            slot_status = SlotStatus.objects.select_related("slot").get(slot_id=slot_id)
+        except SlotStatus.DoesNotExist:
+            return Response({"detail": "Slot not found"}, status=404)
+
+        allowed_transitions = {
+            "available": ["maintenance", "walkin", "checkin"],
+            "booked": ["checkin"],
+            "walkin": ["checkin"],
+            "checkin": ["endgame"],
+            "maintenance": ["available"],
+        }
+
+        if new_status not in dict(SlotStatus.STATUS):
+            return Response({"detail": "Invalid status"}, status=400)
+
+        if new_status not in allowed_transitions.get(slot_status.status, []):
+            return Response(
+                {"detail": f"Cannot change from {slot_status.status} → {new_status}"},
+                status=400,
+            )
+
+        # Update slot status
+        slot_status.status = new_status
+        slot_status.save(update_fields=["status", "updated_at"])
+
+        # Sync related booking if applicable
+        bs = BookingSlot.objects.filter(slot=slot_status.slot).first()
+        if bs:
+            bs.booking.status = new_status
+            bs.booking.save(update_fields=["status"])
+
+        return Response({
+            "detail": f"Slot {slot_id} status updated to {new_status}",
+            "slot_id": slot_id,
+            "new_status": new_status,
+        }, status=200)
