@@ -64,12 +64,21 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         first_day = date(y, m, 1)
         last_day = date(y, m, calendar.monthrange(y, m)[1])
 
+        # Prevent viewing past months
+        today = timezone.localdate()
+        if last_day < today:
+            return Response(
+                {"detail": "Cannot view past months."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Filter to show only current and future slots
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
             .filter(
                 court__club_id=club_id,
-                service_date__gte=first_day,
+                service_date__gte=max(first_day, today),
                 service_date__lte=last_day,
             )
             .order_by("service_date", "court_id", "start_at")
@@ -140,6 +149,14 @@ class BookingCreateView(APIView):
             first_court_id = items[0]["court"]
             first_date = items[0]["date"]
 
+            # Prevent booking for past dates
+            today = timezone.localdate()
+            if first_date < today:
+                return Response(
+                    {"detail": f"Cannot book for a past date: {first_date}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
                 user=request.user,
@@ -156,6 +173,14 @@ class BookingCreateView(APIView):
             for it in items:
                 court_id = it["court"]
                 d = it["date"]
+
+                # Check each slot date - prevent booking past dates
+                if d < today:
+                    return Response(
+                        {"detail": f"Cannot book for a past date: {d}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 start_t = it["start"]
                 end_t = it["end"]
 
@@ -328,8 +353,8 @@ class BookingAllView(APIView):
 class BookingCancelView(APIView):
     """
     POST /api/bookings/<booking_no>/cancel/
-    - Cancel a booking by booking_no (not ID)
-    - Refund coins and release slots if cancelled >24 hours before start time
+    Cancel a booking by booking_no (not ID)
+    Refund coins and release slots if cancelled >24 hours before start time
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -414,3 +439,54 @@ class BookingCancelView(APIView):
             },
             status=200,
         )
+
+
+# ─────────────────────── Slot Status Update ───────────────────────
+class SlotStatusUpdateView(APIView):
+    """
+    POST /api/slots/<slot_id>/set-status/<new_status>/
+    Only managers can manually change slot statuses.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, slot_id, new_status):
+        user_role = getattr(request.user, "role", None)
+        if user_role != "manager":
+            return Response({"detail": "Only managers can change status."}, status=403)
+
+        try:
+            slot_status = SlotStatus.objects.select_related("slot").get(slot_id=slot_id)
+        except SlotStatus.DoesNotExist:
+            return Response({"detail": "Slot not found"}, status=404)
+
+        allowed_transitions = {
+            "available": ["maintenance", "walkin", "booked", "expired"],
+            "booked": ["checkin", "noshow"],
+            "walkin": ["checkin", "noshow"],
+            "checkin": ["endgame"],
+            "maintenance": ["available"],
+        }
+
+        if new_status not in dict(SlotStatus.STATUS):
+            return Response({"detail": "Invalid status"}, status=400)
+
+        if new_status not in allowed_transitions.get(slot_status.status, []):
+            return Response(
+                {"detail": f"Cannot change from {slot_status.status} → {new_status}"},
+                status=400,
+            )
+
+        slot_status.status = new_status
+        slot_status.save(update_fields=["status", "updated_at"])
+
+        bs = BookingSlot.objects.filter(slot=slot_status.slot).first()
+        if bs:
+            bs.booking.status = new_status
+            bs.booking.save(update_fields=["status"])
+
+        return Response({
+            "detail": f"Slot {slot_id} status updated to {new_status}",
+            "slot_id": slot_id,
+            "new_status": new_status,
+        }, status=200)
