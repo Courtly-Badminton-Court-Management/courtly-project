@@ -25,14 +25,6 @@ import { customRequest } from "../../custom-client";
 
 /**
  * POST /api/bookings/
-payload:
-{
-  "club": 1,
-  "items": [
-    {"court":4,"date":"2025-09-05","start":"10:00","end":"12:00"},
-    {"court":5,"date":"2025-09-05","start":"14:00","end":"15:00"}
-  ]
-}
  */
 export const bookingsCreate = (signal?: AbortSignal) => {
   return customRequest<void>({ url: `/api/bookings/`, method: "POST", signal });
@@ -99,6 +91,88 @@ export const useBookingsCreate = <TError = unknown, TContext = unknown>(
 
   return useMutation(mutationOptions, queryClient);
 };
+/**
+ * POST /api/bookings/<booking_no>/cancel/
+- Cancel a booking by booking_no (not ID)
+- Refund coins and release slots if cancelled >24 hours before start time
+ */
+export const bookingsCancelCreate = (
+  bookingNo: string,
+  signal?: AbortSignal,
+) => {
+  return customRequest<void>({
+    url: `/api/bookings/${bookingNo}/cancel/`,
+    method: "POST",
+    signal,
+  });
+};
+
+export const getBookingsCancelCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bookingsCancelCreate>>,
+    TError,
+    { bookingNo: string },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bookingsCancelCreate>>,
+  TError,
+  { bookingNo: string },
+  TContext
+> => {
+  const mutationKey = ["bookingsCancelCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bookingsCancelCreate>>,
+    { bookingNo: string }
+  > = (props) => {
+    const { bookingNo } = props ?? {};
+
+    return bookingsCancelCreate(bookingNo);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BookingsCancelCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bookingsCancelCreate>>
+>;
+
+export type BookingsCancelCreateMutationError = unknown;
+
+export const useBookingsCancelCreate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof bookingsCancelCreate>>,
+      TError,
+      { bookingNo: string },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof bookingsCancelCreate>>,
+  TError,
+  { bookingNo: string },
+  TContext
+> => {
+  const mutationOptions = getBookingsCancelCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * GET /api/all-bookings/
+ */
 export const bookingsAllRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({
     url: `/api/bookings/all/`,

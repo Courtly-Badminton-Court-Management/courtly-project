@@ -9,7 +9,9 @@
 /**
  * * `pending` - pending
  * `confirmed` - confirmed
- * `checked_in` - checked_in
+ * `walkin` - walkin
+ * `checkin` - checkin
+ * `endgame` - endgame
  * `cancelled` - cancelled
  * `completed` - completed
  * `no_show` - no_show
@@ -21,7 +23,9 @@ export type BookingStatusEnum =
 export const BookingStatusEnum = {
   pending: "pending",
   confirmed: "confirmed",
-  checked_in: "checked_in",
+  walkin: "walkin",
+  checkin: "checkin",
+  endgame: "endgame",
   cancelled: "cancelled",
   completed: "completed",
   no_show: "no_show",

@@ -11,8 +11,8 @@ export interface Slot {
   readonly id: number;
   court: number;
   service_date: string;
-  start_at: string;
-  end_at: string;
+  readonly start_time: string;
+  readonly end_time: string;
   /**
    * @minimum 0
    * @maximum 2147483647

@@ -274,11 +274,6 @@ export function useSlotsRetrieve<
 
 /**
  * GET /api/slots/month-view?club=1&month=2025-09
-Response:
-{
-  "month":"09-25",
-  "days":[{"date":"01-09-25","slotList":{"<slotId>":{...}}}, ...]
-}
  */
 export const slotsMonthViewRetrieve = (signal?: AbortSignal) => {
   return customRequest<Slot>({

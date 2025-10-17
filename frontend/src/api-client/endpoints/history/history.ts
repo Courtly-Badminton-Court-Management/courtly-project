@@ -22,7 +22,6 @@ import { customRequest } from "../../custom-client";
 
 /**
  * GET /api/history/
-ดึง booking ของ user ที่ login อยู่
  */
 export const historyRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({ url: `/api/history/`, method: "GET", signal });
