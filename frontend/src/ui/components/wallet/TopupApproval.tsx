@@ -73,7 +73,7 @@ export default function TopupApproval({ rows, onView }: Props) {
 
               <tbody>
                 {sorted.map((r) => (
-                  <tr key={r.id} className="border-b last:border-0">
+                  <tr key={r.id} className="border-b border-neutral-300 last:border-0">
                     <Td>{r.id}</Td>
                     <Td className="font-medium">{r.user}</Td>
                     <Td>

@@ -40,7 +40,7 @@ export default function TransactionHistory({
           </thead>
           <tbody>
             {items.map((l) => (
-              <tr key={l.id} className="border-b last:border-0">
+              <tr key={l.id} className="border-b border-neutral-300 last:border-0">
                 <Td>{l.id}</Td>
                 <Td>
                   <span
