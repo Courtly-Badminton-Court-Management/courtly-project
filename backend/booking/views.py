@@ -279,36 +279,79 @@ class BookingCreateView(APIView):
             return Response({"detail": str(e)}, status=400)
 
 
+# class BookingHistoryView(APIView):
+#     """
+#     GET /api/history/
+#     ดึง booking ของ user ที่ login อยู่
+#     """
+#
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     def get(self, request):
+#         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
+#         data = []
+#         for b in qs:
+#             slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+#             slot_data = [
+#                 {
+#                     "slot": s.slot.id,
+#                     "slot__court": s.slot.court.id,
+#                     "slot__service_date": str(s.slot.service_date),
+#                     "slot__start_at": s.slot.start_at.strftime("%H:%M"),
+#                     "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+#                 }
+#                 for s in slots
+#             ]
+#             data.append({
+#                 "id": b.id,
+#                 "booking_no": b.booking_no,
+#                 "status": b.status,
+#                 "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
+#                 "slots": slot_data,
+#             })
+#         return Response({"results": data})
+
 class BookingHistoryView(APIView):
     """
     GET /api/history/
-    ดึง booking ของ user ที่ login อยู่
+    Retrieve all bookings for the currently logged-in user.
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # ✅ Get up to 50 most recent bookings for the logged-in user
         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
         data = []
+
         for b in qs:
+            # ✅ Fetch all related booking slots with court details
             slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+
+            # ✅ Prepare slot details for each booking
             slot_data = [
                 {
-                    "slot": s.slot.id,
-                    "slot__court": s.slot.court.id,
-                    "slot__service_date": str(s.slot.service_date),
-                    "slot__start_at": s.slot.start_at.strftime("%H:%M"),
-                    "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+                    "court_name": s.slot.court.name,
+                    "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
+                    "start_time": s.slot.start_at.strftime("%H:%M"),
+                    "end_time": s.slot.end_at.strftime("%H:%M"),
                 }
                 for s in slots
             ]
+
+            # ✅ Append booking data with the required fields
             data.append({
-                "id": b.id,
-                "booking_no": b.booking_no,
+                "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "booking_id": b.booking_no,
+                "username": b.user.username if b.user else None,
+                "email": b.user.email if b.user else None,
+                "total_cost": f"{b.total_cost} coins" if hasattr(b, "total_cost") else None,
+                "booking_date": b.booking_date.strftime("%Y-%m-%d") if hasattr(b, "booking_date") else None,
                 "status": b.status,
-                "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "slots": slot_data,
             })
+
+        # ✅ Return as JSON
         return Response({"results": data})
 
 
