@@ -22,7 +22,12 @@ const CLUB_ID = 1;
    PAGE
    ========================================================================= */
 export default function PlayerBookingPage() {
-  const [ymd, setYmd] = useState<string>("2025-09-15");
+  // ✅ ใช้วันที่ปัจจุบัน (timezone Bangkok)
+  const today = new Date(Date.now() + 7 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  const [ymd, setYmd] = useState<string>(today);
   const [selected, setSelected] = useState<SelectedSlot[]>([]);
   const [openSummary, setOpenSummary] = useState(false);
   const [openConfirm, setOpenConfirm] = useState(false);
