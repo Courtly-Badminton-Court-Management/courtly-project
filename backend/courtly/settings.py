@@ -107,9 +107,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # ===== Internationalization =====
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"   # store as UTC; display with Club tz (e.g., Asia/Bangkok)
-USE_I18N = True
+TIME_ZONE = "Asia/Bangkok"
 USE_TZ = True
+USE_I18N = True
 
 # ===== Static / Media =====
 STATIC_URL = "static/"

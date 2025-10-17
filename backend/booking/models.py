@@ -43,17 +43,23 @@ class SlotStatus(models.Model):
 
 class Booking(models.Model):
     STATUS = (
-        ("pending", "pending"),
-        ("confirmed", "confirmed"),
-        ("checked_in", "checked_in"),
-        ("cancelled", "cancelled"),
-        ("completed", "completed"),
-        ("no_show", "no_show"),
+        ("pending", "pending"),           # created but not confirmed
+        ("confirmed", "confirmed"),       # booked successfully
+        ("walkin", "walkin"),             # created manually by manager
+        ("checkin", "checkin"),           # user or walk-in started playing
+        ("endgame", "endgame"),           # playtime finished
+        ("cancelled", "cancelled"),       # cancelled before playtime
+        ("completed", "completed"),       # booking finished successfully
+        ("no_show", "no_show"),           # player did not show up
     )
 
     booking_no = models.CharField(max_length=24, unique=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
-                             on_delete=models.SET_NULL, related_name="bookings")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="bookings"
+    )
     club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="bookings")
     court = models.ForeignKey(Court, on_delete=models.PROTECT, related_name="bookings")
     slot = models.ForeignKey("Slot", null=True, blank=True, on_delete=models.SET_NULL, related_name="bookings")
@@ -61,8 +67,13 @@ class Booking(models.Model):
     status = models.CharField(max_length=20, choices=STATUS, default="confirmed")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ✅ two new fields
+    total_cost = models.PositiveIntegerField(null=True, blank=True)  # total coins cost
+    booking_date = models.DateField(null=True, blank=True)           # actual booked play date
+
     def __str__(self):
         return self.booking_no
+
 
 
 class BookingSlot(models.Model):
