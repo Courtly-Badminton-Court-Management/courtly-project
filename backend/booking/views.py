@@ -435,9 +435,9 @@ class SlotStatusUpdateView(APIView):
             return Response({"detail": "Slot not found"}, status=404)
 
         allowed_transitions = {
-            "available": ["maintenance", "walkin", "checkin"],
-            "booked": ["checkin"],
-            "walkin": ["checkin"],
+            "available": ["maintenance", "walkin", "booked", "expired"],
+            "booked": ["checkin", "noshow"],
+            "walkin": ["checkin", "noshow"],
             "checkin": ["endgame"],
             "maintenance": ["available"],
         }
