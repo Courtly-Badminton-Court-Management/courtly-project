@@ -27,7 +27,7 @@ export default function PendingRequests({
               <tr>
                 <Th>Request ID</Th>
                 <Th>Datetime</Th>
-                <Th>Amount</Th>
+                <Th>Amount (coins)</Th>
                 <Th>Status</Th>
               </tr>
             </thead>
@@ -36,9 +36,27 @@ export default function PendingRequests({
                 <tr key={p.id} className="border-b last:border-0">
                   <Td>{p.id}</Td>
                   <Td>{p.dt}</Td>
-                  <Td>{p.amount} Coins</Td>
                   <Td>
-                    <span className="rounded-md bg-yellow-50 px-2 py-1 text-xs font-semibold text-yellow-700">
+                    <span
+                      className={
+                        p.amount < 0
+                          ? "text-cherry font-bold"
+                          : "text-emerald-700 font-bold"
+                      }
+                    >
+                      {p.amount > 0 ? `+${p.amount}` : p.amount}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span
+                      className={
+                        p.status === "Approved"
+                          ? "text-emerald-700 font-bold"
+                          : p.status === "Pending"
+                          ? "text-walkin font-bold"
+                          : "text-cherry font-bold"
+                      }
+                    >
                       {p.status}
                     </span>
                   </Td>

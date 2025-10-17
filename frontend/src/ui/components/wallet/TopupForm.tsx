@@ -72,7 +72,7 @@ export default function TopupForm({
         <div>
           <div className="rounded-3xl border p-6 shadow-sm h-full">
             <div className="mb-4 text-2xl font-bold">Top-Up Guidelines</div>
-            <ul className="space-y-3 text-x leading-relaxed text-neutral-800 md:text-xl">
+            <ul className="space-y-3 text-lg leading-relaxed text-neutral-800 md:text-xl">
               <li>• Minimum top-up: <b>100 THB</b>.</li>
               <li>• Upload a clear transfer slip image (JPG/PNG).</li>
               <li>• Coins are credited after admin verification.</li>
@@ -83,7 +83,7 @@ export default function TopupForm({
 
       {/* Form */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Payment amount (THB)*">
+        <Field label="Payment amount (THB)" required>
           <input
             type="number"
             min={100}
@@ -98,7 +98,7 @@ export default function TopupForm({
           />
         </Field>
 
-        <Field label="Date of payment*">
+        <Field label="Date of payment" required>
           <input
             type="date"
             value={values.date}
@@ -107,7 +107,7 @@ export default function TopupForm({
           />
         </Field>
 
-        <Field label="Time of payment*">
+        <Field label="Time of payment" required>
           <input
             type="time"
             value={values.time}
@@ -116,7 +116,7 @@ export default function TopupForm({
           />
         </Field>
 
-        <Field label="Upload your payment slip*">
+        <Field label="Upload your payment slip" required>
           <input
             type="file"
             onChange={(e) => onChange({ slip: e.target.files?.[0] ?? null })}
@@ -151,13 +151,18 @@ export default function TopupForm({
 function Field({
   label,
   children,
+  required,
 }: {
   label: string;
   children: React.ReactNode;
+  required?: boolean;
 }) {
   return (
     <label className="grid gap-1">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-medium">
+        {label}
+        {required && <span className="text-cherry ml-0.5">*</span>}
+      </span>
       {children}
     </label>
   );

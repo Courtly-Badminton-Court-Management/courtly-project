@@ -21,7 +21,7 @@ export default function TransactionHistory({
         <h3 className="text-xl font-semibold">Transaction History</h3>
         <button
           onClick={onExport}
-          className="rounded-lg border border-platinum px-3 py-1.5 text-sm font-semibold hover:bg-neutral-50"
+          className="rounded-xl px-4 py-2 text-sm font-bold transition-colors bg-pine text-white hover:bg-emerald-800 hover:text-white   "
         >
           Export CSV
         </button>
@@ -45,7 +45,7 @@ export default function TransactionHistory({
                 <Td>
                   <span
                     className={
-                      l.amount < 0 ? "text-rose-600 font-semibold" : "text-emerald-700 font-semibold"
+                      l.amount < 0 ? "text-cherry font-bold" : "text-emerald-700 font-bold"
                     }
                   >
                     {l.amount > 0 ? `+${l.amount}` : l.amount}
@@ -57,10 +57,10 @@ export default function TransactionHistory({
                   <span
                     className={
                       l.status === "Approved"
-                        ? "text-emerald-700"
+                        ? "text-emerald-700 font-bold"
                         : l.status === "Pending"
-                        ? "text-amber-700"
-                        : "text-rose-700"
+                        ? "text-walkin font-bold"
+                        : "text-cherry font-bold"
                     }
                   >
                     {l.status}
