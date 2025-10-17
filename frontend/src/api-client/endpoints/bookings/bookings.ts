@@ -93,8 +93,8 @@ export const useBookingsCreate = <TError = unknown, TContext = unknown>(
 };
 /**
  * POST /api/bookings/<booking_no>/cancel/
-- Cancel a booking by booking_no (not ID)
-- Refund coins and release slots if cancelled >24 hours before start time
+Cancel a booking by booking_no (not ID)
+Refund coins and release slots if cancelled >24 hours before start time
  */
 export const bookingsCancelCreate = (
   bookingNo: string,

@@ -5,15 +5,18 @@
  * Your project description
  * OpenAPI spec version: 1.0.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
@@ -272,6 +275,85 @@ export function useSlotsRetrieve<
   return query;
 }
 
+/**
+ * POST /api/slots/<slot_id>/set-status/<new_status>/
+Only managers can manually change slot statuses.
+ */
+export const slotsSetStatusCreate = (
+  slotId: number,
+  newStatus: string,
+  signal?: AbortSignal,
+) => {
+  return customRequest<void>({
+    url: `/api/slots/${slotId}/set-status/${newStatus}/`,
+    method: "POST",
+    signal,
+  });
+};
+
+export const getSlotsSetStatusCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+    TError,
+    { slotId: number; newStatus: string },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+  TError,
+  { slotId: number; newStatus: string },
+  TContext
+> => {
+  const mutationKey = ["slotsSetStatusCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+    { slotId: number; newStatus: string }
+  > = (props) => {
+    const { slotId, newStatus } = props ?? {};
+
+    return slotsSetStatusCreate(slotId, newStatus);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SlotsSetStatusCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof slotsSetStatusCreate>>
+>;
+
+export type SlotsSetStatusCreateMutationError = unknown;
+
+export const useSlotsSetStatusCreate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+      TError,
+      { slotId: number; newStatus: string },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+  TError,
+  { slotId: number; newStatus: string },
+  TContext
+> => {
+  const mutationOptions = getSlotsSetStatusCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
 /**
  * GET /api/slots/month-view?club=1&month=2025-09
  */

@@ -3,7 +3,7 @@
 
 import React, { useMemo } from "react";
 import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
-import type { Col, GridCell, SelectedSlot, SlotStatus } from "@/lib/booking/model";
+import type { Col, GridCell, SelectedSlot } from "@/lib/booking/model";
 import { getCellPriceCoins } from "@/lib/booking/pricing";
 
 /* =========================================================================
@@ -33,10 +33,28 @@ function makeHourBands(cols: Col[]) {
 
 const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Boolean).join(" ");
 
+/** อ่านค่า status ให้ชัวร์จากหลายฟิลด์ที่อาจเจอ */
+function readStatus(cell: any): string {
+  const raw =
+    cell?.status ??
+    cell?.slot_status ??
+    cell?.state ??
+    cell?.status?.status ??
+    cell?.slot_status?.status ??
+    "";
+  return String(raw).trim().toLowerCase();
+}
+
+/** กลุ่มสำหรับ UI */
 type PlayerGroup = "available" | "bookedLike" | "maintenance" | "ended";
-function normalizeForPlayer(status: SlotStatus): PlayerGroup {
+
+/** รวม expired / endgame / no_show → ended (สีเทาอ่อน) */
+function normalizeForPlayer(statusRaw: string): PlayerGroup {
+  const status = (statusRaw || "").toLowerCase();
+
   if (status === "available") return "available";
   if (status === "maintenance") return "maintenance";
+  if (status === "expired" || status === "endgame" || status === "no_show") return "ended";
   if (status === "booked" || status === "walkin" || status === "checkin") return "bookedLike";
   return "ended";
 }
@@ -65,22 +83,20 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
     maintenance: "bg-[var(--color-maintenance)] text-white",
     ended: "bg-[var(--color-expired)] text-[var(--color-walnut)]",
   };
+
   const selectedStyle =
     "bg-[var(--color-pine)] text-white ring-2 ring-[var(--color-sea)]/40 hover:opacity-95";
 
-  const pricePerSlot = getCellPriceCoins();
-
-  // First column for court label (fixed width), then N time columns.
+  const _pricePerSlot = getCellPriceCoins(); // เผื่ออนาคตใช้ คงไว้แต่ไม่ใช้ใน UI ตอนนี้
   const gridTemplate = { gridTemplateColumns: `160px repeat(${cols.length}, 1fr)` };
 
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
-      {/* Single scroll container for header + body */}
       <div className="overflow-x-auto">
         <div className="min-w-max">
-          {/* ===== Header row: "Court" | [hour chips spanning time columns] ===== */}
+          {/* Header */}
           <div className="grid items-center border-b border-neutral-100 pb-1" style={gridTemplate}>
-            <div className="px-3 py-2 text-sm font-bold text-neutral-700">Court / Time</div>
+            <div className="sticky left-0 z-20 bg-white px-3 py-2 text-sm font-bold text-neutral-700">Court / Time</div>
             {hourBands.map((b, i) => (
               <div
                 key={i}
@@ -93,12 +109,12 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
             ))}
           </div>
 
-          {/* ===== Grid rows ===== */}
+          {/* Rows */}
           <div className="mt-1">
             {grid.map((row, rIdx) => (
               <div key={rIdx} className="grid" style={gridTemplate}>
-                {/* Court label cell */}
-                <div className="flex items-center gap-2 px-3 py-2">
+                {/* Court label */}
+                <div className="sticky left-0 z-5 bg-white flex items-center gap-2 px-3 py-2">
                   <CourtNumberHero
                     court={rIdx + 1}
                     size={72}
@@ -106,20 +122,23 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
                     labelWord={courtNames[rIdx] ?? "Court"}
                     className="shrink-0"
                   />
-                  <div className="text-sm font-semibold text-neutral-700 ">{courtNames[rIdx]}</div>
+                  <div className="text-sm font-semibold text-neutral-700">{courtNames[rIdx]}</div>
                 </div>
 
-                {/* Time cells */}
+                {/* Cells */}
                 {row.map((cell, cIdx) => {
-                  const group = normalizeForPlayer(cell.status);
+                  const rawStatus = readStatus(cell);
+                  const group = normalizeForPlayer(rawStatus);
+
                   const isSelected =
-                    selected.some((s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx) &&
-                    cell.status === "available";
-                  const disabled = cell.status !== "available";
+                    group === "available" &&
+                    selected.some((s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx);
+
+                  const disabled = group !== "available";
 
                   const title =
                     group === "available"
-                      ? `Available (30 min)`
+                      ? "Available (30 min)"
                       : group === "bookedLike"
                       ? "Booked"
                       : group === "maintenance"
@@ -132,10 +151,13 @@ export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }:
                       className={cx(
                         "m-[3px] grid h-10 place-items-center rounded-[4px] text-xs font-semibold transition-colors",
                         isSelected ? selectedStyle : styleByGroup[group],
-                        disabled && "cursor-not-allowed"
                       )}
-                      onClick={() => onToggle(rIdx + 1, cIdx)}
+                      onClick={() => {
+                        if (disabled) return;
+                        onToggle(rIdx + 1, cIdx);
+                      }}
                       disabled={disabled}
+                      aria-disabled={disabled}
                       aria-label={`${courtNames[rIdx]} ${cols[cIdx]?.label} ${title}`}
                       title={title}
                     >
