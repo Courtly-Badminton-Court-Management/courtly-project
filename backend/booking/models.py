@@ -10,7 +10,7 @@ class Slot(models.Model):
     service_date = models.DateField()
     start_at = models.DateTimeField()
     end_at = models.DateTimeField()
-    dow = models.PositiveSmallIntegerField(default=0)   # 0=Mon..6=Sun
+    dow = models.PositiveSmallIntegerField(default=0)  # 0=Mon..6=Sun
     price_coins = models.PositiveIntegerField(default=50)
 
     class Meta:
@@ -22,20 +22,20 @@ class Slot(models.Model):
 
 
 class SlotStatus(models.Model):
-    """One status record per Slot"""
     STATUS = (
-        ("available", "available"),
-        ("booked", "booked"),
-        ("maintenance", "maintenance"),
+        ("available", "Available"),  # Free to book
+        ("booked", "Booked"),  # Booked by a player
+        ("walkin", "Walk-in"),  # Booked manually by manager
+        ("checkin", "Check-in"),  # Player arrived and started playing
+        ("endgame", "Endgame"),  # Playtime finished
+        ("expired", "Expired"),  # Past time but unbooked
+        ("no_show", "No-Show"),  # Booked but player didn’t check-in
+        ("maintenance", "Maintenance"),  # Temporarily unavailable
     )
-    # IMPORTANT: use string ref and a non-conflicting related_name
+
     slot = models.OneToOneField('booking.Slot', on_delete=models.CASCADE, related_name='slot_status')
     status = models.CharField(max_length=20, choices=STATUS, default="available")
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Slot Status"
-        verbose_name_plural = "Slot Statuses"
 
     def __str__(self):
         return f"Slot {self.slot_id} - {self.status}"
@@ -43,14 +43,14 @@ class SlotStatus(models.Model):
 
 class Booking(models.Model):
     STATUS = (
-        ("pending", "pending"),           # created but not confirmed
-        ("confirmed", "confirmed"),       # booked successfully
-        ("walkin", "walkin"),             # created manually by manager
-        ("checkin", "checkin"),           # user or walk-in started playing
-        ("endgame", "endgame"),           # playtime finished
-        ("cancelled", "cancelled"),       # cancelled before playtime
-        ("completed", "completed"),       # booking finished successfully
-        ("no_show", "no_show"),           # player did not show up
+        ("pending", "pending"),  # created but not confirmed
+        ("confirmed", "confirmed"),  # booked successfully
+        ("walkin", "walkin"),  # created manually by manager
+        ("checkin", "checkin"),  # user or walk-in started playing
+        ("endgame", "endgame"),  # playtime finished
+        ("cancelled", "cancelled"),  # cancelled before playtime
+        ("completed", "completed"),  # booking finished successfully
+        ("no_show", "no_show"),  # player did not show up
     )
 
     booking_no = models.CharField(max_length=24, unique=True)
@@ -69,11 +69,10 @@ class Booking(models.Model):
 
     # ✅ two new fields
     total_cost = models.PositiveIntegerField(null=True, blank=True)  # total coins cost
-    booking_date = models.DateField(null=True, blank=True)           # actual booked play date
+    booking_date = models.DateField(null=True, blank=True)  # actual booked play date
 
     def __str__(self):
         return self.booking_no
-
 
 
 class BookingSlot(models.Model):
