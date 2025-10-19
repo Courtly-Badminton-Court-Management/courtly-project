@@ -130,14 +130,15 @@ export default function PlayerBookingPage() {
   const selCount = selected.length;
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6">
+    <div className="mx-auto my-auto">
       {/* Title and subtext */}
       <div className="mb-4">
-        <h1 className="text-[22px] font-bold tracking-tight text-pine">
+        <h1 className="text-2xl font-bold tracking-tight text-pine">
           Let’s Book Your Game!
         </h1>
-        <p className="text-[14px] font-semibold tracking-tight text-dimgray">
+        <p className="text-s font-semibold tracking-tight text-dimgray">
           Choose your court and time below to make a booking.
+          A slot = 30 minutes = 100 coin
         </p>
         
       </div>
