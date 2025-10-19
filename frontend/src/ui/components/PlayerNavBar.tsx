@@ -1,3 +1,4 @@
+// src/ui/components/PlayerNavBar.tsx
 "use client";
 
 import Link from "next/link";
@@ -13,11 +14,10 @@ import Button from "./basic/Button";
 import { useQueryClient } from "@tanstack/react-query";
 import { clientLogout } from "@/lib/auth/logout";
 
-// ✅ ใช้ hook จาก orval
+// ✅ orval hooks
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 import {
   useWalletMeRetrieve,
-  getWalletMeRetrieveQueryKey,
 } from "@/api-client/endpoints/wallet/wallet";
 
 const NAV_ITEMS = [
@@ -36,18 +36,15 @@ export default function PlayerNavBar() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
 
-  // ── ดึงโปรไฟล์ (ชื่อผู้ใช้) ─────────────────────────
-  // หมายเหตุ: orval ของ endpoint นี้ type เป็น void แต่ response จริงมีข้อมูล
-  // เราเลยขอเป็น any เพื่ออ่านค่าออกมา
+  // profile
   const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
   const username: string =
     meData?.username ?? meData?.name ?? meData?.email ?? "User";
   const avatarUrl: string | null = meData?.avatarUrl ?? null;
 
-  // ── ดึงยอดเหรียญ ผ่านคีย์กลาง /api/wallet/me/ ─────────────────────────
+  // balance
   const { data: walletData, isLoading: balLoading } = useWalletMeRetrieve<any>();
   const balance: number = typeof walletData?.balance === "number" ? walletData.balance : 0;
-
   const loading = meLoading || balLoading;
 
   const isActive = (href: string) =>
@@ -69,17 +66,19 @@ export default function PlayerNavBar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-neutral-200 bg-white/80 backdrop-blur-md">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-2">
-        {/* โลโก้ */}
-        <Link href="/home" className="flex items-center gap-2 shrink-0" aria-label="Courtly Home">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-3 sm:px-4 lg:px-2">
+        {/* logo */}
+        <Link href="/home" className="flex shrink-0 items-center gap-2" aria-label="Courtly Home">
           <BrandMark />
         </Link>
 
-        {/* Desktop menu */}
-        <DesktopMenu items={NAV_ITEMS} />
+        {/* Desktop menu → แสดงเฉพาะ ≥ lg */}
+        <div className="hidden lg:block">
+          <DesktopMenu items={NAV_ITEMS} />
+        </div>
 
-        {/* Right side (desktop) */}
-        <div className="hidden items-center gap-4 md:flex">
+        {/* Right side (desktop) → แสดงเฉพาะ ≥ lg */}
+        <div className="hidden items-center gap-4 lg:flex">
           <BalanceChip />
           <AvatarBlock
             name={username}
@@ -90,9 +89,9 @@ export default function PlayerNavBar() {
           <Button onClick={handleLogout} disabled={loading} label="Logout" />
         </div>
 
-        {/* Mobile toggle */}
+        {/* Mobile toggle → แสดงเฉพาะ < lg */}
         <button
-          className="inline-flex items-center rounded-md border border-neutral-300 p-2 md:hidden"
+          className="inline-flex items-center rounded-md border border-neutral-300 p-2 lg:hidden"
           aria-label="Toggle menu"
           onClick={() => setOpen((v) => !v)}
         >
@@ -108,9 +107,9 @@ export default function PlayerNavBar() {
         </button>
       </nav>
 
-      {/* Mobile sheet */}
+      {/* Mobile sheet → แสดงเฉพาะ < lg */}
       {open && (
-        <div className="border-t border-neutral-200 bg-white md:hidden">
+        <div className="border-t border-neutral-200 bg-white lg:hidden">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3">
             <div className="flex items-center justify-between">
               <AvatarBlock
