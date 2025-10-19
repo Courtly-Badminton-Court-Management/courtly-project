@@ -115,9 +115,10 @@ class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = "booking_no"
 
     @action(detail=True, methods=["delete"])
-    def cancel(self, request, pk=None):
+    def cancel(self, request, booking_no=None):
         booking = self.get_object()
         booking.status = "cancelled"
         booking.save(update_fields=["status"])

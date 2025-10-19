@@ -27,22 +27,43 @@ class SlotSerializer(serializers.ModelSerializer):
         return obj.end_at.astimezone().strftime("%H:%M")
 
 
-
 class BookingSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Show related names instead of IDs
+    user = serializers.CharField(source="user.username", read_only=True)
+    club_name = serializers.CharField(source="club.name", read_only=True)
+    court_name = serializers.CharField(source="court.name", read_only=True)
+
+    # Include nested slot info from BookingSlot
+    slots = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = [
-            "id",
             "booking_no",
-            "club",
-            "court",
-            "slot",
             "status",
+            "user",
+            "club_name",
+            "court_name",
+            "total_cost",
+            "booking_date",
             "created_at",
-            "user",  # ✅ include user_id
+            "slots",
         ]
+
+    def get_slots(self, obj):
+        # Query all BookingSlot linked to this booking
+        slots = BookingSlot.objects.filter(booking=obj).select_related("slot", "slot__court")
+        data = []
+        for s in slots:
+            data.append({
+                "slot_id": s.slot.id,
+                "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
+                "start_time": s.slot.start_at.astimezone().strftime("%H:%M"),
+                "end_time": s.slot.end_at.astimezone().strftime("%H:%M"),
+                "court_name": s.slot.court.name,
+            })
+        return data
+
 
 class BookingItemSerializer(serializers.Serializer):
     court = serializers.IntegerField()
