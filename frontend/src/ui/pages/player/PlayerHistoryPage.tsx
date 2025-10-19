@@ -1,78 +1,273 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Button from "@/ui/components/basic/Button";
+import { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
+import { Calendar } from "lucide-react";
+import {
+  useBookingsAllRetrieve,
+  useBookingsCancelCreate,
+} from "@/api-client/endpoints/bookings/bookings";
 
-type Row = {
-  id: string;
-  court: string;
-  schedule: string;
-  username: string;
-  coins: number; // positive for refund/topup, negative for capture
-  status: "Booked" | "End Game" | "Cancelled";
+import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
+import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
+
+/* ========================= Runtime types (ยึดตาม backend จริง) ========================= */
+type SlotItem = {
+  slot: number;
+  slot_court: number;
+  slot_service_date: string;
+  slot_start_at: string;
+  slot_end_at: string;
+  price_coins?: number;
+};
+
+type BookingRow = {
+  id: number;
+  booking_no?: string;
+  booking_id?: string;          // กันกรณี backend ใช้ชื่อนี้
+  user?: string;
+  status: string;               // "upcoming" | "endgame" | "no_show" | "cancelled" | ...
+  created_at?: string;
+  created_date?: string;        // เผื่อ backend ส่งชื่อนี้
+  booking_date?: string;        // ถ้ามี
+  total_cost?: number | string; // อาจมาเป็น number หรือ string พร้อมคำว่า coins
+  able_to_cancel: boolean;
+  slots: SlotItem[];
+};
+
+/* ========================= Utils ========================= */
+const resolveBookingNo = (b: BookingRow) => b.booking_no ?? b.booking_id ?? "";
+const statusLabel = (s?: string) => {
+  const x = (s || "").toLowerCase();
+  if (x === "endgame" || x === "end_game" || x === "completed") return "End Game";
+  if (x === "no_show" || x === "no-show") return "No-show";
+  if (x === "cancelled") return "Cancelled";
+  return "Upcoming";
+};
+const statusPillClass = (s?: string) => {
+  const x = (s || "").toLowerCase();
+  if (x === "endgame" || x === "end_game" || x === "completed")
+    return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
+  if (x === "no_show" || x === "no-show")
+    return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
+  if (x === "cancelled") return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
+  return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]"; // Upcoming
+};
+/** ป้องกัน hydration: undefined → 0 (จะไม่ตีเป็นเวลาปัจจุบัน) */
+const safeTs = (s?: string) => (s ? dayjs(s).valueOf() : 0);
+
+/** ทำให้ grid 6 คอลัมน์ล็อกเสมอ (แก้ปัญหา arbitrary col ไม่โดน compile ในบางโปรเจกต์) */
+const gridTemplate = "1fr 1.2fr 1fr 1fr 1fr 1.2fr";
+
+/** กันซ้ำคำว่า coins หาก backend ส่ง string มาแล้วมีคำว่า coins อยู่แล้ว */
+const fmtCoins = (v: unknown) => {
+  if (v === null || v === undefined) return "-";
+  if (typeof v === "number") return `${v} coins`;
+  const s = String(v).trim();
+  return /coins$/i.test(s) ? s : `${s} coins`;
 };
 
 export default function PlayerHistoryPage() {
-  const rows = useMemo<Row[]>(
-    () => [
-      { id: "BK04300820252", court: "Court 5", schedule: "3 Sep 2025, 20:00 - 21:00", username: "Senior19", coins: -200, status: "Booked" },
-      { id: "BK04300820251", court: "Court 5", schedule: "3 Sep 2025, 20:00 - 21:00", username: "Senior19", coins: +200, status: "End Game" },
-      { id: "BK08230729425", court: "Court 3", schedule: "3 Sep 2025, 20:00 - 21:00", username: "Senior19", coins: -100, status: "End Game" },
-      { id: "BK12703976054", court: "Court 1", schedule: "3 Sep 2025, 20:00 - 21:00", username: "Senior19", coins: -200, status: "End Game" },
-      { id: "BK42910382149", court: "Court 4", schedule: "3 Sep 2025, 20:00 - 21:00", username: "Senior19", coins: -100, status: "Cancelled" },
-    ],
-    []
-  );
-  const [q, setQ] = useState("");
+  const { data, isLoading, isError, refetch } = useBookingsAllRetrieve();
 
-  const filtered = rows.filter((r) => r.id.toLowerCase().includes(q.toLowerCase()));
+  // orval ของพี่ type เป็น void แต่ runtime ส่ง array จริง → รองรับทั้ง data และ data.data
+  const rows: BookingRow[] = useMemo(() => {
+    const raw: any = data as any;
+    const arr = (raw?.data ?? raw?.results ?? raw) as unknown;
+    return Array.isArray(arr) ? (arr as BookingRow[]) : [];
+  }, [data]);
+
+  /** เรียงตาม mock: Created Date ใหม่ → เก่า (fallback ไป booking_date/slot_service_date ถ้าไม่มี) */
+  const ordered = useMemo(() => {
+    const fallbackTs = (b: BookingRow) => {
+      const svc = b.booking_date ?? b.slots?.[0]?.slot_service_date;
+      const t = safeTs(svc);
+      return t || (typeof b.id === "number" ? b.id : 0);
+    };
+    return [...rows].sort((a, b) => {
+      const tb = safeTs(b.created_at ?? b.created_date) || fallbackTs(b);
+      const ta = safeTs(a.created_at ?? a.created_date) || fallbackTs(a);
+      return tb - ta; // ใหม่ → เก่า
+    });
+  }, [rows]);
+
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<BookingRow | null>(null);
+
+  const cancelMutation = useBookingsCancelCreate({
+    mutation: {
+      onSuccess: () => {
+        setOpen(false);
+        setActive(null);
+        refetch();
+      },
+    },
+  });
+
+  // แสดง Today หลัง mount เพื่อกัน hydration mismatch
+  const [todayStr, setTodayStr] = useState<string>("");
+  useEffect(() => {
+    setTodayStr(dayjs().format("ddd, MMM DD, YYYY"));
+  }, []);
+
+  const onView = (b: BookingRow) => {
+    setActive(b);
+    setOpen(true);
+  };
+  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b as any);
+  const onCancel = (b: BookingRow) => {
+    const bookingNo = resolveBookingNo(b);
+    if (!bookingNo) return;
+    setActive(b);
+    cancelMutation.mutate({ bookingNo });
+  };
 
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-8">
-      <header className="mb-4 flex items-end justify-between">
-        <h1 className="text-2xl font-bold">Booking History</h1>
-        <div className="flex gap-2">
-          <Button label="Download PDF" />
-          <Button label="Export CSV" />
+    <div className="mx-auto my-auto">
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold tracking-tight text-pine">
+            My Booking History
+          </h1>
+          <p className="text-s font-semibold tracking-tight text-dimgray">
+            Track, download, or manage all bookings here.
+          </p>
         </div>
-      </header>
-
-      <div className="mb-3">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by Booking ID..."
-          className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400"
-        />
       </div>
+      
 
-      <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-        <table className="w-full min-w-[800px] border-separate border-spacing-0 text-sm">
-          <thead>
-            <tr className="bg-neutral-50 text-left">
-              <Th>Booking ID</Th><Th>Court</Th><Th>Schedule</Th><Th>Username</Th><Th>Coins</Th><Th>Status</Th><Th>Action</Th>
+      {isError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          Can't Download Booking History
+        </div>
+      )}
+
+      
+      {/* Booking History Table */}
+      <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        <table className="min-w-[1000px] w-full border-collapse text-[15px] text-neutral-800">
+          <thead className="bg-smoke text-pine font-semibold">
+            <tr>
+              <th className="whitespace-nowrap px-6 py-4 text-left">Created</th>
+              <th className="whitespace-nowrap px-6 py-4 text-left">Booking No.</th>
+              <th className="whitespace-nowrap px-6 py-4 text-center">Total</th>
+              <th className="whitespace-nowrap px-6 py-4 text-center">Booking Date</th>
+              <th className="whitespace-nowrap px-6 py-4 text-center">Status</th>
+              <th className="whitespace-nowrap px-6 py-4 text-center">Actions</th>
             </tr>
           </thead>
+
           <tbody>
-            {filtered.map((r) => (
-              <tr key={r.id} className="border-b last:border-0">
-                <Td className="font-semibold">{r.id}</Td>
-                <Td>{r.court}</Td>
-                <Td>{r.schedule}</Td>
-                <Td>{r.username}</Td>
-                <Td className={r.coins < 0 ? "text-rose-600" : "text-emerald-700"}>
-                  {r.coins < 0 ? r.coins : `+${r.coins}`}
-                </Td>
-                <Td>{r.status}</Td>
-                <Td><Button label="Download PDF" /></Td>
-              </tr>
-            ))}
+            {isLoading &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={6} className="px-6 py-3">
+                    <div className="h-10 animate-pulse rounded-md bg-neutral-100" />
+                  </td>
+                </tr>
+              ))}
+
+            {!isLoading &&
+              ordered.map((b) => {
+                const created = b.created_at ?? b.created_date;
+                const serviceDate = b.booking_date ?? b.slots?.[0]?.slot_service_date;
+                const bookingNo = resolveBookingNo(b);
+                const status = (b.status ?? "upcoming").toLowerCase();
+                const canCancel = b.able_to_cancel && status !== "cancelled";
+
+                return (
+                  <tr
+                    key={bookingNo || b.id}
+                    className="border-t border-smoke hover:bg-neutral-50/70"
+                    onClick={() => onView(b)}
+                  >
+                    {/* Created */}
+                    <td className="px-6 py-4 text-neutral-600 whitespace-nowrap">
+                      {created ? dayjs(created).format("D MMM YYYY") : "-"}
+                    </td>
+
+                    {/* Booking ID */}
+                    <td className="px-6 py-4 font-semibold text-walnut">
+                      {bookingNo || "-"}
+                    </td>
+
+                    {/* Total */}
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {fmtCoins(b.total_cost)}
+                    </td>
+
+                    {/* Booking Date */}
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {serviceDate ? dayjs(serviceDate).format("D MMM YYYY") : "-"}
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-6 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm ${statusPillClass(
+                          status
+                        )}`}
+                      >
+                        <span className="h-3 w-3 rounded-sm bg-current/60" />
+                        {statusLabel(status)}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 text-center">
+                      <div className="inline-flex flex-wrap justify-center gap-2">
+                        <button
+                          onClick={() => onView(b)}
+                          className="rounded-lg border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
+                        >
+                          View Details
+                        </button>
+
+                        <button
+                          onClick={() => onDownload(b)}
+                          disabled={status === "upcoming"}
+                          className={`rounded-lg border px-4 py-2 ${
+                            status === "upcoming"
+                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
+                          }`}
+                        >
+                          Download
+                        </button>
+
+                        <button
+                          onClick={() => onCancel(b)}
+                          disabled={!canCancel || cancelMutation.isPending}
+                          className={`rounded-lg border px-4 py-2 ${
+                            !canCancel || cancelMutation.isPending
+                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : "border-[#8d3e3e] bg-[#8d3e3e] text-white hover:brightness-95"
+                          }`}
+                        >
+                          {cancelMutation.isPending &&
+                          active &&
+                          resolveBookingNo(active) === bookingNo
+                            ? "Cancelling…"
+                            : "Cancel"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
-    </main>
+
+
+
+      {/* Modal */}
+      <BookingReceiptModal
+        open={open}
+        onClose={() => setOpen(false)}
+        booking={active as any}
+      />
+    </div>
   );
 }
-
-const Th = ({ children }: any) => <th className="p-3 text-xs font-semibold">{children}</th>;
-const Td = ({ children, className = "" }: any) => <td className={`p-3 ${className}`}>{children}</td>;
