@@ -10,6 +10,7 @@ export default function BrandMark({ size = 55 }: { size?: number }) {
         width={size}
         height={size}
         priority
+        style={{ width: size, height: size }}
         className="shrink-0"
       />
 
