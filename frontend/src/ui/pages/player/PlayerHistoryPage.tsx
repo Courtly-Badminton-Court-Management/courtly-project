@@ -1,10 +1,11 @@
+// src/ui/pages/player/PlayerHistoryPage.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { Calendar } from "lucide-react";
 import {
-  useBookingsAllRetrieve,
+  useBookingsRetrieve,
   useBookingsCancelCreate,
 } from "@/api-client/endpoints/bookings/bookings";
 
@@ -24,12 +25,12 @@ type SlotItem = {
 type BookingRow = {
   id: number;
   booking_no?: string;
-  booking_id?: string;          // กันกรณี backend ใช้ชื่อนี้
+  booking_id?: string; // กันกรณี backend ใช้ชื่อนี้
   user?: string;
-  status: string;               // "upcoming" | "endgame" | "no_show" | "cancelled" | ...
+  status: string; // "upcoming" | "endgame" | "no_show" | "cancelled" | ...
   created_at?: string;
-  created_date?: string;        // เผื่อ backend ส่งชื่อนี้
-  booking_date?: string;        // ถ้ามี
+  created_date?: string; // เผื่อ backend ส่งชื่อนี้
+  booking_date?: string; // ถ้ามี
   total_cost?: number | string; // อาจมาเป็น number หรือ string พร้อมคำว่า coins
   able_to_cancel: boolean;
   slots: SlotItem[];
@@ -56,9 +57,6 @@ const statusPillClass = (s?: string) => {
 /** ป้องกัน hydration: undefined → 0 (จะไม่ตีเป็นเวลาปัจจุบัน) */
 const safeTs = (s?: string) => (s ? dayjs(s).valueOf() : 0);
 
-/** ทำให้ grid 6 คอลัมน์ล็อกเสมอ (แก้ปัญหา arbitrary col ไม่โดน compile ในบางโปรเจกต์) */
-const gridTemplate = "1fr 1.2fr 1fr 1fr 1fr 1.2fr";
-
 /** กันซ้ำคำว่า coins หาก backend ส่ง string มาแล้วมีคำว่า coins อยู่แล้ว */
 const fmtCoins = (v: unknown) => {
   if (v === null || v === undefined) return "-";
@@ -68,7 +66,8 @@ const fmtCoins = (v: unknown) => {
 };
 
 export default function PlayerHistoryPage() {
-  const { data, isLoading, isError, refetch } = useBookingsAllRetrieve();
+  // ⬇️ เปลี่ยนมาใช้ hook ใหม่
+  const { data, isLoading, isError, refetch } = useBookingsRetrieve();
 
   // orval ของพี่ type เป็น void แต่ runtime ส่ง array จริง → รองรับทั้ง data และ data.data
   const rows: BookingRow[] = useMemo(() => {
@@ -135,7 +134,6 @@ export default function PlayerHistoryPage() {
           </p>
         </div>
       </div>
-      
 
       {isError && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
@@ -143,7 +141,6 @@ export default function PlayerHistoryPage() {
         </div>
       )}
 
-      
       {/* Booking History Table */}
       <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
         <table className="min-w-[1000px] w-full border-collapse text-[15px] text-neutral-800">
@@ -259,8 +256,6 @@ export default function PlayerHistoryPage() {
           </tbody>
         </table>
       </div>
-
-
 
       {/* Modal */}
       <BookingReceiptModal

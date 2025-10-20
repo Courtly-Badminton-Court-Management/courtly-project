@@ -4,44 +4,24 @@ import React, { useMemo } from "react";
 import dayjs from "dayjs";
 import Modal from "@/ui/components/basic/Modal";
 import { CalendarRange, Clock3, Coins, MapPin } from "lucide-react";
-
-/** ==== Types (ยืดหยุ่นตาม backend) ==== */
-type SlotItem = {
-  slot?: number;
-  slot_court?: number; court?: number;
-
-  slot_service_date?: string;  service_date?: string;
-
-  slot_start_at?: string | null; start_at?: string | null; start_time?: string | null; start?: string | null;
-  slot_end_at?: string | null;   end_at?: string | null;   end_time?: string | null;   end?: string | null;
-
-  price_coins?: number | string; price?: number | string;
-};
+import { historyBookingToGroups } from "@/lib/booking/historyToGroups";
 
 type BookingRow = {
-  id?: number | string;
   booking_no?: string;
   booking_id?: string;
-  user?: string;
   status?: string;
   created_at?: string;
   created_date?: string;
   booking_date?: string;
   total_cost?: number | string;
-  able_to_cancel?: boolean;
-  slots?: SlotItem[];
+  slots?: any[];
 };
 
-/** ==== Helpers ==== */
-const resolveBookingNo = (b?: BookingRow | null) =>
-  b?.booking_no ?? b?.booking_id ?? "";
+const MINUTES_PER_CELL = 30; // ปรับตามระบบ
 
-const fmtCoins = (v: unknown) => {
-  if (v === null || v === undefined) return "0 coins";
-  if (typeof v === "number") return `${v} coins`;
-  const s = String(v).trim();
-  return /coins$/i.test(s) ? s : `${s} coins`;
-};
+const resolveBookingNo = (b?: BookingRow | null) => b?.booking_no ?? b?.booking_id ?? "";
+const fmtCoins = (v: unknown) =>
+  typeof v === "number" ? `${v} coins` : /coins$/i.test(String(v)) ? String(v) : `${v ?? 0} coins`;
 
 const statusLabel = (s?: string) => {
   const x = (s || "").toLowerCase();
@@ -50,7 +30,6 @@ const statusLabel = (s?: string) => {
   if (x === "cancelled") return "Cancelled";
   return "Upcoming";
 };
-
 const statusPillClass = (s?: string) => {
   const x = (s || "").toLowerCase();
   if (x === "endgame" || x === "end_game" || x === "completed")
@@ -61,11 +40,13 @@ const statusPillClass = (s?: string) => {
   return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
 };
 
-const toHHmm = (v?: string | null) => {
-  if (!v) return null;
-  const m = v.match(/\d{1,2}:\d{2}/);
-  return m ? m[0] : dayjs(v).isValid() ? dayjs(v).format("HH:mm") : null;
-};
+function formatDuration(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h} hr ${m} min`;
+  if (h) return `${h} hr`;
+  return `${m} min`;
+}
 
 export default function BookingReceiptModal({
   open,
@@ -80,60 +61,27 @@ export default function BookingReceiptModal({
 
   const bookingNo = resolveBookingNo(booking);
 
-  const rows = useMemo(() => {
-    const list = booking.slots ?? [];
-    return list.map((s, idx) => {
-      const court = s.slot_court ?? s.court;
-      const serviceDate =
-        s.slot_service_date ?? s.service_date ?? booking.booking_date ?? null;
+  // group เหมือน summary modal
+  const groups = useMemo(
+    () => historyBookingToGroups(booking as any, MINUTES_PER_CELL, 0),
+    [booking],
+  );
 
-      const start =
-        toHHmm(s.slot_start_at ?? s.start_at ?? s.start_time ?? s.start ?? null);
-      const end =
-        toHHmm(s.slot_end_at ?? s.end_at ?? s.end_time ?? s.end ?? null);
+  const items = useMemo(
+    () =>
+      groups.map((g) => ({
+        courtLabel: `Court ${g.courtRow}`,
+        timeLabel: g.timeLabel,
+        durationText: formatDuration(g.slots * MINUTES_PER_CELL),
+        priceText: fmtCoins(g.price),
+      })),
+    [groups],
+  );
 
-      // duration
-      let durationText = "-";
-      if (start && end) {
-        const [sh, sm] = start.split(":").map(Number);
-        const [eh, em] = end.split(":").map(Number);
-        const mins = eh * 60 + em - (sh * 60 + sm);
-        if (mins > 0) {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          durationText = [h ? `${h} hr` : "", m ? `${m} min` : ""]
-            .filter(Boolean)
-            .join(" ")
-            .trim() || "0 min";
-        }
-      }
-
-      const price = s.price_coins ?? s.price ?? 0;
-
-      return {
-        key: `${s.slot ?? court ?? idx}-${start ?? "?"}-${end ?? "?"}`,
-        court,
-        priceText: fmtCoins(price),
-        timeText: start && end ? `${start} - ${end}` : "-",
-        durationText,
-        dateText: serviceDate ? dayjs(serviceDate).format("D MMMM YYYY") : "-",
-      };
-    });
-  }, [booking]);
-
-  const totalText =
+  const totalCoins =
     booking.total_cost !== undefined
       ? fmtCoins(booking.total_cost)
-      : fmtCoins(
-          (booking.slots ?? []).reduce((sum, s) => {
-            const raw = s.price_coins ?? s.price ?? 0;
-            const n =
-              typeof raw === "number"
-                ? raw
-                : Number(String(raw).replace(/[^\d.-]/g, "")) || 0;
-            return sum + n;
-          }, 0),
-        );
+      : fmtCoins(groups.reduce((sum, g) => sum + (g.price || 0), 0));
 
   const status = booking.status ?? "upcoming";
   const createdAt = booking.created_at ?? booking.created_date ?? undefined;
@@ -180,27 +128,24 @@ export default function BookingReceiptModal({
         </div>
       </div>
 
-      {/* Slot list */}
+      {/* Items (เหมือน Summary ตอนจอง) */}
       <div className="mt-4 space-y-3 px-4">
-        {rows.length === 0 && (
+        {items.length === 0 && (
           <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-center text-neutral-500">
             No slot data.
           </div>
         )}
 
-        {rows.map((r) => (
-          <div key={r.key} className="rounded-2xl border border-neutral-200 bg-white p-3">
+        {items.map((it, i) => (
+          <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-3">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 rounded-full bg-[#e5f2ef] px-3 py-1 text-[#2a756a]">
-                <MapPin className="h-4 w-4" />
-                <span className="text-[14px] font-semibold">
-                  Court {r.court ?? "-"}
-                </span>
-              </div>
-
+              <span className="inline-flex items-center rounded-full bg-[#e5f2ef] px-3 py-1 text-[#2a756a]">
+                <MapPin className="mr-1 h-4 w-4" />
+                <span className="text-[14px] font-semibold">{it.courtLabel}</span>
+              </span>
               <div className="flex items-center gap-2 text-[15px] font-semibold text-neutral-800">
                 <Coins className="h-4 w-4" />
-                {r.priceText}
+                {it.priceText}
               </div>
             </div>
 
@@ -208,12 +153,12 @@ export default function BookingReceiptModal({
               <div className="flex items-center gap-2">
                 <CalendarRange className="h-4 w-4 text-neutral-500" />
                 <span className="text-neutral-500">Time:</span>
-                <span className="font-medium">{r.timeText}</span>
+                <span className="font-medium">{it.timeLabel}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-neutral-500" />
                 <span className="text-neutral-500">Duration:</span>
-                <span className="font-medium">{r.durationText}</span>
+                <span className="font-medium">{it.durationText}</span>
               </div>
             </div>
           </div>
@@ -225,7 +170,7 @@ export default function BookingReceiptModal({
         <div>Total</div>
         <div className="flex items-center gap-2">
           <Coins className="h-5 w-5" />
-          {totalText}
+          {totalCoins}
         </div>
       </div>
     </Modal>

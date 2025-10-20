@@ -1,124 +1,83 @@
-// src/ui/lib/booking/invoice.ts
-type SlotItem = {
-  slot: number;
-  slot_court: number;
-  slot_service_date: string;
-  slot_start_at: string;
-  slot_end_at: string;
-  price_coins?: number;
-};
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import dayjs from "dayjs";
+import { historyBookingToGroups } from "@/lib/booking/historyToGroups";
 
-type BookingAllItem = {
-  id?: number;
+type BookingLike = {
   booking_no?: string;
   booking_id?: string;
-  user?: string;
-  status: string;
-  created_at?: string;
-  created_date?: string;
+  status?: string;
+  created_at?: string; created_date?: string;
   booking_date?: string;
-  total_cost?: number;
-  able_to_cancel: boolean;
-  slots: SlotItem[];
+  slots?: any[];
+  total_cost?: number | string;
 };
 
-function resolveBookingNo(b: BookingAllItem) {
-  return b.booking_no ?? b.booking_id ?? "";
-}
+const MINUTES_PER_CELL = 30;
+const resolveBookingNo = (b: BookingLike) => b.booking_no ?? b.booking_id ?? "";
+const fmtCoins = (v: unknown) =>
+  typeof v === "number" ? `${v} coins` : /coins$/i.test(String(v)) ? String(v) : `${v ?? 0} coins`;
 
-export function generateBookingInvoicePDF(booking: BookingAllItem) {
-  const bookingNo = resolveBookingNo(booking) || "BOOKING";
-  const date = booking.slots?.[0]?.slot_service_date ?? booking.booking_date ?? "";
-  const rows = (booking.slots ?? [])
-    .map(
-      (s, i) => `
-      <tr>
-        <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${i + 1}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;">Court #${s.slot_court}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${s.slot_start_at}</td>
-        <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${s.slot_end_at}</td>
-      </tr>`,
-    )
-    .join("");
+export async function generateBookingInvoicePDF(booking: BookingLike): Promise<void> {
+  // dynamic import เพื่อใช้เฉพาะฝั่ง client
+  const { jsPDF } = await import("jspdf");
+  // ESM: ต้องดึง function มาเอง (ไม่ได้ผูก doc.autoTable)
+  const autoTableMod: any = await import("jspdf-autotable");
+  const autoTable = (autoTableMod.default ?? autoTableMod.autoTable) as (doc: any, opts: any) => void;
 
-  const total = booking.total_cost ?? 0;
+  const doc = new jsPDF();
 
-  const html = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>Invoice ${bookingNo}</title>
-  <style>
-    @page { margin: 18mm; }
-    body { font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#111827; }
-    .brand { color:#2a756a; font-weight:700; letter-spacing:.3px; }
-    h1 { margin:0 0 6px; }
-    .muted { color:#6b7280; }
-    .hr { height:1px;background:#e5e7eb;margin:14px 0; }
-    .row { display:flex;justify-content:space-between;gap:12px;align-items:flex-start; }
-    .pill { display:inline-block; padding:2px 8px; border:1px solid #d1fae5; background:#ecfdf5; color:#065f46; border-radius:9999px; font-size:11px; }
-    .table { width:100%; border-collapse:collapse; font-size:12px; }
-    th, td { border-bottom:1px solid #e5e7eb; padding:8px; }
-    th { text-align:left; }
-    .right { text-align:right; }
-    .total { font-size:14px;font-weight:700; }
-    .card { border:1px solid #e5e7eb; border-radius:12px; padding:12px; }
-  </style>
-</head>
-<body onload="window.print(); setTimeout(()=>window.close(), 80);">
+  const bookingNo = resolveBookingNo(booking) || "-";
+  const createdAt = booking.created_at ?? booking.created_date;
+  const bookingDate =
+    booking.booking_date ??
+    booking.slots?.[0]?.slot_service_date ??
+    booking.slots?.[0]?.service_date;
 
-  <div class="row">
-    <div>
-      <div class="brand">COURTLY</div>
-      <h1>Booking Invoice</h1>
-      <div class="muted">Invoice for booking confirmation</div>
-    </div>
-    <div class="right">
-      <div><b>Booking ID:</b> ${bookingNo}</div>
-      <div><b>Date:</b> ${date || "-"}</div>
-      <div><b>Status:</b> ${booking.status || "-"}</div>
-    </div>
-  </div>
+  // Header
+  doc.setFontSize(18);
+  doc.text("Booking Receipt", 14, 18);
 
-  <div class="hr"></div>
+  doc.setFontSize(11);
+  doc.text(`Booking ID: ${bookingNo}`, 14, 28);
+  doc.text(`Created At: ${createdAt ? dayjs(createdAt).format("D MMM YYYY HH:mm") : "-"}`, 14, 34);
+  doc.text(`Booking Date: ${bookingDate ? dayjs(bookingDate).format("D MMM YYYY") : "-"}`, 14, 40);
 
-  <div class="row">
-    <div class="card" style="width:48%">
-      <div style="font-weight:600;margin-bottom:6px;">Player</div>
-      <div class="muted">Username / Email</div>
-      <div>${booking.user ?? "-"}</div>
-    </div>
-    <div class="card" style="width:48%">
-      <div style="font-weight:600;margin-bottom:6px;">Summary</div>
-      <div><span class="pill">Coins Deducted</span></div>
-      <div class="total right">-${Math.abs(total)} coins</div>
-    </div>
-  </div>
+  // ใช้ groups เดียวกับ modal
+  const groups = historyBookingToGroups(booking as any, MINUTES_PER_CELL, 0);
+  const body = groups.map((g) => [
+    `Court ${g.courtRow}`,
+    g.timeLabel,
+    `${g.slots * MINUTES_PER_CELL} min`,
+    `${g.price} coins`,
+  ]);
 
-  <div style="font-weight:600;margin:14px 0 8px;">Time Slots</div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th style="width:48px;text-align:center;">#</th>
-        <th>Court</th>
-        <th style="width:140px;text-align:center;">Start</th>
-        <th style="width:140px;text-align:center;">End</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
+  autoTable(doc, {
+    startY: 48,
+    head: [["Court", "Time", "Duration", "Price"]],
+    body,
+    styles: { fontSize: 11, cellPadding: 3 },
+    headStyles: { fillColor: [42, 117, 106] },
+    theme: "grid",
+    columnStyles: {
+      0: { halign: "left", cellWidth: 35 },
+      1: { halign: "left", cellWidth: 70 },
+      2: { halign: "left", cellWidth: 35 },
+      3: { halign: "right", cellWidth: 35 },
+    },
+  });
 
-  <div class="hr"></div>
-  <div class="muted" style="font-size:11px;">
-    * Cancellation is allowed only more than 24 hours before start time. Refunds follow policy.
-  </div>
-</body>
-</html>`;
+  const total =
+    booking.total_cost !== undefined
+      ? fmtCoins(booking.total_cost)
+      : fmtCoins(groups.reduce((sum, g) => sum + (g.price || 0), 0));
 
-  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=720");
-  if (!win) return;
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  const y = (doc as any).lastAutoTable?.finalY ?? 48;
+  doc.setFontSize(12);
+  doc.text("Total", 150, y + 12, { align: "right" });
+  doc.text(String(total), 200 - 14, y + 12, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.text("Courtly • Easy Court, Easy Life", 14, 285);
+
+  doc.save(`Booking_${bookingNo || "receipt"}.pdf`);
 }

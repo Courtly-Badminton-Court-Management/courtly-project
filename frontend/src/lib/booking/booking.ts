@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useBookingsCreate } from "@/api-client/endpoints/bookings/bookings";
+import { useBookingsCreateCreate} from "@/api-client/endpoints/bookings/bookings";
 
 type Item = { court: number; date: string; start: string; end: string };
 
 export function useCreateBookings() {
   const qc = useQueryClient();
 
-  const mutation = useBookingsCreate({
+  const mutation = useBookingsCreateCreate({
     mutation: {
       onSuccess: () => {
         // รีเฟรช cache หลัก ๆ: wallet + slots
