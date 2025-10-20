@@ -6,54 +6,77 @@ export default function GetToKnowUs() {
       {/* Left: photo collage */}
       <div className="relative">
         <img
-          src="/images/about/hero-1.jpg"
+          src="/images/badminton-6.jpg"
           alt=""
-          className="h-[320px] w-full rounded-3xl object-cover shadow-lg md:h-[420px]"
+          className="h-[450px] w-[450px] rounded-3xl object-cover shadow-lg md:h-[620px]"
         />
         <img
-          src="/images/about/hero-2.jpg"
+          src="/images/badminton-3.jpg"
           alt=""
-          className="absolute -bottom-8 left-8 h-40 w-56 rounded-2xl border-4 border-white object-cover shadow-xl md:h-56 md:w-80"
+          className="absolute top-50 left-78 h-40 w-56 rounded-2xl border-4 border-white object-cover shadow-xl md:h-86 md:w-60"
         />
       </div>
 
       {/* Right: copy + quick contacts */}
       <div>
-        <div className="mb-2 inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-rose-700">
+        <div className="mb-2 inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-cherry">
           About Us
         </div>
         <h1 id="about-title" className="mb-4 text-3xl font-extrabold tracking-tight md:text-4xl">
           Get To Know <span className="text-pine">Courtly</span>
         </h1>
 
-        <p className="text-neutral-700 leading-relaxed">
-          <b>Courtly</b> is Thailand’s leading online badminton court booking platform,
-          built for players, clubs, and venue owners. Whether you’re reserving a quick
-          match with friends or managing multiple courts, <b>Courtly</b> delivers a fast,
-          transparent, stress-free experience — so everyone can focus on what truly
-          matters: the game.
+        <p className="text-lg text-neutral-700 leading-relaxed md:text-xl md:leading-loose">
+          <b>Courtly</b> is Thailand’s leading online badminton court booking platform — designed for players, clubs, 
+          and venue owners to connect effortlessly. Whether you’re reserving a quick match with friends or managing 
+          multiple courts, <b>Courtly</b> offers a fast, transparent, and stress-free booking experience with secure payment 
+          and real-time updates. Our goal is to make every badminton session simple and enjoyable — 
+          so players can focus on what truly matters: the game.
         </p>
+
 
         {/* contact chips */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <ContactChip icon="/icons/phone.svg" title="Phone" value="0998888777" />
-          <ContactChip icon="/icons/facebook.svg" title="Facebook" value="Courtly" />
-          <ContactChip icon="/icons/mail.svg" title="Email" value="courtly.project@gmail.com" />
-          <ContactChip icon="/icons/globe.svg" title="Website" value="courtlyeasy.app" />
+          <ContactChip icon="/icons/phone-call.png" title="Phone" value="0998888777" />
+          <ContactChip icon="/icons/facebook.png" title="Facebook" value="Courtly" />
+          <ContactChip
+            icon="/icons/email.png"
+            title="Email"
+            value="courtly.project@gmail.com"
+            small
+          />
+          <ContactChip icon="/icons/web.png" title="Website" value="courtlyeasy.app" />
         </div>
       </div>
     </section>
   );
 }
 
-function ContactChip({ icon, title, value }: { icon: string; title: string; value: string }) {
+function ContactChip({
+  icon,
+  title,
+  value,
+  small = false,
+}: {
+  icon: string;
+  title: string;
+  value: string;
+  small?: boolean;
+}) {
   return (
     <div className="flex items-center gap-3 rounded-xl border px-4 py-3">
-      <img src={icon} alt="" className="h-8 w-8" />
+      <img src={icon} alt="" className="h-10 w-10" />
       <div className="min-w-0">
         <div className="text-xs text-neutral-500">{title}</div>
-        <div className="truncate font-semibold">{value}</div>
+        <div
+          className={`truncate font-semibold ${
+            small ? "text-xs" : "text-base"
+          }`}
+        >
+          {value}
+        </div>
       </div>
     </div>
   );
 }
+
