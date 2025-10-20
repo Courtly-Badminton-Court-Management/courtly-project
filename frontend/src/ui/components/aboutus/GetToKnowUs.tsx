@@ -13,7 +13,7 @@ export default function GetToKnowUs() {
         <img
           src="/images/badminton-3.jpg"
           alt=""
-          className="absolute top-50 left-78 h-40 w-56 rounded-2xl border-4 border-white object-cover shadow-xl md:h-86 md:w-60"
+          className="absolute top-50 left-78 h-40 w-56 rounded-2xl border-4 border-white object-cover shadow-xl md:h-86 md:w-55"
         />
       </div>
 

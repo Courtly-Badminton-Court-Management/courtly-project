@@ -2,22 +2,22 @@
 
 const items = [
   {
-    icon: "/icons/rackets.svg",
+    icon: "/icons/rackets.png",
     title: "Rackets available for rent",
     desc: "At 40 THB per racket.",
   },
   {
-    icon: "/icons/food.svg",
+    icon: "/icons/food.png",
     title: "Food & beverages available",
-    desc: "Fresh dishes, drinks, ice cream, bakery treats.",
+    desc: "Fresh prepared dishes, drinks, ice cream, bakery treats.",
   },
   {
-    icon: "/icons/lounge.svg",
+    icon: "/icons/lounge.png",
     title: "Lounge & relaxing dining area",
     desc: "Rest, enjoy refreshments, and socialize between matches.",
   },
   {
-    icon: "/icons/parking.svg",
+    icon: "/icons/parking.png",
     title: "Ample parking space provided",
     desc: "Spacious, convenient parking near the venue.",
   },
@@ -26,7 +26,7 @@ const items = [
 export default function OurServices() {
   return (
     <section aria-labelledby="services-title">
-      <div className="mb-3 inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-rose-700">
+      <div className="mb-3 inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-cherry">
         Services
       </div>
       <h2 id="services-title" className="mb-6 text-3xl font-extrabold tracking-tight">
