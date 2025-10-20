@@ -19,7 +19,7 @@ from django.urls import path
 from accounts.views import RegisterView, LoginView, MeView
 from rest_framework_simplejwt.views import TokenRefreshView
 from core.views import PlayerHomeData, ManagerDashboardData
-
+from django.urls import path, include
 
 
 urlpatterns = [
@@ -30,10 +30,10 @@ urlpatterns = [
     path("api/auth/login/",    LoginView.as_view(),    name="login"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("api/auth/me/",       MeView.as_view(),       name="me"),
-
+    path("api/", include("wallet.urls")),
     # Neutral app paths
     path("api/app/home/", PlayerHomeData.as_view(), name="app-home"),
-    path("api/app/dashboard/", ManagerDashboardData.as_view(), name="app-dashboard"), # vain manager
+    path("api/app/dashboard/", ManagerDashboardData.as_view(), name="app-dashboard"),
 ]
 
 
