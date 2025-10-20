@@ -21,7 +21,7 @@ import type {
 import { customRequest } from "../../custom-client";
 
 /**
- * GET /api/history/
+ * List the last 50 bookings of the logged-in user.
  */
 export const historyRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({ url: `/api/history/`, method: "GET", signal });

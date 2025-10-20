@@ -7,15 +7,26 @@
  */
 import type { BookingStatusEnum } from "./bookingStatusEnum";
 
+/**
+ * Serializer for Booking.
+- Shows readable names (user, club, court) instead of numeric IDs.
+- Includes nested slot details under 'slots'.
+ */
 export interface Booking {
-  readonly id: number;
   /** @maxLength 24 */
   booking_no: string;
-  club: number;
-  court: number;
-  /** @nullable */
-  slot?: number | null;
   status?: BookingStatusEnum;
+  readonly user: string;
+  readonly club_name: string;
+  readonly court_name: string;
+  /**
+   * @minimum 0
+   * @maximum 2147483647
+   * @nullable
+   */
+  total_cost?: number | null;
+  /** @nullable */
+  booking_date?: string | null;
   readonly created_at: string;
-  readonly user: number;
+  readonly slots: string;
 }

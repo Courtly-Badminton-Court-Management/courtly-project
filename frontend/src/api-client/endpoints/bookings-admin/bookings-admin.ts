@@ -53,6 +53,10 @@ type NonReadonly<T> = [T] extends [UnionToIntersection<T>]
     }
   : DistributeReadOnlyOverUnions<T>;
 
+/**
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
 export const bookingsAdminList = (signal?: AbortSignal) => {
   return customRequest<Booking[]>({
     url: `/api/bookings-admin/`,
@@ -194,6 +198,10 @@ export function useBookingsAdminList<
   return query;
 }
 
+/**
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
 export const bookingsAdminCreate = (
   booking: NonReadonly<Booking>,
   signal?: AbortSignal,
@@ -270,23 +278,30 @@ export const useBookingsAdminCreate = <TError = unknown, TContext = unknown>(
 
   return useMutation(mutationOptions, queryClient);
 };
-export const bookingsAdminRetrieve = (id: number, signal?: AbortSignal) => {
+/**
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
+export const bookingsAdminRetrieve = (
+  bookingNo: string,
+  signal?: AbortSignal,
+) => {
   return customRequest<Booking>({
-    url: `/api/bookings-admin/${id}/`,
+    url: `/api/bookings-admin/${bookingNo}/`,
     method: "GET",
     signal,
   });
 };
 
-export const getBookingsAdminRetrieveQueryKey = (id?: number) => {
-  return [`/api/bookings-admin/${id}/`] as const;
+export const getBookingsAdminRetrieveQueryKey = (bookingNo?: string) => {
+  return [`/api/bookings-admin/${bookingNo}/`] as const;
 };
 
 export const getBookingsAdminRetrieveQueryOptions = <
   TData = Awaited<ReturnType<typeof bookingsAdminRetrieve>>,
   TError = unknown,
 >(
-  id: number,
+  bookingNo: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -300,16 +315,16 @@ export const getBookingsAdminRetrieveQueryOptions = <
   const { query: queryOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getBookingsAdminRetrieveQueryKey(id);
+    queryOptions?.queryKey ?? getBookingsAdminRetrieveQueryKey(bookingNo);
 
   const queryFn: QueryFunction<
     Awaited<ReturnType<typeof bookingsAdminRetrieve>>
-  > = ({ signal }) => bookingsAdminRetrieve(id, signal);
+  > = ({ signal }) => bookingsAdminRetrieve(bookingNo, signal);
 
   return {
     queryKey,
     queryFn,
-    enabled: !!id,
+    enabled: !!bookingNo,
     ...queryOptions,
   } as UseQueryOptions<
     Awaited<ReturnType<typeof bookingsAdminRetrieve>>,
@@ -327,7 +342,7 @@ export function useBookingsAdminRetrieve<
   TData = Awaited<ReturnType<typeof bookingsAdminRetrieve>>,
   TError = unknown,
 >(
-  id: number,
+  bookingNo: string,
   options: {
     query: Partial<
       UseQueryOptions<
@@ -353,7 +368,7 @@ export function useBookingsAdminRetrieve<
   TData = Awaited<ReturnType<typeof bookingsAdminRetrieve>>,
   TError = unknown,
 >(
-  id: number,
+  bookingNo: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -379,7 +394,7 @@ export function useBookingsAdminRetrieve<
   TData = Awaited<ReturnType<typeof bookingsAdminRetrieve>>,
   TError = unknown,
 >(
-  id: number,
+  bookingNo: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -398,7 +413,7 @@ export function useBookingsAdminRetrieve<
   TData = Awaited<ReturnType<typeof bookingsAdminRetrieve>>,
   TError = unknown,
 >(
-  id: number,
+  bookingNo: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -412,7 +427,7 @@ export function useBookingsAdminRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getBookingsAdminRetrieveQueryOptions(id, options);
+  const queryOptions = getBookingsAdminRetrieveQueryOptions(bookingNo, options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,
@@ -424,12 +439,16 @@ export function useBookingsAdminRetrieve<
   return query;
 }
 
+/**
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
 export const bookingsAdminUpdate = (
-  id: number,
+  bookingNo: string,
   booking: NonReadonly<Booking>,
 ) => {
   return customRequest<Booking>({
-    url: `/api/bookings-admin/${id}/`,
+    url: `/api/bookings-admin/${bookingNo}/`,
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     data: booking,
@@ -443,13 +462,13 @@ export const getBookingsAdminUpdateMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof bookingsAdminUpdate>>,
     TError,
-    { id: number; data: NonReadonly<Booking> },
+    { bookingNo: string; data: NonReadonly<Booking> },
     TContext
   >;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof bookingsAdminUpdate>>,
   TError,
-  { id: number; data: NonReadonly<Booking> },
+  { bookingNo: string; data: NonReadonly<Booking> },
   TContext
 > => {
   const mutationKey = ["bookingsAdminUpdate"];
@@ -463,11 +482,11 @@ export const getBookingsAdminUpdateMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof bookingsAdminUpdate>>,
-    { id: number; data: NonReadonly<Booking> }
+    { bookingNo: string; data: NonReadonly<Booking> }
   > = (props) => {
-    const { id, data } = props ?? {};
+    const { bookingNo, data } = props ?? {};
 
-    return bookingsAdminUpdate(id, data);
+    return bookingsAdminUpdate(bookingNo, data);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -484,7 +503,7 @@ export const useBookingsAdminUpdate = <TError = unknown, TContext = unknown>(
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof bookingsAdminUpdate>>,
       TError,
-      { id: number; data: NonReadonly<Booking> },
+      { bookingNo: string; data: NonReadonly<Booking> },
       TContext
     >;
   },
@@ -492,19 +511,23 @@ export const useBookingsAdminUpdate = <TError = unknown, TContext = unknown>(
 ): UseMutationResult<
   Awaited<ReturnType<typeof bookingsAdminUpdate>>,
   TError,
-  { id: number; data: NonReadonly<Booking> },
+  { bookingNo: string; data: NonReadonly<Booking> },
   TContext
 > => {
   const mutationOptions = getBookingsAdminUpdateMutationOptions(options);
 
   return useMutation(mutationOptions, queryClient);
 };
+/**
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
 export const bookingsAdminPartialUpdate = (
-  id: number,
+  bookingNo: string,
   patchedBooking: NonReadonly<PatchedBooking>,
 ) => {
   return customRequest<Booking>({
-    url: `/api/bookings-admin/${id}/`,
+    url: `/api/bookings-admin/${bookingNo}/`,
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     data: patchedBooking,
@@ -518,13 +541,13 @@ export const getBookingsAdminPartialUpdateMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof bookingsAdminPartialUpdate>>,
     TError,
-    { id: number; data: NonReadonly<PatchedBooking> },
+    { bookingNo: string; data: NonReadonly<PatchedBooking> },
     TContext
   >;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof bookingsAdminPartialUpdate>>,
   TError,
-  { id: number; data: NonReadonly<PatchedBooking> },
+  { bookingNo: string; data: NonReadonly<PatchedBooking> },
   TContext
 > => {
   const mutationKey = ["bookingsAdminPartialUpdate"];
@@ -538,11 +561,11 @@ export const getBookingsAdminPartialUpdateMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof bookingsAdminPartialUpdate>>,
-    { id: number; data: NonReadonly<PatchedBooking> }
+    { bookingNo: string; data: NonReadonly<PatchedBooking> }
   > = (props) => {
-    const { id, data } = props ?? {};
+    const { bookingNo, data } = props ?? {};
 
-    return bookingsAdminPartialUpdate(id, data);
+    return bookingsAdminPartialUpdate(bookingNo, data);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -563,7 +586,7 @@ export const useBookingsAdminPartialUpdate = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof bookingsAdminPartialUpdate>>,
       TError,
-      { id: number; data: NonReadonly<PatchedBooking> },
+      { bookingNo: string; data: NonReadonly<PatchedBooking> },
       TContext
     >;
   },
@@ -571,16 +594,20 @@ export const useBookingsAdminPartialUpdate = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof bookingsAdminPartialUpdate>>,
   TError,
-  { id: number; data: NonReadonly<PatchedBooking> },
+  { bookingNo: string; data: NonReadonly<PatchedBooking> },
   TContext
 > => {
   const mutationOptions = getBookingsAdminPartialUpdateMutationOptions(options);
 
   return useMutation(mutationOptions, queryClient);
 };
-export const bookingsAdminDestroy = (id: number) => {
+/**
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
+export const bookingsAdminDestroy = (bookingNo: string) => {
   return customRequest<void>({
-    url: `/api/bookings-admin/${id}/`,
+    url: `/api/bookings-admin/${bookingNo}/`,
     method: "DELETE",
   });
 };
@@ -592,13 +619,13 @@ export const getBookingsAdminDestroyMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof bookingsAdminDestroy>>,
     TError,
-    { id: number },
+    { bookingNo: string },
     TContext
   >;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof bookingsAdminDestroy>>,
   TError,
-  { id: number },
+  { bookingNo: string },
   TContext
 > => {
   const mutationKey = ["bookingsAdminDestroy"];
@@ -612,11 +639,11 @@ export const getBookingsAdminDestroyMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof bookingsAdminDestroy>>,
-    { id: number }
+    { bookingNo: string }
   > = (props) => {
-    const { id } = props ?? {};
+    const { bookingNo } = props ?? {};
 
-    return bookingsAdminDestroy(id);
+    return bookingsAdminDestroy(bookingNo);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -633,7 +660,7 @@ export const useBookingsAdminDestroy = <TError = unknown, TContext = unknown>(
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof bookingsAdminDestroy>>,
       TError,
-      { id: number },
+      { bookingNo: string },
       TContext
     >;
   },
@@ -641,16 +668,19 @@ export const useBookingsAdminDestroy = <TError = unknown, TContext = unknown>(
 ): UseMutationResult<
   Awaited<ReturnType<typeof bookingsAdminDestroy>>,
   TError,
-  { id: number },
+  { bookingNo: string },
   TContext
 > => {
   const mutationOptions = getBookingsAdminDestroyMutationOptions(options);
 
   return useMutation(mutationOptions, queryClient);
 };
-export const bookingsAdminCancelDestroy = (id: number) => {
+/**
+ * Cancel a booking by marking it as 'cancelled'.
+ */
+export const bookingsAdminCancelDestroy = (bookingNo: string) => {
   return customRequest<void>({
-    url: `/api/bookings-admin/${id}/cancel/`,
+    url: `/api/bookings-admin/${bookingNo}/cancel/`,
     method: "DELETE",
   });
 };
@@ -662,13 +692,13 @@ export const getBookingsAdminCancelDestroyMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof bookingsAdminCancelDestroy>>,
     TError,
-    { id: number },
+    { bookingNo: string },
     TContext
   >;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof bookingsAdminCancelDestroy>>,
   TError,
-  { id: number },
+  { bookingNo: string },
   TContext
 > => {
   const mutationKey = ["bookingsAdminCancelDestroy"];
@@ -682,11 +712,11 @@ export const getBookingsAdminCancelDestroyMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof bookingsAdminCancelDestroy>>,
-    { id: number }
+    { bookingNo: string }
   > = (props) => {
-    const { id } = props ?? {};
+    const { bookingNo } = props ?? {};
 
-    return bookingsAdminCancelDestroy(id);
+    return bookingsAdminCancelDestroy(bookingNo);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -706,7 +736,7 @@ export const useBookingsAdminCancelDestroy = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof bookingsAdminCancelDestroy>>,
       TError,
-      { id: number },
+      { bookingNo: string },
       TContext
     >;
   },
@@ -714,7 +744,7 @@ export const useBookingsAdminCancelDestroy = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof bookingsAdminCancelDestroy>>,
   TError,
-  { id: number },
+  { bookingNo: string },
   TContext
 > => {
   const mutationOptions = getBookingsAdminCancelDestroyMutationOptions(options);

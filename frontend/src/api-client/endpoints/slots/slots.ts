@@ -25,6 +25,13 @@ import type { Slot } from "../../schemas";
 
 import { customRequest } from "../../custom-client";
 
+/**
+ * ViewSet for viewing court slots.
+
+Endpoints:
+  • GET /api/slots/                     — List all slots
+  • GET /api/slots/month-view?club=1&month=YYYY-MM
+ */
 export const slotsList = (signal?: AbortSignal) => {
   return customRequest<Slot[]>({ url: `/api/slots/`, method: "GET", signal });
 };
@@ -142,6 +149,13 @@ export function useSlotsList<
   return query;
 }
 
+/**
+ * ViewSet for viewing court slots.
+
+Endpoints:
+  • GET /api/slots/                     — List all slots
+  • GET /api/slots/month-view?club=1&month=YYYY-MM
+ */
 export const slotsRetrieve = (id: number, signal?: AbortSignal) => {
   return customRequest<Slot>({
     url: `/api/slots/${id}/`,
@@ -276,8 +290,10 @@ export function useSlotsRetrieve<
 }
 
 /**
- * POST /api/slots/<slot_id>/set-status/<new_status>/
-Only managers can manually change slot statuses.
+ * Manually change a slot’s status (manager-only).
+
+Endpoint:
+  POST /api/slots/<slot_id>/set-status/<new_status>/
  */
 export const slotsSetStatusCreate = (
   slotId: number,
@@ -355,7 +371,9 @@ export const useSlotsSetStatusCreate = <TError = unknown, TContext = unknown>(
   return useMutation(mutationOptions, queryClient);
 };
 /**
- * GET /api/slots/month-view?club=1&month=2025-09
+ * Retrieve all slots for a given club and month.
+Example:
+    GET /api/slots/month-view?club=1&month=2025-09
  */
 export const slotsMonthViewRetrieve = (signal?: AbortSignal) => {
   return customRequest<Slot>({

@@ -21,80 +21,309 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
+import type { Booking } from "../../schemas";
+
 import { customRequest } from "../../custom-client";
 
 /**
- * POST /api/bookings/
+ * List all recent bookings (for admin or manager view).
  */
-export const bookingsCreate = (signal?: AbortSignal) => {
-  return customRequest<void>({ url: `/api/bookings/`, method: "POST", signal });
+export const bookingsRetrieve = (signal?: AbortSignal) => {
+  return customRequest<void>({ url: `/api/bookings/`, method: "GET", signal });
 };
 
-export const getBookingsCreateMutationOptions = <
+export const getBookingsRetrieveQueryKey = () => {
+  return [`/api/bookings/`] as const;
+};
+
+export const getBookingsRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof bookingsRetrieve>>,
   TError = unknown,
-  TContext = unknown,
 >(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof bookingsCreate>>,
-    TError,
-    void,
-    TContext
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof bookingsRetrieve>>, TError, TData>
   >;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof bookingsCreate>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationKey = ["bookingsCreate"];
-  const { mutation: mutationOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey } };
+}) => {
+  const { query: queryOptions } = options ?? {};
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof bookingsCreate>>,
-    void
-  > = () => {
-    return bookingsCreate();
-  };
+  const queryKey = queryOptions?.queryKey ?? getBookingsRetrieveQueryKey();
 
-  return { mutationFn, ...mutationOptions };
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof bookingsRetrieve>>
+  > = ({ signal }) => bookingsRetrieve(signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof bookingsRetrieve>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type BookingsCreateMutationResult = NonNullable<
-  Awaited<ReturnType<typeof bookingsCreate>>
+export type BookingsRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof bookingsRetrieve>>
 >;
+export type BookingsRetrieveQueryError = unknown;
 
-export type BookingsCreateMutationError = unknown;
-
-export const useBookingsCreate = <TError = unknown, TContext = unknown>(
+export function useBookingsRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bookingsRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof bookingsRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useBookingsRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve>>,
+  TError = unknown,
+>(
   options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof bookingsCreate>>,
-      TError,
-      void,
-      TContext
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bookingsRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof bookingsRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useBookingsRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve>>,
+        TError,
+        TData
+      >
     >;
   },
   queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof bookingsCreate>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationOptions = getBookingsCreateMutationOptions(options);
-
-  return useMutation(mutationOptions, queryClient);
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
 };
+
+export function useBookingsRetrieve<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getBookingsRetrieveQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
 /**
- * POST /api/bookings/<booking_no>/cancel/
-Cancel a booking by booking_no (not ID)
-Refund coins and release slots if cancelled >24 hours before start time
+ * CRUD operations for Booking.
+Supports lookup by booking_no instead of primary key.
+ */
+export const bookingsRetrieve2 = (bookingNo: string, signal?: AbortSignal) => {
+  return customRequest<Booking>({
+    url: `/api/bookings/${bookingNo}/`,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getBookingsRetrieve2QueryKey = (bookingNo?: string) => {
+  return [`/api/bookings/${bookingNo}/`] as const;
+};
+
+export const getBookingsRetrieve2QueryOptions = <
+  TData = Awaited<ReturnType<typeof bookingsRetrieve2>>,
+  TError = unknown,
+>(
+  bookingNo: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve2>>,
+        TError,
+        TData
+      >
+    >;
+  },
+) => {
+  const { query: queryOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getBookingsRetrieve2QueryKey(bookingNo);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof bookingsRetrieve2>>
+  > = ({ signal }) => bookingsRetrieve2(bookingNo, signal);
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!bookingNo,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof bookingsRetrieve2>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type BookingsRetrieve2QueryResult = NonNullable<
+  Awaited<ReturnType<typeof bookingsRetrieve2>>
+>;
+export type BookingsRetrieve2QueryError = unknown;
+
+export function useBookingsRetrieve2<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve2>>,
+  TError = unknown,
+>(
+  bookingNo: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve2>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bookingsRetrieve2>>,
+          TError,
+          Awaited<ReturnType<typeof bookingsRetrieve2>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useBookingsRetrieve2<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve2>>,
+  TError = unknown,
+>(
+  bookingNo: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve2>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bookingsRetrieve2>>,
+          TError,
+          Awaited<ReturnType<typeof bookingsRetrieve2>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useBookingsRetrieve2<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve2>>,
+  TError = unknown,
+>(
+  bookingNo: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve2>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useBookingsRetrieve2<
+  TData = Awaited<ReturnType<typeof bookingsRetrieve2>>,
+  TError = unknown,
+>(
+  bookingNo: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof bookingsRetrieve2>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getBookingsRetrieve2QueryOptions(bookingNo, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Cancel a booking using its booking_no.
+
+Endpoint:
+  POST /api/bookings/<booking_no>/cancel/
  */
 export const bookingsCancelCreate = (
   bookingNo: string,
@@ -171,145 +400,77 @@ export const useBookingsCancelCreate = <TError = unknown, TContext = unknown>(
   return useMutation(mutationOptions, queryClient);
 };
 /**
- * GET /api/all-bookings/
+ * Create a new booking.
+
+Endpoint:
+  POST /api/bookings/
  */
-export const bookingsAllRetrieve = (signal?: AbortSignal) => {
+export const bookingsCreateCreate = (signal?: AbortSignal) => {
   return customRequest<void>({
-    url: `/api/bookings/all/`,
-    method: "GET",
+    url: `/api/bookings/create/`,
+    method: "POST",
     signal,
   });
 };
 
-export const getBookingsAllRetrieveQueryKey = () => {
-  return [`/api/bookings/all/`] as const;
-};
-
-export const getBookingsAllRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+export const getBookingsCreateCreateMutationOptions = <
   TError = unknown,
+  TContext = unknown,
 >(options?: {
-  query?: Partial<
-    UseQueryOptions<
-      Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-      TError,
-      TData
-    >
-  >;
-}) => {
-  const { query: queryOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getBookingsAllRetrieveQueryKey();
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof bookingsAllRetrieve>>
-  > = ({ signal }) => bookingsAllRetrieve(signal);
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof bookingsAllRetrieve>>,
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bookingsCreateCreate>>,
     TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
+    void,
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bookingsCreateCreate>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["bookingsCreateCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bookingsCreateCreate>>,
+    void
+  > = () => {
+    return bookingsCreateCreate();
+  };
+
+  return { mutationFn, ...mutationOptions };
 };
 
-export type BookingsAllRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof bookingsAllRetrieve>>
+export type BookingsCreateCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bookingsCreateCreate>>
 >;
-export type BookingsAllRetrieveQueryError = unknown;
 
-export function useBookingsAllRetrieve<
-  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-  TError = unknown,
->(
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-          TError,
-          Awaited<ReturnType<typeof bookingsAllRetrieve>>
-        >,
-        "initialData"
-      >;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useBookingsAllRetrieve<
-  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-  TError = unknown,
->(
+export type BookingsCreateCreateMutationError = unknown;
+
+export const useBookingsCreateCreate = <TError = unknown, TContext = unknown>(
   options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-          TError,
-          Awaited<ReturnType<typeof bookingsAllRetrieve>>
-        >,
-        "initialData"
-      >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useBookingsAllRetrieve<
-  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-        TError,
-        TData
-      >
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof bookingsCreateCreate>>,
+      TError,
+      void,
+      TContext
     >;
   },
   queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
+): UseMutationResult<
+  Awaited<ReturnType<typeof bookingsCreateCreate>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationOptions = getBookingsCreateCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
 };
-
-export function useBookingsAllRetrieve<
-  TData = Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof bookingsAllRetrieve>>,
-        TError,
-        TData
-      >
-    >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-} {
-  const queryOptions = getBookingsAllRetrieveQueryOptions(options);
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  query.queryKey = queryOptions.queryKey;
-
-  return query;
-}
