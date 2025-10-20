@@ -1,3 +1,4 @@
+import traceback
 import uuid
 import calendar
 from datetime import date, datetime, timedelta
@@ -107,12 +108,13 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                 "start_time": start_local.strftime("%H:%M"),
                 "end_time": end_local.strftime("%H:%M"),
                 "court": s.court_id,
-                "courtName": s.court.name,
+                "court_name": s.court.name,
+                "price_coin": s.price_coins
             }
 
         payload = {
             "month": first_day.strftime("%m-%y"),
-            "days": [{"date": d, "slotList": slots} for d, slots in by_day.items()],
+            "days": [{"date": d, "booking_slots": slots} for d, slots in by_day.items()],
         }
         payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
         return Response(payload)
@@ -144,38 +146,34 @@ class BookingCreateView(APIView):
     Create a new booking.
 
     Endpoint:
-      POST /api/bookings/
+      POST /api/booking/
     """
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
         try:
+            # -------------------- Validate Input --------------------
             ser = BookingCreateSerializer(data=request.data)
             ser.is_valid(raise_exception=True)
             club_id = ser.validated_data["club"]
             items = ser.validated_data["items"]
 
-            # Validate club existence
-            try:
-                Club.objects.only("id").get(id=club_id)
-            except Club.DoesNotExist:
-                return Response({"detail": "Club not found"}, status=404)
-
             if not items:
                 return Response({"detail": "No items to book"}, status=400)
+
+            # -------------------- Check Club --------------------
+            if not Club.objects.filter(id=club_id).exists():
+                return Response({"detail": "Club not found"}, status=404)
 
             first_court_id = items[0]["court"]
             first_date = items[0]["date"]
             today = timezone.localdate()
 
             if first_date < today:
-                return Response(
-                    {"detail": f"Cannot book for a past date: {first_date}"},
-                    status=400,
-                )
+                return Response({"detail": f"Cannot book for a past date: {first_date}"}, status=400)
 
-            # Create booking record
+            # -------------------- Create Booking --------------------
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
                 user=request.user,
@@ -188,7 +186,7 @@ class BookingCreateView(APIView):
             total_cost = 0
             created_slots = []
 
-            # Loop through each booking item
+            # -------------------- Loop through booking items --------------------
             for it in items:
                 court_id = it["court"]
                 d = it["date"]
@@ -199,10 +197,16 @@ class BookingCreateView(APIView):
                 start_dt = combine_dt(d, it["start"])
                 end_dt = combine_dt(d, it["end"])
 
+                # 🔧 Fix timezone-aware vs naive datetime
+                if timezone.is_aware(start_dt):
+                    start_dt = timezone.make_naive(start_dt)
+                if timezone.is_aware(end_dt):
+                    end_dt = timezone.make_naive(end_dt)
+
                 if start_dt >= end_dt:
                     return Response({"detail": "Invalid time range"}, status=400)
 
-                # Find matching slots
+                # -------------------- Find slots --------------------
                 base_qs = Slot.objects.filter(
                     court_id=court_id,
                     service_date=d,
@@ -210,7 +214,7 @@ class BookingCreateView(APIView):
                     end_at__lte=end_dt,
                 ).order_by("start_at")
 
-                # Use row-level lock if supported
+                # Use row-level lock if available
                 if connection.vendor == "postgresql" and connection.features.has_select_for_update:
                     locked_ids = list(base_qs.select_for_update(of=("self",)).values_list("id", flat=True))
                 else:
@@ -220,34 +224,46 @@ class BookingCreateView(APIView):
                 if not slots:
                     return Response({"detail": f"No slots found for court {court_id}"}, status=400)
 
-                # Check availability
-                not_available = [s.id for s in slots if getattr(s, "slot_status", None) and s.slot_status.status != "available"]
-                if not_available:
-                    return Response({"detail": "Some slots are not available", "slot_ids": not_available}, status=409)
+                # -------------------- Check slot availability --------------------
+                for s in slots:
+                    if hasattr(s, "booked_by"):
+                        return Response({"detail": f"Slot {s.id} already booked"}, status=409)
+                    if hasattr(s, "slot_status") and s.slot_status.status != "available":
+                        return Response(
+                            {"detail": f"Slot {s.id} not available", "status": s.slot_status.status},
+                            status=409,
+                        )
 
-                # Create booking-slot relations and mark slots as booked
+                # -------------------- Create booking-slot relation --------------------
                 for s in slots:
                     total_cost += s.price_coins
                     BookingSlot.objects.create(booking=booking, slot=s)
-                    if hasattr(s, "slot_status"):
-                        s.slot_status.status = "booked"
-                        s.slot_status.save(update_fields=["status", "updated_at"])
-                    else:
-                        SlotStatus.objects.create(slot=s, status="booked")
+                    SlotStatus.objects.update_or_create(
+                        slot=s, defaults={"status": "booked"}
+                    )
                     created_slots.append(s.id)
 
-            # Deduct from wallet
+            # -------------------- Wallet & Coin deduction --------------------
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
             if wallet.balance < total_cost:
-                return Response({"detail": "Not enough coins", "required": total_cost, "balance": wallet.balance}, status=402)
+                return Response(
+                    {"detail": "Not enough coins", "required": total_cost, "balance": wallet.balance},
+                    status=402,
+                )
 
             wallet.balance -= total_cost
             wallet.save(update_fields=["balance"])
-            CoinLedger.objects.create(user=request.user, type="capture", amount=-total_cost, ref_booking=booking)
+            CoinLedger.objects.create(
+                user=request.user,
+                type="capture",
+                amount=-total_cost,
+                ref_booking=booking,
+            )
 
             booking.total_cost = total_cost
             booking.save(update_fields=["total_cost"])
 
+            # -------------------- Success --------------------
             return Response(
                 {
                     "ok": True,
@@ -265,14 +281,22 @@ class BookingCreateView(APIView):
             )
 
         except DatabaseError as e:
-            return Response({"detail": f"Database error: {e.__class__.__name__}", "message": str(e)}, status=500)
+            traceback.print_exc()
+            return Response(
+                {"detail": "Database error", "error": str(e.__class__.__name__), "message": str(e)},
+                status=500,
+            )
         except Exception as e:
+            traceback.print_exc()
             return Response({"detail": str(e)}, status=400)
 
 
 # ────────────────────────────── Booking History (User) ──────────────────────────────
+
 class BookingHistoryView(APIView):
-    """List the last 50 bookings of the logged-in user."""
+    """List the last 50 bookings of the logged-in user.
+     Endpoint:
+    GET /api/my-booking/"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -280,57 +304,65 @@ class BookingHistoryView(APIView):
         data = []
 
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court", "slot__slot_status")
             first_slot = slots.first()
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
-            slot_data = [
-                {
-                    "slot_id": s.slot.id,
-                    "court_name": s.slot.court.name,
-                    "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
-                    "start_time": s.slot.start_at.strftime("%H:%M"),
-                    "end_time": s.slot.end_at.strftime("%H:%M"),
+            booking_slots = {}
+            for s in slots:
+                slot_obj = s.slot
+                status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+                booking_slots[str(slot_obj.id)] = {
+                    "status": status_val,
+                    "start_time": slot_obj.start_at.strftime("%H:%M"),
+                    "end_time": slot_obj.end_at.strftime("%H:%M"),
+                    "court": slot_obj.court_id,
+                    "court_name": slot_obj.court.name,
+                    "price_coin": slot_obj.price_coins,
                 }
-                for s in slots
-            ]
 
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
-                "username": b.user.username if b.user else None,
-                "email": b.user.email if b.user else None,
+                "user": request.user.username,
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
-                "status": b.status,
+                "booking_status": b.status,
                 "able_to_cancel": able_to_cancel,
-                "slots": slot_data,
+                "booking_slots": booking_slots,
             })
+
         return Response({"results": data})
 
 
 # ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
 class BookingAllView(APIView):
-    """List all recent bookings (for admin or manager view)."""
+    """List all recent bookings (for admin or manager view).
+    GET /api/bookings/
+    """
+
     def get(self, request):
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
 
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
+            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court", "slot__slot_status")
             first_slot = slots.first()
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
-            slot_data = [
-                {
-                    "slot_id": s.slot.id,
-                    "court_name": s.slot.court.name,
-                    "service_date": s.slot.service_date.strftime("%Y-%m-%d"),
-                    "start_time": s.slot.start_at.strftime("%H:%M"),
-                    "end_time": s.slot.end_at.strftime("%H:%M"),
+            # --- booking_slots เป็น dict keyed by slot_id ---
+            booking_slots = {}
+            for s in slots:
+                slot_obj = s.slot
+                status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+                booking_slots[str(slot_obj.id)] = {
+                    "status": status_val,
+                    "start_time": slot_obj.start_at.strftime("%H:%M"),
+                    "end_time": slot_obj.end_at.strftime("%H:%M"),
+                    "court": slot_obj.court_id,
+                    "court_name": slot_obj.court.name,
+                    "price_coin": slot_obj.price_coins,
                 }
-                for s in slots
-            ]
 
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
@@ -338,11 +370,12 @@ class BookingAllView(APIView):
                 "user": b.user.username if b.user else None,
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
-                "status": b.status,
+                "booking_status": b.status,
                 "able_to_cancel": able_to_cancel,
-                "slots": slot_data,
+                "booking_slots": booking_slots,
             })
-        return Response(data)
+
+        return Response({"results": data})
 
 
 # ────────────────────────────── Cancel Booking ──────────────────────────────
