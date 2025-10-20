@@ -22,60 +22,70 @@ import { customRequest } from "../../custom-client";
 
 /**
  * List the last 50 bookings of the logged-in user.
+ Endpoint:
+GET /api/my-booking/
  */
-export const historyRetrieve = (signal?: AbortSignal) => {
-  return customRequest<void>({ url: `/api/history/`, method: "GET", signal });
+export const myBookingRetrieve = (signal?: AbortSignal) => {
+  return customRequest<void>({
+    url: `/api/my-booking/`,
+    method: "GET",
+    signal,
+  });
 };
 
-export const getHistoryRetrieveQueryKey = () => {
-  return [`/api/history/`] as const;
+export const getMyBookingRetrieveQueryKey = () => {
+  return [`/api/my-booking/`] as const;
 };
 
-export const getHistoryRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof historyRetrieve>>,
+export const getMyBookingRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof myBookingRetrieve>>,
   TError = unknown,
 >(options?: {
   query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof historyRetrieve>>, TError, TData>
+    UseQueryOptions<
+      Awaited<ReturnType<typeof myBookingRetrieve>>,
+      TError,
+      TData
+    >
   >;
 }) => {
   const { query: queryOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getHistoryRetrieveQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getMyBookingRetrieveQueryKey();
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof historyRetrieve>>> = ({
-    signal,
-  }) => historyRetrieve(signal);
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof myBookingRetrieve>>
+  > = ({ signal }) => myBookingRetrieve(signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof historyRetrieve>>,
+    Awaited<ReturnType<typeof myBookingRetrieve>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type HistoryRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof historyRetrieve>>
+export type MyBookingRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof myBookingRetrieve>>
 >;
-export type HistoryRetrieveQueryError = unknown;
+export type MyBookingRetrieveQueryError = unknown;
 
-export function useHistoryRetrieve<
-  TData = Awaited<ReturnType<typeof historyRetrieve>>,
+export function useMyBookingRetrieve<
+  TData = Awaited<ReturnType<typeof myBookingRetrieve>>,
   TError = unknown,
 >(
   options: {
     query: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof historyRetrieve>>,
+        Awaited<ReturnType<typeof myBookingRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof historyRetrieve>>,
+          Awaited<ReturnType<typeof myBookingRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof historyRetrieve>>
+          Awaited<ReturnType<typeof myBookingRetrieve>>
         >,
         "initialData"
       >;
@@ -84,23 +94,23 @@ export function useHistoryRetrieve<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useHistoryRetrieve<
-  TData = Awaited<ReturnType<typeof historyRetrieve>>,
+export function useMyBookingRetrieve<
+  TData = Awaited<ReturnType<typeof myBookingRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof historyRetrieve>>,
+        Awaited<ReturnType<typeof myBookingRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof historyRetrieve>>,
+          Awaited<ReturnType<typeof myBookingRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof historyRetrieve>>
+          Awaited<ReturnType<typeof myBookingRetrieve>>
         >,
         "initialData"
       >;
@@ -109,14 +119,14 @@ export function useHistoryRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useHistoryRetrieve<
-  TData = Awaited<ReturnType<typeof historyRetrieve>>,
+export function useMyBookingRetrieve<
+  TData = Awaited<ReturnType<typeof myBookingRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof historyRetrieve>>,
+        Awaited<ReturnType<typeof myBookingRetrieve>>,
         TError,
         TData
       >
@@ -127,14 +137,14 @@ export function useHistoryRetrieve<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 
-export function useHistoryRetrieve<
-  TData = Awaited<ReturnType<typeof historyRetrieve>>,
+export function useMyBookingRetrieve<
+  TData = Awaited<ReturnType<typeof myBookingRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof historyRetrieve>>,
+        Awaited<ReturnType<typeof myBookingRetrieve>>,
         TError,
         TData
       >
@@ -144,7 +154,7 @@ export function useHistoryRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getHistoryRetrieveQueryOptions(options);
+  const queryOptions = getMyBookingRetrieveQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

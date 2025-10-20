@@ -27,6 +27,7 @@ import { customRequest } from "../../custom-client";
 
 /**
  * List all recent bookings (for admin or manager view).
+GET /api/bookings/
  */
 export const bookingsRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({ url: `/api/bookings/`, method: "GET", signal });
@@ -396,81 +397,6 @@ export const useBookingsCancelCreate = <TError = unknown, TContext = unknown>(
   TContext
 > => {
   const mutationOptions = getBookingsCancelCreateMutationOptions(options);
-
-  return useMutation(mutationOptions, queryClient);
-};
-/**
- * Create a new booking.
-
-Endpoint:
-  POST /api/bookings/
- */
-export const bookingsCreateCreate = (signal?: AbortSignal) => {
-  return customRequest<void>({
-    url: `/api/bookings/create/`,
-    method: "POST",
-    signal,
-  });
-};
-
-export const getBookingsCreateCreateMutationOptions = <
-  TError = unknown,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof bookingsCreateCreate>>,
-    TError,
-    void,
-    TContext
-  >;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof bookingsCreateCreate>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationKey = ["bookingsCreateCreate"];
-  const { mutation: mutationOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey } };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof bookingsCreateCreate>>,
-    void
-  > = () => {
-    return bookingsCreateCreate();
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type BookingsCreateCreateMutationResult = NonNullable<
-  Awaited<ReturnType<typeof bookingsCreateCreate>>
->;
-
-export type BookingsCreateCreateMutationError = unknown;
-
-export const useBookingsCreateCreate = <TError = unknown, TContext = unknown>(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof bookingsCreateCreate>>,
-      TError,
-      void,
-      TContext
-    >;
-  },
-  queryClient?: QueryClient,
-): UseMutationResult<
-  Awaited<ReturnType<typeof bookingsCreateCreate>>,
-  TError,
-  void,
-  TContext
-> => {
-  const mutationOptions = getBookingsCreateCreateMutationOptions(options);
 
   return useMutation(mutationOptions, queryClient);
 };
