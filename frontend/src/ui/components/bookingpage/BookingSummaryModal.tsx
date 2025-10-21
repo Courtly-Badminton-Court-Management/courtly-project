@@ -2,7 +2,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Modal from "@/ui/components/basic/Modal";
-import type { GroupedSelection } from "@/lib/booking/model";
+import type { GroupedSelection } from "@/lib/booking/slotGridModel";
 import { CalendarRange, Clock3, Coins, MapPin } from "lucide-react";
 import Link from "next/link";
 

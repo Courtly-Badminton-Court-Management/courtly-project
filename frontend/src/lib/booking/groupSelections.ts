@@ -1,23 +1,25 @@
-import type { Col, GroupedSelection, SelectedSlot } from "./model";
-import { getCellPriceCoins } from "./pricing";
+// src/lib/booking/groupSelections.ts
+import type { Col, GroupedSelection, SelectedSlot } from "./slotGridModel";
+
 
 /**
  * รวมช่องที่เลือกให้เป็นกลุ่มต่อเนื่องในแต่ละ courtRow
- * และคำนวณราคาแบบ mock: 100 coins/ช่อง
+ * และคำนวณราคา "จริง" จาก priceGrid[r][c] (coins ต่อช่อง)
  */
 export function groupSelectionsWithPrice(
   sel: SelectedSlot[],
-  cols: Col[]
+  cols: Col[],
+  priceGrid: number[][],               
 ): GroupedSelection[] {
   const byCourt: Record<number, number[]> = {};
   sel.forEach((s) => {
-    byCourt[s.courtRow] ??= [];
-    byCourt[s.courtRow].push(s.colIdx);
+    (byCourt[s.courtRow] ??= []).push(s.colIdx);
   });
 
   const out: GroupedSelection[] = [];
+
   Object.entries(byCourt).forEach(([courtStr, idxList]) => {
-    const courtRow = Number(courtStr);
+    const courtRow = Number(courtStr);            // 1-based
     const idxs = [...new Set(idxList)].sort((a, b) => a - b);
     if (!idxs.length) return;
 
@@ -25,15 +27,20 @@ export function groupSelectionsWithPrice(
     let prev = idxs[0];
 
     for (let i = 1; i <= idxs.length; i++) {
-      const cur = idxs[i];
+      const cur = idxs[i];                        // undefined เมื่อจบลูป = ตัดกลุ่มสุดท้าย
       if (cur !== prev + 1) {
         const end = prev;
         const slots = end - start + 1;
+
+        // เวลาสวย ๆ สำหรับแสดงผล
         const s = cols[start]?.start ?? "";
         const e = cols[end]?.end ?? "";
 
-        const pricePerSlot = getCellPriceCoins();
-        const price = slots * pricePerSlot; // 💰 mock 100/ช่อง
+        // ✅ ราคา "จริง" = ผลรวม coins ของทุกคอลัมน์ในกลุ่ม
+        let price = 0;
+        for (let c = start; c <= end; c++) {
+          price += priceGrid[courtRow - 1]?.[c] ?? 0;
+        }
 
         out.push({
           courtRow,
@@ -44,11 +51,13 @@ export function groupSelectionsWithPrice(
           timeLabel: `${s} - ${e}`,
         });
 
-        start = cur!;
+        start = cur!; // เริ่มกลุ่มใหม่
       }
       prev = cur!;
     }
   });
 
-  return out.sort((a, b) => a.courtRow - b.courtRow || a.startIdx - b.startIdx);
+  return out.sort(
+    (a, b) => a.courtRow - b.courtRow || a.startIdx - b.startIdx,
+  );
 }
