@@ -35,6 +35,12 @@ def combine_dt(d: date, t) -> datetime:
 
 def calculate_able_to_cancel(first_slot):
     """Check if booking can be cancelled (more than 24 hours before start)."""
+    if not first_slot or not first_slot.slot or not hasattr(first_slot.slot, "slot_status"):
+        return False
+
+    if first_slot.slot.slot_status.status == "cancelled":
+        return False
+
     slot_start = first_slot.slot.start_at
     slot_local = timezone.localtime(slot_start)
     return timezone.now() <= slot_local - timedelta(hours=24)
@@ -294,9 +300,11 @@ class BookingCreateView(APIView):
 # ────────────────────────────── Booking History (User) ──────────────────────────────
 
 class BookingHistoryView(APIView):
-    """List the last 50 bookings of the logged-in user.
-     Endpoint:
-    GET /api/my-booking/"""
+    """
+    List the last 50 bookings of the logged-in user.
+    Endpoint:
+        GET /api/my-booking/
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -304,10 +312,23 @@ class BookingHistoryView(APIView):
         data = []
 
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court", "slot__slot_status")
+            # Fetch all slots related to this booking
+            slots = BookingSlot.objects.filter(booking=b).select_related(
+                "slot", "slot__court", "slot__slot_status"
+            )
             first_slot = slots.first()
+
+            # Determine if this booking can be cancelled (more than 24h before start)
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
+            # Force 'able_to_cancel = False' if booking is cancelled
+            # or the first slot itself has status 'cancelled'
+            if b.status == "cancelled" or (
+                first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+            ):
+                able_to_cancel = False
+
+            # Build slot details
             booking_slots = {}
             for s in slots:
                 slot_obj = s.slot
@@ -321,6 +342,7 @@ class BookingHistoryView(APIView):
                     "price_coin": slot_obj.price_coins,
                 }
 
+            # Append booking data
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
@@ -337,8 +359,10 @@ class BookingHistoryView(APIView):
 
 # ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
 class BookingAllView(APIView):
-    """List all recent bookings (for admin or manager view).
-    GET /api/bookings/
+    """
+    List all recent bookings (for admin or manager view).
+    Endpoint:
+        GET /api/bookings/
     """
 
     def get(self, request):
@@ -346,11 +370,22 @@ class BookingAllView(APIView):
         data = []
 
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court", "slot__slot_status")
+            # Fetch all slots linked to the booking
+            slots = BookingSlot.objects.filter(booking=b).select_related(
+                "slot", "slot__court", "slot__slot_status"
+            )
             first_slot = slots.first()
+
+            # Determine if booking can be cancelled (more than 24h before start)
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
-            # --- booking_slots เป็น dict keyed by slot_id ---
+            # Disable cancellation if booking or slot already cancelled
+            if b.status == "cancelled" or (
+                first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+            ):
+                able_to_cancel = False
+
+            # Build slot info dictionary
             booking_slots = {}
             for s in slots:
                 slot_obj = s.slot
@@ -364,6 +399,7 @@ class BookingAllView(APIView):
                     "price_coin": slot_obj.price_coins,
                 }
 
+            # Combine booking details
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
@@ -401,17 +437,30 @@ class BookingCancelView(APIView):
             return Response({"detail": "No permission to cancel"}, status=403)
 
         if booking.status == "cancelled":
-            return Response({"detail": "Already cancelled"}, status=400)
+            return Response({
+                "detail": "Already cancelled",
+                "able_to_cancel": False
+            }, status=400)
 
         # Check timing
         first_slot = (
             BookingSlot.objects.filter(booking=booking)
-            .select_related("slot")
+            .select_related("slot", "slot__slot_status")
             .order_by("slot__service_date", "slot__start_at")
             .first()
         )
         if not first_slot:
             return Response({"detail": "No slot info found"}, status=400)
+
+        # If slot_status = "cancelled", the booking cannot be cancelled.
+        if first_slot.slot.slot_status.status == "cancelled":
+            slot_local = timezone.localtime(first_slot.slot.start_at)
+            return Response({
+                "detail": "Slot already cancelled",
+                "able_to_cancel": False,
+                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
+            }, status=400)
 
         able_to_cancel = calculate_able_to_cancel(first_slot)
         if not able_to_cancel:
@@ -466,7 +515,7 @@ class BookingCancelView(APIView):
                 "new_balance": wallet.balance,
                 "cancelled_by": request.user.email,
                 "role": user_role,
-                "able_to_cancel": True,
+                "able_to_cancel": False,
                 "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
                 "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
             },
