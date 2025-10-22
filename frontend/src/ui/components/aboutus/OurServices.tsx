@@ -29,16 +29,30 @@ export default function OurServices() {
       <div className="mb-3 inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-cherry">
         Services
       </div>
-      <h2 id="services-title" className="mb-6 text-3xl font-extrabold tracking-tight">
+      <h2
+        id="services-title"
+        className="mb-6 text-3xl font-extrabold tracking-tight"
+      >
         Our Services
       </h2>
 
       <div className="grid gap-5 md:grid-cols-2">
         {items.map((s) => (
-          <div key={s.title} className="flex items-start gap-4 rounded-2xl border bg-white p-5 shadow-sm">
-            <img src={s.icon} alt="" className="mt-1 h-12 w-12" />
+          <div
+            key={s.title}
+            className="group flex items-start gap-4 rounded-2xl border bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-lg hover:shadow-grey-200"
+          >
+            <div className="flex-shrink-0">
+              <img
+                src={s.icon}
+                alt=""
+                className="mt-1 h-12 w-12 transition-transform duration-300 group-hover:scale-110"
+              />
+            </div>
             <div>
-              <div className="text-lg font-bold">{s.title}</div>
+              <div className="text-lg font-bold text-neutral-800">
+                {s.title}
+              </div>
               <p className="text-neutral-700">{s.desc}</p>
             </div>
           </div>

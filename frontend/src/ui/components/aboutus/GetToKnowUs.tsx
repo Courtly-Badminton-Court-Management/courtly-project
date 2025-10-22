@@ -5,15 +5,18 @@ export default function GetToKnowUs() {
     <section aria-labelledby="about-title" className="grid gap-8 md:grid-cols-[1.1fr_1fr]">
       {/* Left: photo collage */}
       <div className="relative">
+        {/* Big image */}
         <img
           src="/images/badminton-6.jpg"
-          alt=""
+          alt="Badminton shuttlecock on racket"
           className="h-[450px] w-[450px] rounded-3xl object-cover shadow-lg md:h-[620px]"
         />
+
+        {/* Floating small image (same placement, just animated) */}
         <img
           src="/images/badminton-3.jpg"
-          alt=""
-          className="absolute top-50 left-78 h-40 w-56 rounded-2xl border-4 border-white object-cover shadow-xl md:h-86 md:w-55"
+          alt="Indoor badminton courts"
+          className="absolute top-[80%] left-[100%] h-40 w-56 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-4 border-white object-cover shadow-xl md:h-[300px] md:w-[200px] animate-float"
         />
       </div>
 
@@ -33,7 +36,6 @@ export default function GetToKnowUs() {
           and real-time updates. Our goal is to make every badminton session simple and enjoyable — 
           so players can focus on what truly matters: the game.
         </p>
-
 
         {/* contact chips */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -68,15 +70,10 @@ function ContactChip({
       <img src={icon} alt="" className="h-10 w-10" />
       <div className="min-w-0">
         <div className="text-xs text-neutral-500">{title}</div>
-        <div
-          className={`truncate font-semibold ${
-            small ? "text-xs" : "text-base"
-          }`}
-        >
+        <div className={`truncate font-semibold ${small ? "text-xs" : "text-base"}`}>
           {value}
         </div>
       </div>
     </div>
   );
 }
-
