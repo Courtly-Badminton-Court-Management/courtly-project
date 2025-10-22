@@ -12,7 +12,7 @@ export default function GetToKnowUs() {
           className="h-[450px] w-[450px] rounded-3xl object-cover shadow-lg md:h-[620px]"
         />
 
-        {/* Floating small image (same placement, just animated) */}
+        {/* Floating small image */}
         <img
           src="/images/badminton-3.jpg"
           alt="Indoor badminton courts"
@@ -66,14 +66,21 @@ function ContactChip({
   small?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border px-4 py-3">
-      <img src={icon} alt="" className="h-10 w-10" />
+    <div className="group flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-lg hover:shadow-grey-200">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110">
+        <img src={icon} alt="" className="h-10 w-10" />
+      </div>
       <div className="min-w-0">
         <div className="text-xs text-neutral-500">{title}</div>
-        <div className={`truncate font-semibold ${small ? "text-xs" : "text-base"}`}>
+        <div
+          className={`truncate font-semibold ${
+            small ? "text-xs" : "text-base"
+          } text-neutral-900`}
+        >
           {value}
         </div>
       </div>
     </div>
   );
 }
+

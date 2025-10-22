@@ -9,7 +9,7 @@ export default function WhyChooseUs() {
         <img
           src="/images/badminton-8.png"
           alt=""
-          className="h-[300px] w-full rounded-3xl object-cover shadow-lg md:h-[490px]"
+          className="h-[300px] w-full rounded-3xl object-cover shadow-lg transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-2xl hover:shadow-grey-400 md:h-[490px]"
         />
 
         {/* RIGHT: Text + Info cards */}
@@ -56,7 +56,7 @@ export default function WhyChooseUs() {
 
 function InfoCard({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
+    <div className="group rounded-2xl border bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-grey-200 focus-within:-translate-y-1 focus-within:shadow-lg">
       <div className="text-lg font-bold">{title}</div>
       <p className="text-neutral-700">{body}</p>
     </div>
@@ -75,17 +75,69 @@ function Stat({
   hint: string;
 }) {
   return (
-    <div className="flex items-center gap-5 rounded-2xl bg-white p-6">
-      {/* Circle background behind icon */}
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-100">
-        <img src={icon} alt="" className="h-10 w-10" />
+    <div
+      className="
+        group flex items-center gap-5 rounded-2xl bg-white p-6
+        transition-shadow duration-300 ease-out
+        focus-within:shadow-lg focus-within:shadow-gray-200"
+      tabIndex={0} // keyboard focus
+    >
+      {/* Icon bubble (animates on hover/focus) */}
+      <div
+        className="
+          relative flex h-16 w-16 items-center justify-center rounded-full bg-rose-100
+          transition-transform duration-300 ease-out
+          group-hover:scale-110 group-hover:-rotate-6
+          group-focus-visible:scale-110 group-focus-visible:-rotate-6
+        "
+      >
+        <img
+          src={icon}
+          alt=""
+          className="
+            h-10 w-10 transition-transform duration-300 ease-out
+            group-hover:translate-y-[-2px] group-focus-visible:translate-y-[-2px]
+          "
+        />
       </div>
-      <div>
-        <div className="text-sm text-neutral-600">{hint}</div>
-        <div className="text-2xl font-extrabold leading-tight text-neutral-900">
-          {value} <span className="text-base font-semibold">{label}</span>
+
+      {/* Text block */}
+      <div className="min-w-0">
+        {/* Hint (subtle rise + tint) */}
+        <div
+          className="
+            text-sm text-neutral-600 transition-all duration-300 ease-out
+            group-hover:-translate-y-0.5 group-hover:text-neutral-700
+            group-focus-visible:-translate-y-0.5 group-focus-visible:text-neutral-700
+          "
+        >
+          {hint}
+        </div>
+
+        {/* Value + label row */}
+        <div className="mt-0.5">
+          <span
+            className="
+              inline-block text-2xl font-extrabold leading-tight text-neutral-900
+              transition-transform duration-300 ease-out
+              group-hover:translate-y-[-2px] group-hover:scale-110
+              group-focus-visible:translate-y-[-2px] group-focus-visible:scale-110
+            "
+          >
+            {value}
+          </span>
+          <span
+            className="
+              ml-1 inline-block align-baseline text-base font-semibold text-neutral-900
+              transition-transform duration-300 ease-out
+              group-hover:translate-x-0.5 group-focus-visible:translate-x-0.5
+            "
+          >
+            {label}
+          </span>
         </div>
       </div>
     </div>
   );
 }
+

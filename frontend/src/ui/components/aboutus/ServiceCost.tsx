@@ -6,7 +6,7 @@ export default function ServiceCost() {
   return (
     <section
       aria-labelledby="price-title"
-      className="grid gap-10 md:grid-cols-[1fr_1.1fr] items-start"
+      className="grid items-start gap-10 md:grid-cols-[1fr_1.1fr]"
     >
       {/* LEFT: Price Information */}
       <div>
@@ -27,6 +27,7 @@ export default function ServiceCost() {
           <div className="mb-4 text-2xl font-extrabold text-neutral-900">
             Monday – Sunday
           </div>
+
           <ul className="list-disc space-y-2 pl-5 text-neutral-700">
             <li>Price: 200 THB/hour</li>
             <li>
@@ -39,38 +40,41 @@ export default function ServiceCost() {
             </li>
           </ul>
 
-          <Link href="/booking" className="block w-fit">
-            <button
-              type="button"
-              className="mt-6 rounded-xl bg-pine px-5 py-2.5 text-base font-semibold text-white transition-colors hover:bg-emerald-800 focus:ring-2 focus:ring-pine/40"
-            >
-              Book the courts!
-            </button>
-          </Link>
+          {/* right-aligned button */}
+          <div className="mt-6 flex justify-end">
+            <Link href="/booking" className="inline-block">
+              <button
+                type="button"
+                className="rounded-xl bg-pine px-5 py-2.5 text-base font-semibold text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-pine/40"
+              >
+                Book the courts!
+              </button>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* RIGHT: Image Gallery */}
+      {/* RIGHT: Image Gallery (each image pops on hover) */}
       <div className="grid grid-cols-2 gap-5">
         <img
           src="/images/badminton-9.png"
           alt="Indoor badminton courts"
-          className="h-51 w-full rounded-2xl object-cover shadow-sm"
+          className="h-51 w-full rounded-2xl object-cover shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg hover:shadow-gray-300 focus:outline-none focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:shadow-lg"
         />
         <img
           src="/images/badminton-10.png"
           alt="Players in a court"
-          className="h-51 w-full rounded-2xl object-cover shadow-sm"
+          className="h-51 w-full rounded-2xl object-cover shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg hover:shadow-gray-300 focus:outline-none focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:shadow-lg"
         />
         <img
           src="/images/badminton-11.png"
           alt="Court lounge area"
-          className="h-51 w-full rounded-2xl object-cover shadow-sm"
+          className="h-51 w-full rounded-2xl object-cover shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg hover:shadow-gray-300 focus:outline-none focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:shadow-lg"
         />
         <img
           src="/images/badminton-12.png"
           alt="Badminton rackets and shuttlecocks"
-          className="h-51 w-full rounded-2xl object-cover shadow-sm"
+          className="h-51 w-full rounded-2xl object-cover shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg hover:shadow-gray-300 focus:outline-none focus-visible:-translate-y-1 focus-visible:scale-[1.02] focus-visible:shadow-lg"
         />
       </div>
     </section>
