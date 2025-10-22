@@ -1,157 +1,252 @@
-// src/ui/pages/player/PlayerHistoryPage.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import dayjs from "dayjs";
-import { Calendar } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
 import {
-  useBookingsRetrieve,
-  useBookingsCancelCreate,
-} from "@/api-client/endpoints/bookings/bookings";
-
+  useMyBookingRetrieve,
+  getMyBookingRetrieveQueryKey,
+} from "@/api-client/endpoints/my-booking/my-booking";
+import { useBookingsCancelCreate } from "@/api-client/endpoints/bookings/bookings";
+import { getWalletMeRetrieveQueryKey } from "@/api-client/endpoints/wallet/wallet";
+import { useQueryClient } from "@tanstack/react-query";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 
-/* ========================= Runtime types (ยึดตาม backend จริง) ========================= */
+/* ========================= Runtime types ========================= */
 type SlotItem = {
-  slot: number;
-  slot_court: number;
-  slot_service_date: string;
-  slot_start_at: string;
-  slot_end_at: string;
-  price_coins?: number;
+  status: string;
+  start_time: string;
+  end_time: string;
+  court: number;
+  court_name: string;
+  price_coin: number;
 };
 
 type BookingRow = {
-  id: number;
-  booking_no?: string;
-  booking_id?: string; // กันกรณี backend ใช้ชื่อนี้
-  user?: string;
-  status: string; // "upcoming" | "endgame" | "no_show" | "cancelled" | ...
-  created_at?: string;
-  created_date?: string; // เผื่อ backend ส่งชื่อนี้
-  booking_date?: string; // ถ้ามี
-  total_cost?: number | string; // อาจมาเป็น number หรือ string พร้อมคำว่า coins
+  created_date: string;
+  booking_id: string;
+  user: string;
+  total_cost: string | number;
+  booking_date: string;
+  booking_status: string;
   able_to_cancel: boolean;
-  slots: SlotItem[];
+  booking_slots: Record<string, SlotItem>;
 };
 
 /* ========================= Utils ========================= */
-const resolveBookingNo = (b: BookingRow) => b.booking_no ?? b.booking_id ?? "";
 const statusLabel = (s?: string) => {
   const x = (s || "").toLowerCase();
-  if (x === "endgame" || x === "end_game" || x === "completed") return "End Game";
-  if (x === "no_show" || x === "no-show") return "No-show";
+  if (x === "end_game" || x === "endgame") return "End Game";
   if (x === "cancelled") return "Cancelled";
+  if (x === "no_show" || x === "no-show") return "No-show";
+  if (x === "confirmed") return "Upcoming";
   return "Upcoming";
 };
+
 const statusPillClass = (s?: string) => {
   const x = (s || "").toLowerCase();
-  if (x === "endgame" || x === "end_game" || x === "completed")
+  if (["confirmed", "endgame", "end_game"].includes(x))
     return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
-  if (x === "no_show" || x === "no-show")
-    return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
-  if (x === "cancelled") return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
-  return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]"; // Upcoming
+  if (x === "cancelled")
+    return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
+  return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
 };
-/** ป้องกัน hydration: undefined → 0 (จะไม่ตีเป็นเวลาปัจจุบัน) */
-const safeTs = (s?: string) => (s ? dayjs(s).valueOf() : 0);
 
-/** กันซ้ำคำว่า coins หาก backend ส่ง string มาแล้วมีคำว่า coins อยู่แล้ว */
-const fmtCoins = (v: unknown) => {
-  if (v === null || v === undefined) return "-";
+const fmtCoins = (v: string | number) => {
   if (typeof v === "number") return `${v} coins`;
   const s = String(v).trim();
-  return /coins$/i.test(s) ? s : `${s} coins`;
+  return s.toLowerCase().includes("coin") ? s : `${s} coins`;
 };
 
+function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
+  try {
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: opts?.weekday ?? undefined,
+      month: opts?.month ?? "short",
+      day: opts?.day ?? "2-digit",
+      year: opts?.year ?? "numeric",
+      timeZone: "Asia/Bangkok",
+    }).format(d);
+  } catch {
+    return dateStr;
+  }
+}
+
+/* ========================= Main Page ========================= */
 export default function PlayerHistoryPage() {
-  // ⬇️ เปลี่ยนมาใช้ hook ใหม่
-  const { data, isLoading, isError, refetch } = useBookingsRetrieve();
-
-  // orval ของพี่ type เป็น void แต่ runtime ส่ง array จริง → รองรับทั้ง data และ data.data
-  const rows: BookingRow[] = useMemo(() => {
-    const raw: any = data as any;
-    const arr = (raw?.data ?? raw?.results ?? raw) as unknown;
-    return Array.isArray(arr) ? (arr as BookingRow[]) : [];
-  }, [data]);
-
-  /** เรียงตาม mock: Created Date ใหม่ → เก่า (fallback ไป booking_date/slot_service_date ถ้าไม่มี) */
-  const ordered = useMemo(() => {
-    const fallbackTs = (b: BookingRow) => {
-      const svc = b.booking_date ?? b.slots?.[0]?.slot_service_date;
-      const t = safeTs(svc);
-      return t || (typeof b.id === "number" ? b.id : 0);
-    };
-    return [...rows].sort((a, b) => {
-      const tb = safeTs(b.created_at ?? b.created_date) || fallbackTs(b);
-      const ta = safeTs(a.created_at ?? a.created_date) || fallbackTs(a);
-      return tb - ta; // ใหม่ → เก่า
-    });
-  }, [rows]);
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError } = useMyBookingRetrieve();
 
   const [open, setOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
+
+  // 🧭 new filters + sort
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"created" | "booking">("created");
+  const [sortDesc, setSortDesc] = useState(true);
 
   const cancelMutation = useBookingsCancelCreate({
     mutation: {
-      onSuccess: () => {
-        setOpen(false);
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: getMyBookingRetrieveQueryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: getWalletMeRetrieveQueryKey(),
+          }),
+        ]);
+        setConfirmModal(null);
         setActive(null);
-        refetch();
       },
     },
   });
 
-  // แสดง Today หลัง mount เพื่อกัน hydration mismatch
-  const [todayStr, setTodayStr] = useState<string>("");
-  useEffect(() => {
-    setTodayStr(dayjs().format("ddd, MMM DD, YYYY"));
-  }, []);
+  const rows: BookingRow[] = useMemo(() => {
+    const raw = data as any;
+    const arr = raw?.data ?? raw?.results ?? raw;
+    return Array.isArray(arr)
+      ? arr.map((b: any) => ({
+          ...b,
+          booking_status: b.booking_status ?? b.status ?? "upcoming",
+        }))
+      : [];
+  }, [data]);
+
+  // 🧩 Filter + Sort logic
+  const filtered = useMemo(() => {
+    let list = [...rows];
+    if (filterStatus !== "all") {
+      list = list.filter(
+        (b) => b.booking_status.toLowerCase() === filterStatus.toLowerCase()
+      );
+    }
+    return list.sort((a, b) => {
+      const keyA =
+        sortBy === "booking"
+          ? new Date(a.booking_date).getTime()
+          : new Date(a.created_date).getTime();
+      const keyB =
+        sortBy === "booking"
+          ? new Date(b.booking_date).getTime()
+          : new Date(b.created_date).getTime();
+      return sortDesc ? keyB - keyA : keyA - keyB;
+    });
+  }, [rows, filterStatus, sortBy, sortDesc]);
 
   const onView = (b: BookingRow) => {
     setActive(b);
     setOpen(true);
   };
-  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b as any);
-  const onCancel = (b: BookingRow) => {
-    const bookingNo = resolveBookingNo(b);
-    if (!bookingNo) return;
-    setActive(b);
-    cancelMutation.mutate({ bookingNo });
+
+  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b);
+
+  const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
+  const handleCancel = async (b: BookingRow) => {
+    cancelMutation.mutate({ bookingNo: b.booking_id });
   };
+
+  const today = formatDate(new Date().toISOString(), {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
 
   return (
     <div className="mx-auto my-auto">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
           <h1 className="text-2xl font-bold tracking-tight text-pine">
             My Booking History
           </h1>
           <p className="text-s font-semibold tracking-tight text-dimgray">
-            Track, download, or manage all bookings here.
+            Track, download, or manage all your bookings here.
           </p>
         </div>
       </div>
 
+      {/* Top Control Bar */}
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Left: Today */}
+        <div className="flex items-center text-dimgray text-sm">
+          <Calendar size={18} className="mr-2 text-dimgray" />
+          <span className="font-medium text-dimgray">
+            {today} <span className="text-sea font-xs">(Today)</span>
+          </span>
+        </div>
+
+        {/* Right: Filter + Sort Controls */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-3">
+          {/* Filter */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-pine">Filter:</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded-xl border border-neutral-300 bg-white px-3 py-2 mr-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
+            >
+              <option value="all">All</option>
+              <option value="confirmed">Upcoming</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="end_game">End Game</option>
+              <option value="no_show">No-show</option>
+            </select>
+          </div>
+
+          {/* Sort */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-pine">Sort by:</label>
+            <select
+              value={sortBy}
+              onChange={(e) =>
+                setSortBy(e.target.value as "created" | "booking")
+              }
+              className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
+            >
+              <option value="created">Created Date</option>
+              <option value="booking">Booking Date</option>
+            </select>
+            <button
+              onClick={() => setSortDesc((v) => !v)}
+              className="ml-1 rounded-xl border border-neutral-300 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50 transition"
+              title="Toggle sort order"
+            >
+              <ArrowUpDown
+                size={16}
+                className={`transition-transform duration-200 ${
+                  sortDesc ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </div>  
+
+
+      
+
+      {/* Error */}
       {isError && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-          Can't Download Booking History
+          Failed to load booking history.
         </div>
       )}
 
-      {/* Booking History Table */}
+      {/* Table */}
       <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
         <table className="min-w-[1000px] w-full border-collapse text-[15px] text-neutral-800">
           <thead className="bg-smoke text-pine font-semibold">
             <tr>
-              <th className="whitespace-nowrap px-6 py-4 text-left">Created</th>
-              <th className="whitespace-nowrap px-6 py-4 text-left">Booking No.</th>
-              <th className="whitespace-nowrap px-6 py-4 text-center">Total</th>
-              <th className="whitespace-nowrap px-6 py-4 text-center">Booking Date</th>
-              <th className="whitespace-nowrap px-6 py-4 text-center">Status</th>
-              <th className="whitespace-nowrap px-6 py-4 text-center">Actions</th>
+              <th className="px-6 py-4 text-left">Created</th>
+              <th className="px-6 py-4 text-left">Booking No.</th>
+              <th className="px-6 py-4 text-center">Total</th>
+              <th className="px-6 py-4 text-center">Booking Date</th>
+              <th className="px-6 py-4 text-center">Status</th>
+              <th className="px-6 py-4 text-center">Actions</th>
             </tr>
           </thead>
 
@@ -166,52 +261,41 @@ export default function PlayerHistoryPage() {
               ))}
 
             {!isLoading &&
-              ordered.map((b) => {
-                const created = b.created_at ?? b.created_date;
-                const serviceDate = b.booking_date ?? b.slots?.[0]?.slot_service_date;
-                const bookingNo = resolveBookingNo(b);
-                const status = (b.status ?? "upcoming").toLowerCase();
-                const canCancel = b.able_to_cancel && status !== "cancelled";
+              filtered.map((b) => {
+                const canCancel =
+                  b.able_to_cancel &&
+                  !["cancelled", "end_game"].includes(b.booking_status);
+                const isCancelling =
+                  cancelMutation.isPending &&
+                  active &&
+                  active.booking_id === b.booking_id;
 
                 return (
                   <tr
-                    key={bookingNo || b.id}
+                    key={b.booking_id}
                     className="border-t border-smoke hover:bg-neutral-50/70"
-                    onClick={() => onView(b)}
                   >
-                    {/* Created */}
-                    <td className="px-6 py-4 text-neutral-600 whitespace-nowrap">
-                      {created ? dayjs(created).format("D MMM YYYY") : "-"}
+                    <td className="px-6 py-4 whitespace-nowrap text-neutral-600">
+                      {formatDate(b.created_date)}
                     </td>
-
-                    {/* Booking ID */}
                     <td className="px-6 py-4 font-semibold text-walnut">
-                      {bookingNo || "-"}
+                      {b.booking_id}
                     </td>
-
-                    {/* Total */}
                     <td className="px-6 py-4 text-center whitespace-nowrap">
                       {fmtCoins(b.total_cost)}
                     </td>
-
-                    {/* Booking Date */}
                     <td className="px-6 py-4 text-center whitespace-nowrap">
-                      {serviceDate ? dayjs(serviceDate).format("D MMM YYYY") : "-"}
+                      {formatDate(b.booking_date)}
                     </td>
-
-                    {/* Status */}
                     <td className="px-6 py-4 text-center">
                       <span
                         className={`inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm ${statusPillClass(
-                          status
+                          b.booking_status
                         )}`}
                       >
-                        <span className="h-3 w-3 rounded-sm bg-current/60" />
-                        {statusLabel(status)}
+                        {statusLabel(b.booking_status)}
                       </span>
                     </td>
-
-                    {/* Actions */}
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex flex-wrap justify-center gap-2">
                         <button
@@ -223,30 +307,41 @@ export default function PlayerHistoryPage() {
 
                         <button
                           onClick={() => onDownload(b)}
-                          disabled={status === "upcoming"}
+                          disabled={
+                            !(
+                              b.booking_status.toLowerCase() === "confirmed" &&
+                              b.able_to_cancel === false
+                            )
+                          }
                           className={`rounded-lg border px-4 py-2 ${
-                            status === "upcoming"
-                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
-                              : "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
+                            b.booking_status.toLowerCase() === "confirmed" &&
+                            b.able_to_cancel === false
+                              ? "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
+                              : "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                           }`}
                         >
                           Download
                         </button>
 
                         <button
-                          onClick={() => onCancel(b)}
+                          onClick={() => {
+                            setActive(b);
+                            onCancelConfirm(b);
+                          }}
                           disabled={!canCancel || cancelMutation.isPending}
-                          className={`rounded-lg border px-4 py-2 ${
-                            !canCancel || cancelMutation.isPending
+                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
+                            !canCancel
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                               : "border-[#8d3e3e] bg-[#8d3e3e] text-white hover:brightness-95"
                           }`}
                         >
-                          {cancelMutation.isPending &&
-                          active &&
-                          resolveBookingNo(active) === bookingNo
-                            ? "Cancelling…"
-                            : "Cancel"}
+                          {isCancelling ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> Cancelling…
+                            </>
+                          ) : (
+                            "Cancel"
+                          )}
                         </button>
                       </div>
                     </td>
@@ -257,7 +352,42 @@ export default function PlayerHistoryPage() {
         </table>
       </div>
 
-      {/* Modal */}
+      {/* Confirm Cancel Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="rounded-xl bg-white p-6 shadow-lg w-[360px] text-center">
+            <h2 className="text-lg font-semibold text-pine mb-2">
+              Cancel this booking?
+            </h2>
+            <p className="text-sm text-neutral-600 mb-5">
+              Booking <strong>{confirmModal.booking_id}</strong> will be cancelled and
+              coins refunded according to the policy.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                className="rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2 text-neutral-700 hover:bg-neutral-200"
+                onClick={() => setConfirmModal(null)}
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={() => handleCancel(confirmModal)}
+                className="rounded-lg border border-[#8d3e3e] bg-[#8d3e3e] px-4 py-2 text-white hover:brightness-95 flex items-center justify-center gap-2"
+              >
+                {cancelMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Cancelling…
+                  </>
+                ) : (
+                  "Confirm Cancel"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Modal */}
       <BookingReceiptModal
         open={open}
         onClose={() => setOpen(false)}
