@@ -2,35 +2,33 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { classNames, ymdAddDays, ymdLabel } from "@/lib/booking/datetime";
 import SlotGrid from "@/ui/components/bookingpage/SlotGrid";
 import BookingSummaryModal from "@/ui/components/bookingpage/BookingSummaryModal";
 import BookingConfirmedModal from "@/ui/components/bookingpage/BookingConfirmedModal";
-import { useDayGrid, useWalletBalance, useCreateBookings } from "@/lib/booking/api";
-import type { Col, SelectedSlot } from "@/lib/booking/model";
-import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
 import PlayerSlotStatusLegend from "@/ui/components/bookingpage/PlayerSlotStatusLegend";
 import DateNavigator from "@/ui/components/bookingpage/DateNavigator";
 import FloatingLegend from "@/ui/components/bookingpage/FloatingLegend";
+import { classNames } from "@/lib/booking/datetime";
+
+import type { Col, SelectedSlot } from "@/lib/booking/slotGridModel";
+import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
+import {
+  buildDayGridFromMonthView,
+  buildPlaceholderGrid,
+} from "@/lib/booking/buildDayGridFromMonthView";
+
+// hooks ใหม่
+import { useMonthView } from "@/api-client/extras/slots";
+import { useBookingCreateWithBody } from "@/api-client/extras/booking";
+import { useWalletMeRetrieve } from "@/api-client/endpoints/wallet/wallet";
+import CourtlyLoading from "@/ui/components/basic/LoadingOverlay";
 
 /* =========================================================================
-   Utils (local) — ช่วยจัดการ date <-> ymd และ clamp ภายในช่วงที่อนุญาต
+   Utils (local)
    ========================================================================= */
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function addMonths(d: Date, n: number) {
-  const x = new Date(d);
-  x.setMonth(x.getMonth() + n);
-  return x;
-}
-function clamp(d: Date, min: Date, max: Date) {
-  if (d < min) return min;
-  if (d > max) return max;
-  return d;
-}
+function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function addMonths(d: Date, n: number) { const x = new Date(d); x.setMonth(x.getMonth()+n); return x; }
+function clamp(d: Date, min: Date, max: Date) { if (d < min) return min; if (d > max) return max; return d; }
 function ymdFromDate(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -55,66 +53,88 @@ export default function PlayerBookingPage() {
 
   // default เริ่มที่ Today (ห้ามย้อนหลัง)
   const [ymd, setYmd] = useState<string>(() => ymdFromDate(today));
+  const currentMonth = useMemo(() => ymd.slice(0, 7), [ymd]); // "YYYY-MM"
+
   const [selected, setSelected] = useState<SelectedSlot[]>([]);
   const [openSummary, setOpenSummary] = useState(false);
   const [openConfirm, setOpenConfirm] = useState(false);
   const [bookingNos, setBookingNos] = useState<string[]>([]);
 
-  const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell, isLoading } =
-    useDayGrid({ clubId: CLUB_ID, ymd });
-  const { balance: coins } = useWalletBalance();
+  // โหลด month-view จริง
+  const mv = useMonthView(CLUB_ID, currentMonth);
+
+  // แปลงเป็นกริดรายวันจากข้อมูลจริง
+  const base = useMemo(
+    () => buildDayGridFromMonthView(mv.data, ymd),
+    [mv.data, ymd]
+  );
+
+  // ⬇️ ถ้า loading/ยังไม่มีข้อมูลวันนี้ → ใช้กริดเปล่าชั่วคราว
+  const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell } =
+    useMemo(() => {
+      if (mv.isLoading || !base.cols.length || !base.grid.length) {
+        return buildPlaceholderGrid();
+      }
+      return base;
+    }, [mv.isLoading, base]);
+
+  // wallet balance (ใช้ hook orval เดิม)
+  const { data: wallet } = useWalletMeRetrieve();
+  const coins = useMemo(() => {
+    // @ts-ignore
+    if (typeof wallet?.balance === "number") return wallet.balance as number;
+    // @ts-ignore
+    return null;
+  }, [wallet]);
 
   useEffect(() => setSelected([]), [ymd]);
 
+  // คิดราคาจาก priceGrid จริง
   const groups = useMemo(
-    () => groupSelectionsWithPrice(selected, cols),
+    () => groupSelectionsWithPrice(selected, cols as Col[], priceGrid),
     [selected, cols, priceGrid]
   );
-
   const totalPrice = groups.reduce((s, g) => s + g.price, 0);
   const notEnough = coins !== null && totalPrice > coins;
-  const { create, isCreating } = useCreateBookings();
+
+  // ยิง booking ด้วย body จริง { club, items }
+  const bookingMut = useBookingCreateWithBody(CLUB_ID, currentMonth);
 
   function toggleSelect(courtRow: number, colIdx: number) {
     const key = `${courtRow}-${colIdx}`;
     const exists = selected.some((s) => `${s.courtRow}-${s.colIdx}` === key);
     setSelected((prev) =>
-      exists
-        ? prev.filter((s) => `${s.courtRow}-${s.colIdx}` !== key)
-        : [...prev, { courtRow, colIdx }]
+      exists ? prev.filter((s) => `${s.courtRow}-${s.colIdx}` !== key) : [...prev, { courtRow, colIdx }]
     );
   }
 
-  async function handleConfirm() {
-    try {
-      const items = groups.map((g) => {
-        const start = cols[g.startIdx].start;
-        const end = cols[g.endIdx].end;
-        const courtId = courtIds[g.courtRow - 1] ?? g.courtRow;
-        return { court: courtId, date: ymd, start, end };
-      });
+  function handleConfirm() {
+    if (!groups.length) { alert("Please select at least one slot."); return; }
+    if (notEnough) { alert("Your wallet balance is not enough."); return; }
 
-      const res: any = await create(CLUB_ID, items);
+    const items = groups.map((g) => {
+      const start = (cols[g.startIdx] as Col).start;
+      const end = (cols[g.endIdx] as Col).end;
+      const court = courtIds[g.courtRow - 1] ?? g.courtRow;
+      return { court, date: ymd, start, end };
+    });
 
-      const ids: string[] = (() => {
-        if (!res) return [];
-        if (Array.isArray(res.bookings)) {
-          return res.bookings
-            .map((b: any) => b.booking_no ?? b.bookingNo ?? b.id ?? b.code)
-            .filter(Boolean)
-            .map(String);
-        }
-        const single = res.booking_no ?? res.bookingNo ?? res.id ?? res.code ?? null;
-        return single ? [String(single)] : [];
-      })();
+    bookingMut.mutate(
+      { club: CLUB_ID, items },
+      {
+        onSuccess: (res: any) => {
+          const ids: string[] = Array.isArray(res?.bookings)
+            ? res.bookings.map((b: any) => b.booking_id ?? b.booking_no ?? b.id).filter(Boolean).map(String)
+            : [res?.booking_id ?? res?.booking_no ?? res?.id].filter(Boolean).map(String);
 
-      setBookingNos(ids);
-      setOpenSummary(false);
-      setOpenConfirm(true);
-      setSelected([]);
-    } catch (e: any) {
-      alert(e?.message || "Booking failed. Please try again.");
-    }
+          setBookingNos(ids);
+          setOpenSummary(false);
+          setOpenConfirm(true);
+          setSelected([]);
+        },
+        onError: (e: any) => alert(e?.message || "Booking failed. Please try again."),
+      }
+    );
   }
 
   // ปรับให้ shiftDay เคารพช่วง min/max เสมอ
@@ -126,33 +146,35 @@ export default function PlayerBookingPage() {
     setSelected([]);
   }
 
-
   const selCount = selected.length;
+  const isLoading = mv.isLoading || bookingMut.isPending;
 
   return (
     <div className="mx-auto my-auto">
       {/* Title and subtext */}
       <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-pine">
-          Let’s Book Your Game!
-        </h1>
+        <div className="flex items-end">
+          <h1 className="text-2xl font-bold tracking-tight text-pine">
+            Let’s Book Your Game!
+          </h1>
+          <p className="text-l pl-2 font-bold tracking-tight text-pine/80">
+            (30 Minutes/Slot)
+          </p>
+          
+        </div>
         <p className="text-s font-semibold tracking-tight text-dimgray">
           Choose your court and time below to make a booking.
-          A slot = 30 minutes = 100 coin
         </p>
         
       </div>
 
-      {/* Header row: Date navigator + actions all in one line */}
+      {/* Header row */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <DateNavigator
-          // ใช้แบบ controlled + ปฏิทิน
           value={dateFromYmd(ymd)}
           onChange={(d) => setYmd(ymdFromDate(clamp(startOfDay(d), minDate, maxDate)))}
           minDate={minDate}
           maxDate={maxDate}
-          // ถ้าอยากคงปุ่มลูกศรไว้ด้วย ก็ยังเรียกเดิมได้ (คอมโพเนนต์จะ disable ให้เองเมื่อถึงขอบ)
-          // dateLabelOverride={dateLabel} // ถ้าอยากคงรูปแบบ label จาก ymdLabel
           className=""
         />
 
@@ -166,9 +188,7 @@ export default function PlayerBookingPage() {
             onClick={() => setOpenSummary(true)}
             className={classNames(
               "rounded-xl px-4 py-2 text-sm font-bold transition-colors",
-              selCount
-                ? "bg-teal-800 text-white hover:bg-teal-700"
-                : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
+              selCount ? "bg-teal-800 text-white hover:bg-teal-700" : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
             )}
             disabled={!selCount || isLoading}
           >
@@ -186,18 +206,18 @@ export default function PlayerBookingPage() {
         onToggle={toggleSelect}
       />
 
-      {/* Bottom info section (legend + helper) */}
-      <div className="mt-5 flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Bottom info section */}
+      <div className="mt-5 mb-5 flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:order-1 order-2">
           <PlayerSlotStatusLegend />
         </div>
         <p className="sm:order-2 order-1 text-sm text-gray-600 text-left sm:text-right">
-          💡 1 slot = 30 minutes = 100 coins · Coins are captured when you confirm
+          💡 A slot = {minutesPerCell} minutes = 100 coins · Coins are captured when you confirm
         </p>
       </div>
 
-      {/* floating legend — shows on all viewports */}
-      <FloatingLegend helperText="💡 1 slot = 30 minutes = 100 coins · Coins are captured when you confirm" />
+      {/* floating legend */}
+      <FloatingLegend />
 
       {/* Summary Modal */}
       <BookingSummaryModal
@@ -206,9 +226,10 @@ export default function PlayerBookingPage() {
         groups={groups}
         courtNames={courtNames}
         totalPrice={totalPrice}
-        notEnough={notEnough || isCreating}
+        notEnough={notEnough || bookingMut.isPending}
         onConfirm={handleConfirm}
         minutesPerCell={minutesPerCell}
+        isSubmitting={bookingMut.isPending}
       />
 
       {/* Confirmed Modal */}
@@ -217,6 +238,12 @@ export default function PlayerBookingPage() {
         onClose={() => setOpenConfirm(false)}
         bookingNos={bookingNos}
       />
+
+      {/* <CourtlyLoading isLoading={isLoading} text="Loading ..." /> */}
+
+
     </div>
+
+    
   );
 }

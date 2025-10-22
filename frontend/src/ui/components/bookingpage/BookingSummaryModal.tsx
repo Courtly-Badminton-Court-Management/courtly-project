@@ -15,6 +15,7 @@ type Props = {
   notEnough: boolean;
   onConfirm: () => void;
   minutesPerCell: number;
+  isSubmitting?: boolean;
 };
 
 function formatDuration(mins: number) {
@@ -34,6 +35,8 @@ export default function BookingSummaryModal({
   notEnough,
   onConfirm,
   minutesPerCell,
+  isSubmitting,
+  
 }: Props) {
   // ป้องกัน warning เด้งหลังผู้ใช้กด Confirm
   const [justSubmitted, setJustSubmitted] = useState(false);
@@ -62,7 +65,7 @@ export default function BookingSummaryModal({
   }
 
   const Footer = (
-    <div className="rounded-2xl border border-gray-100 bg-white/95 shadow-[0_-6px_20px_-10px_rgba(0,0,0,0.06)] backdrop-blur">
+    <div className="rounded-2xl border border-gray-100 bg-white/95 shadow-[0_-6px_20px_-10px_rgba(0,0,0,0.06)] backdrop-blur ">
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <div className="text-base font-extrabold text-gray-900">Total</div>
         <div className="flex items-center gap-2 text-base font-extrabold text-gray-900">
@@ -88,17 +91,27 @@ export default function BookingSummaryModal({
         >
           Cancel
         </button>
-        <button
-          onClick={handleConfirm}
-          disabled={notEnough || items.length === 0}
-          className={`rounded-xl px-4 py-2 text-sm font-bold text-white ${
-            notEnough || items.length === 0
-              ? "cursor-not-allowed bg-gray-300"
-              : "bg-teal-700 hover:bg-teal-600 shadow-sm"
-          }`}
-        >
-          Confirm
-        </button>
+              <button
+        onClick={handleConfirm}
+        disabled={notEnough || items.length === 0 || isSubmitting}
+        className={`rounded-xl px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2 transition ${
+          notEnough || items.length === 0
+            ? "cursor-not-allowed bg-gray-300"
+            : isSubmitting
+            ? "bg-teal-600 cursor-wait"
+            : "bg-teal-700 hover:bg-teal-600 shadow-sm"
+        }`}
+      >
+        {isSubmitting ? (
+          <>
+            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Processing...
+          </>
+        ) : (
+          "Confirm"
+        )}
+      </button>
+
       </div>
     </div>
   );
@@ -117,7 +130,7 @@ export default function BookingSummaryModal({
           <li key={i} className="rounded-2xl bg-white/80 shadow-sm ring-1 ring-black/5">
             <div className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
-                <span className="inline-flex items-center rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-teal-200">
+                <span className="inline-flex items-center rounded-full bg-sea/10 px-2.5 py-1 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-sea/50">
                   <MapPin className="mr-1 h-3.5 w-3.5" />
                   {it.courtLabel}
                 </span>

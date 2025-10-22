@@ -3,6 +3,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
 import { monthViewKey } from "./slots";
+import {getWalletMeRetrieveQueryKey} from "@/api-client/endpoints/wallet/wallet";
+import {getBookingsRetrieveQueryKey} from "@/api-client/endpoints/bookings/bookings";
+import {getMyBookingRetrieveQueryKey} from "@/api-client/endpoints/my-booking/my-booking";
 
 export type CreateBookingPayload = {
   club: number;
@@ -27,7 +30,9 @@ export function useBookingCreateWithBody(club: number, month: string) {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: monthViewKey(club, month) });
-      // ถ้าต้อง refresh wallet: qc.invalidateQueries({ queryKey: getWalletWalletBalanceRetrieveQueryKey() });
+      qc.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() });        // refresh wallet
+      qc.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() });      // refresh my-bookings
+      qc.invalidateQueries({ queryKey: getBookingsRetrieveQueryKey() });        // refresh manager bookings
     },
   });
 }
