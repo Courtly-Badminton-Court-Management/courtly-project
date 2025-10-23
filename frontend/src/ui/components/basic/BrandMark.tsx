@@ -11,6 +11,7 @@ export default function BrandMark({ size = 55 }: { size?: number }) {
         height={size}
         priority
         className="shrink-0"
+        style={{ width: size, height: size }}
       />
 
       {/* ตัวหนังสือ */}
