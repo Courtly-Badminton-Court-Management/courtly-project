@@ -13,6 +13,7 @@ import {
   getMyBookingRetrieveQueryKey,
 } from "@/api-client/endpoints/my-booking/my-booking";
 import { useBookingsCancelCreate } from "@/api-client/endpoints/bookings/bookings";
+import { monthViewKey } from "@/api-client/extras/slots";
 import { getWalletMeRetrieveQueryKey } from "@/api-client/endpoints/wallet/wallet";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -66,6 +67,10 @@ export default function PlayerHomePage() {
     setYm(({ year, month0 }) =>
       month0 === 11 ? { year: year + 1, month0: 0 } : { year, month0: month0 + 1 }
     );
+  
+  const now = new Date();
+  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+  const CURRENT_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useMyBookingRetrieve();
@@ -75,6 +80,7 @@ export default function PlayerHomePage() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: monthViewKey(CLUB_ID, CURRENT_MONTH) }),
         ]);
       },
     },
