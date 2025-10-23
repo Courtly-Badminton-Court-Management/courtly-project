@@ -28,7 +28,7 @@ export default function Button({
   bgColor = "bg-pine",
   textColor = "text-white",
   hoverBgColor = "hover:bg-emerald-800",
-  hoverTextColor = "hover:text-white",
+  hoverTextColor = textColor,
   frontIcon,
   backIcon,
 }: ButtonProps) {
