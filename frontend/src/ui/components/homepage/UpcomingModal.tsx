@@ -162,7 +162,9 @@ export default function UpcomingModal({
     return (
       <aside className="rounded-2xl border border-platinum bg-white p-6 shadow-sm transition hover:shadow-md text-center">
         <div className="flex flex-col items-center gap-3 animate-[fadeUp_0.4s_ease]">
+          <div className="rounded-full bg-pine/10 p-2 text-pine">
           <CalendarDays className="h-6 w-6 text-pine" />
+          </div>
           <h3 className="text-lg font-semibold text-pine">No Upcoming Games 🏸</h3>
           <p className="text-sm text-gray-500">
             Book a court and get ready to play!
@@ -183,7 +185,9 @@ export default function UpcomingModal({
   return (
     <aside className="rounded-2xl border border-platinum bg-white p-6 shadow-sm transition hover:shadow-md">
       <div className="flex items-center gap-2 mb-5">
-        <CalendarDays className="h-5 w-5 text-pine" />
+        <div className="rounded-full bg-pine/10 p-2 text-pine">
+          <CalendarDays className="h-6 w-6 text-pine" />
+          </div>
         <h3 className="text-lg font-bold text-pine">Upcoming Booking</h3>
       </div>
 

@@ -51,9 +51,9 @@ export default function AvailableSlotPanel({
           </div>
         </div>
 
-        <span className="rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
+        {/* <span className="rounded-full bg-pine/10 px-3 py-1 text-xs font-semibold text-pine">
           Preview Mode
-        </span>
+        </span> */}
       </div>
 
       {/* Slot list */}
