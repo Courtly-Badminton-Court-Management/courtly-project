@@ -1,10 +1,10 @@
-// src/ui/components/bookingpage/BookingSummaryModal.tsx
 "use client";
+
 import React, { useEffect, useMemo, useState } from "react";
-import Modal from "@/ui/components/basic/Modal";
-import type { GroupedSelection } from "@/lib/booking/slotGridModel";
-import { CalendarRange, Clock3, Coins, MapPin } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { CalendarRange, Clock3, Coins, MapPin, Loader2,X } from "lucide-react";
 import Link from "next/link";
+import type { GroupedSelection } from "@/lib/booking/slotGridModel";
 
 type Props = {
   open: boolean;
@@ -13,7 +13,7 @@ type Props = {
   courtNames: string[];
   totalPrice: number;
   notEnough: boolean;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   minutesPerCell: number;
   isSubmitting?: boolean;
 };
@@ -36,12 +36,9 @@ export default function BookingSummaryModal({
   onConfirm,
   minutesPerCell,
   isSubmitting,
-  
 }: Props) {
-  // ป้องกัน warning เด้งหลังผู้ใช้กด Confirm
   const [justSubmitted, setJustSubmitted] = useState(false);
 
-  // เปิด/ปิดใหม่ รีเซ็ตสถานะ
   useEffect(() => {
     if (!open) setJustSubmitted(false);
   }, [open]);
@@ -57,105 +54,158 @@ export default function BookingSummaryModal({
     [groups, courtNames, minutesPerCell]
   );
 
-  // กดคอนเฟิร์ม: ซ่อน warning ทันที แล้วค่อยส่งต่อ
-  function handleConfirm() {
+  const handleConfirm = async () => {
     if (notEnough || items.length === 0) return;
     setJustSubmitted(true);
-    onConfirm();
-  }
+    try {
+      await onConfirm();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setJustSubmitted(false);
+    }
+  };
 
-  const Footer = (
-    <div className="rounded-2xl border border-gray-100 bg-white/95 shadow-[0_-6px_20px_-10px_rgba(0,0,0,0.06)] backdrop-blur ">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-        <div className="text-base font-extrabold text-gray-900">Total</div>
-        <div className="flex items-center gap-2 text-base font-extrabold text-gray-900">
-          <Coins className="h-4 w-4 opacity-80" />
-          {totalPrice.toLocaleString()} coins
-        </div>
-      </div>
-
-      {/* แสดงเฉพาะตอนเงินไม่พอ "และ" ยังไม่ได้กดยืนยันในรอบนี้ */}
-      {notEnough && !justSubmitted && (
-        <div className="mx-4 mb-2 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
-          <span>Not enough coins to confirm this booking.</span>
-          <Link href={"/wallet"} className="underline underline-offset-2 font-semibold hover:opacity-90">
-            Top-up your wallet →
-          </Link>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-5">
-        <button
-          onClick={onClose}
-          className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
-        >
-          Cancel
-        </button>
-              <button
-        onClick={handleConfirm}
-        disabled={notEnough || items.length === 0 || isSubmitting}
-        className={`rounded-xl px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2 transition ${
-          notEnough || items.length === 0
-            ? "cursor-not-allowed bg-gray-300"
-            : isSubmitting
-            ? "bg-teal-600 cursor-wait"
-            : "bg-teal-700 hover:bg-teal-600 shadow-sm"
-        }`}
-      >
-        {isSubmitting ? (
-          <>
-            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Processing...
-          </>
-        ) : (
-          "Confirm"
-        )}
-      </button>
-
-      </div>
-    </div>
-  );
+  if (!open) return null;
 
   return (
-    <Modal 
-        open={open} 
-        onClose={onClose} 
-        title="Booking Summary" 
-        subtitle="Review your selection before confirming." 
-        footer={Footer}
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md px-4 sm:px-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
         >
+          <motion.div
+            className="relative w-full max-h-[90vh] max-w-[480px] sm:max-w-[520px] rounded-2xl bg-white p-4 sm:p-5 text-center shadow-2xl flex flex-col"
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 10 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+          >
 
-      <ul className="space-y-3 pr-1 pb-2">
-        {items.map((it, i) => (
-          <li key={i} className="rounded-2xl bg-white/80 shadow-sm ring-1 ring-black/5">
-            <div className="p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <span className="inline-flex items-center rounded-full bg-sea/10 px-2.5 py-1 text-xs font-semibold text-teal-800 ring-1 ring-inset ring-sea/50">
-                  <MapPin className="mr-1 h-3.5 w-3.5" />
-                  {it.courtLabel}
-                </span>
-                <div className="flex items-center gap-1 text-sm font-bold text-gray-900">
-                  <Coins className="h-4 w-4 opacity-80" />
-                  {it.price.toLocaleString()} coins
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-2 text-[13px] text-gray-700 sm:grid-cols-2">
-                <div className="flex items-center gap-2">
-                  <CalendarRange className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium">Time:</span>
-                  <span className="text-gray-800">{it.timeLabel}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium">Duration:</span>
-                  <span className="text-gray-800">{formatDuration(it.durationMins)}</span>
-                </div>
-              </div>
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 rounded-full p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition"
+              aria-label="Close modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            {/* Header */}
+            <div className="mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-pine">
+                Booking Summary
+              </h2>
+              <p className="text-sm sm:text-[14px] text-neutral-500 mt-1 font-semibold">
+                Review your selection before confirming.
+              </p>
             </div>
-          </li>
-        ))}
-      </ul>
-    </Modal>
+
+            {/* List */}
+            <div className="max-h-[55vh] overflow-y-auto space-y-3 mb-5 text-left p-2">
+              {items.map((it, i) => (
+                <motion.div
+                  key={i}
+                  layout
+                  whileHover={{ scale: 1.00 }}
+                  className="rounded-xl border border-gray-100 bg-white/90 p-4 shadow-sm ring-1 ring-black/5 transition"
+                >
+                  <div className="flex items-start justify-between">
+                    <span className="inline-flex items-center rounded-full bg-sea/10 px-2.5 py-1 text-xs font-semibold text-teal-800 ring-1 ring-sea/50">
+                      <MapPin className="mr-1 h-3.5 w-3.5" />
+                      {it.courtLabel}
+                    </span>
+                    <div className="flex items-center gap-1 text-sm font-semibold text-gray-900">
+                      <Coins className="h-4 w-4 opacity-80" />
+                      {it.price.toLocaleString()} coins
+                    </div>
+                  </div>
+                  <div className="mt-3 grid sm:grid-cols-2 gap-2 text-[13px] text-gray-700">
+                    <div className="flex items-center gap-2">
+                      <CalendarRange className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium">Time:</span>
+                      {it.timeLabel}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock3 className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium">Duration:</span>
+                      {formatDuration(it.durationMins)}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Total */}
+            <div className="text-base font-bold text-onyx flex justify-between items-center border-t border-gray-100 pt-3 pb-2">
+              <span>Total</span>
+              <span className="flex items-center gap-2">
+                <Coins className="h-4 w-4 opacity-80" />
+                {totalPrice.toLocaleString()} coins
+              </span>
+            </div>
+
+            {/* Warning */}
+            {!justSubmitted && notEnough && !isSubmitting && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-2 mb-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-200"
+              >
+                <span>Not enough coins to confirm this booking.</span>
+                <Link
+                  href="/wallet"
+                  className="underline underline-offset-2 font-semibold hover:opacity-90"
+                >
+                  Top-up →
+                </Link>
+              </motion.div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row justify-center gap-3 mt-3">
+
+
+              <motion.button
+                whileHover={notEnough ? { scale: 1.00 }:{ scale: 1.01 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleConfirm}
+                disabled={notEnough || items.length === 0 || isSubmitting}
+                className={`w-full  h-[44px] rounded-xl text-white font-medium text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-sm focus:ring-2 focus:ring-sea/30 ${
+                  notEnough || items.length === 0
+                    ? "cursor-not-allowed bg-gray-300"
+                    : "bg-pine hover:brightness-110 hover:shadow-lg"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  "Confirm Booking"
+                )}
+              </motion.button>
+            </div>
+
+            {/* ✨ Glow animation while loading */}
+            {isSubmitting && (
+              <motion.div
+                className="absolute inset-0 rounded-2xl bg-white/40 backdrop-blur-[2px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.4, 0] }}
+                transition={{ repeat: Infinity, duration: 1.2 }}
+              />
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

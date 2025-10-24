@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 
 type CopyToClipboardProps = {
-  text: string;
+  text: any;
 };
 
 export default function CopyToClipboard({ text }: CopyToClipboardProps) {
@@ -29,12 +29,12 @@ export default function CopyToClipboard({ text }: CopyToClipboardProps) {
     <button
       type="button"
       onClick={handleCopy}
-      className="inline-flex items-center gap-1 rounded-full  bg-neutral-50 px-3 py-0.25 text-sm text-onyx hover:bg-neutral-100 transition"
+      className="inline-flex items-center gap-1 rounded-full  bg-smoke px-3 py-0.5 text-sm text-onyx hover:bg-neutral-100 transition"
       title={copied ? "Copied!" : "Copy text"}
     >
-      <span className="font-mono">{text}</span>
+      <span className="font-mono pr-1">{text}</span>
       {mounted && copied ? (
-        <Check className="h-4 w-4 text-emerald-500" />
+        <Check className="h-4 w-4 text-cambridge" />
       ) : (
         <Copy className="h-4 w-4 text-neutral-400" />
       )}

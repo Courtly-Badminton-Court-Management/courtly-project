@@ -28,11 +28,13 @@ export function useBookingCreateWithBody(club: number, month: string) {
         data: payload,
         // headers: { "Content-Type": "application/json" }, // โดยปกติ axios ใส่ให้อยู่แล้ว
       }),
-    onSuccess: () => {
+    onSuccess: (response) => {
       qc.invalidateQueries({ queryKey: monthViewKey(club, month) });
       qc.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() });        // refresh wallet
       qc.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() });      // refresh my-bookings
       qc.invalidateQueries({ queryKey: getBookingsRetrieveQueryKey() });        // refresh manager bookings
+
+      return response
     },
   });
 }

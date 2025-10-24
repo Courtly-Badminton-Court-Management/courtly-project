@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import SlotGrid from "@/ui/components/bookingpage/SlotGrid";
 import BookingSummaryModal from "@/ui/components/bookingpage/BookingSummaryModal";
 import BookingConfirmedModal from "@/ui/components/bookingpage/BookingConfirmedModal";
+import BookingErrorModal from "@/ui/components/bookingpage/BookingErrorModal";
 import PlayerSlotStatusLegend from "@/ui/components/bookingpage/PlayerSlotStatusLegend";
 import DateNavigator from "@/ui/components/bookingpage/DateNavigator";
 import FloatingLegend from "@/ui/components/bookingpage/FloatingLegend";
@@ -59,6 +60,8 @@ export default function PlayerBookingPage() {
   const [openSummary, setOpenSummary] = useState(false);
   const [openConfirm, setOpenConfirm] = useState(false);
   const [bookingNos, setBookingNos] = useState<string[]>([]);
+  const [errorModal, setErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // โหลด month-view จริง
   const mv = useMonthView(CLUB_ID, CURRENT_MONTH);
@@ -123,16 +126,27 @@ export default function PlayerBookingPage() {
       { club: CLUB_ID, items },
       {
         onSuccess: (res: any) => {
-          const ids: string[] = Array.isArray(res?.bookings)
-            ? res.bookings.map((b: any) => b.booking_id ?? b.booking_no ?? b.id).filter(Boolean).map(String)
-            : [res?.booking_id ?? res?.booking_no ?? res?.id].filter(Boolean).map(String);
-
-          setBookingNos(ids);
+          setBookingNos(res?.booking?.booking_no);
           setOpenSummary(false);
           setOpenConfirm(true);
           setSelected([]);
         },
-        onError: (e: any) => alert(e?.message || "Booking failed. Please try again."),
+        onError: (e: any) => {
+      const status = e?.response?.status;
+      let msg = "";
+
+      if (status === 409) {
+          msg = "This slot has just been taken. Please choose another available time.";
+        } else if (e?.response?.data?.detail) {
+          msg = e.response.data.detail;
+        } else {
+          msg = e?.message || "Booking failed. Please try again.";
+        }
+      
+      setErrorMessage(msg);
+      setErrorModal(true);
+      setOpenSummary(false)
+    },
       }
     );
   }
@@ -219,6 +233,8 @@ export default function PlayerBookingPage() {
       {/* floating legend */}
       <FloatingLegend />
 
+
+
       {/* Summary Modal */}
       <BookingSummaryModal
         open={openSummary}
@@ -229,7 +245,7 @@ export default function PlayerBookingPage() {
         notEnough={notEnough || bookingMut.isPending}
         onConfirm={handleConfirm}
         minutesPerCell={minutesPerCell}
-        isSubmitting={bookingMut.isPending}
+        isSubmitting={isLoading}
       />
 
       {/* Confirmed Modal */}
@@ -238,6 +254,14 @@ export default function PlayerBookingPage() {
         onClose={() => setOpenConfirm(false)}
         bookingNos={bookingNos}
       />
+
+      {/* Error Modal */}
+      <BookingErrorModal
+        open={errorModal}
+        message={errorMessage}
+        onClose={() => setErrorModal(false)}
+      />
+  
 
       {/* <CourtlyLoading isLoading={isLoading} text="Loading ..." /> */}
 
