@@ -35,6 +35,12 @@ def combine_dt(d: date, t) -> datetime:
 
 def calculate_able_to_cancel(first_slot):
     """Check if booking can be cancelled (more than 24 hours before start)."""
+    if not first_slot or not first_slot.slot or not hasattr(first_slot.slot, "slot_status"):
+        return False
+
+    if first_slot.slot.slot_status.status == "cancelled":
+        return False
+
     slot_start = first_slot.slot.start_at
     slot_local = timezone.localtime(slot_start)
     return timezone.now() <= slot_local - timedelta(hours=24)
@@ -294,9 +300,11 @@ class BookingCreateView(APIView):
 # ────────────────────────────── Booking History (User) ──────────────────────────────
 
 class BookingHistoryView(APIView):
-    """List the last 50 bookings of the logged-in user.
-     Endpoint:
-    GET /api/my-booking/"""
+    """
+    List the last 50 bookings of the logged-in user.
+    Endpoint:
+        GET /api/my-booking/
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -304,10 +312,23 @@ class BookingHistoryView(APIView):
         data = []
 
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court", "slot__slot_status")
+            # Fetch all slots related to this booking
+            slots = BookingSlot.objects.filter(booking=b).select_related(
+                "slot", "slot__court", "slot__slot_status"
+            )
             first_slot = slots.first()
+
+            # Determine if this booking can be cancelled (more than 24h before start)
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
+            # Force 'able_to_cancel = False' if booking is cancelled
+            # or the first slot itself has status 'cancelled'
+            if b.status == "cancelled" or (
+                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+            ):
+                able_to_cancel = False
+
+            # Build slot details
             booking_slots = {}
             for s in slots:
                 slot_obj = s.slot
@@ -321,6 +342,7 @@ class BookingHistoryView(APIView):
                     "price_coin": slot_obj.price_coins,
                 }
 
+            # Append booking data
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
@@ -337,8 +359,10 @@ class BookingHistoryView(APIView):
 
 # ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
 class BookingAllView(APIView):
-    """List all recent bookings (for admin or manager view).
-    GET /api/bookings/
+    """
+    List all recent bookings (for admin or manager view).
+    Endpoint:
+        GET /api/bookings/
     """
 
     def get(self, request):
@@ -346,11 +370,22 @@ class BookingAllView(APIView):
         data = []
 
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court", "slot__slot_status")
+            # Fetch all slots linked to the booking
+            slots = BookingSlot.objects.filter(booking=b).select_related(
+                "slot", "slot__court", "slot__slot_status"
+            )
             first_slot = slots.first()
+
+            # Determine if booking can be cancelled (more than 24h before start)
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
-            # --- booking_slots เป็น dict keyed by slot_id ---
+            # Disable cancellation if booking or slot already cancelled
+            if b.status == "cancelled" or (
+                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+            ):
+                able_to_cancel = False
+
+            # Build slot info dictionary
             booking_slots = {}
             for s in slots:
                 slot_obj = s.slot
@@ -364,6 +399,7 @@ class BookingAllView(APIView):
                     "price_coin": slot_obj.price_coins,
                 }
 
+            # Combine booking details
             data.append({
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
@@ -379,6 +415,7 @@ class BookingAllView(APIView):
 
 
 # ────────────────────────────── Cancel Booking ──────────────────────────────
+# ────────────────────────────── Cancel Booking ──────────────────────────────
 class BookingCancelView(APIView):
     """
     Cancel a booking using its booking_no.
@@ -391,28 +428,45 @@ class BookingCancelView(APIView):
     @transaction.atomic
     def post(self, request, booking_no):
         try:
+            # Try to find the booking record
             booking = Booking.objects.get(booking_no=booking_no)
         except Booking.DoesNotExist:
             return Response({"detail": "Booking not found"}, status=404)
 
-        # Check permissions
+        # Check user permission: only booking owner or manager can cancel
         user_role = getattr(request.user, "role", None)
         if booking.user != request.user and user_role != "manager":
             return Response({"detail": "No permission to cancel"}, status=403)
 
+        # Prevent duplicate cancellation
         if booking.status == "cancelled":
-            return Response({"detail": "Already cancelled"}, status=400)
+            return Response({
+                "detail": "Already cancelled",
+                "able_to_cancel": False
+            }, status=400)
 
-        # Check timing
+        # Get the first related slot for this booking
         first_slot = (
             BookingSlot.objects.filter(booking=booking)
-            .select_related("slot")
+            .select_related("slot", "slot__slot_status")
             .order_by("slot__service_date", "slot__start_at")
             .first()
         )
+
         if not first_slot:
             return Response({"detail": "No slot info found"}, status=400)
 
+        # If the slot itself is already cancelled, disallow cancellation
+        if first_slot.slot.slot_status.status == "cancelled":
+            slot_local = timezone.localtime(first_slot.slot.start_at)
+            return Response({
+                "detail": "Slot already cancelled",
+                "able_to_cancel": False,
+                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
+            }, status=400)
+
+        # Check if cancellation is within the allowed time window
         able_to_cancel = calculate_able_to_cancel(first_slot)
         if not able_to_cancel:
             slot_local = timezone.localtime(first_slot.slot.start_at)
@@ -426,7 +480,7 @@ class BookingCancelView(APIView):
                 status=400,
             )
 
-        # Process refund
+        # ───────────────────── Process Refund ─────────────────────
         booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot", "slot__slot_status")
         total_refund = 0
         released_slots = []
@@ -436,12 +490,17 @@ class BookingCancelView(APIView):
             total_refund += getattr(slot, "price_coins", 0)
             released_slots.append(slot.id)
 
+            # Mark slot as available again
             if hasattr(slot, "slot_status"):
                 slot.slot_status.status = "available"
                 slot.slot_status.save(update_fields=["status", "updated_at"])
             else:
                 SlotStatus.objects.create(slot=slot, status="available")
 
+        # Delete BookingSlot links so the slot becomes truly available
+        BookingSlot.objects.filter(booking=booking).delete()
+
+        # Update booking and refund wallet
         booking.status = "cancelled"
         booking.save(update_fields=["status"])
 
@@ -449,6 +508,7 @@ class BookingCancelView(APIView):
         wallet.balance += total_refund
         wallet.save(update_fields=["balance"])
 
+        # Create refund record in CoinLedger
         CoinLedger.objects.create(
             user=booking.user,
             type="refund",
@@ -456,6 +516,7 @@ class BookingCancelView(APIView):
             ref_booking=booking,
         )
 
+        # Prepare response
         slot_local = timezone.localtime(first_slot.slot.start_at)
         return Response(
             {
@@ -466,7 +527,7 @@ class BookingCancelView(APIView):
                 "new_balance": wallet.balance,
                 "cancelled_by": request.user.email,
                 "role": user_role,
-                "able_to_cancel": True,
+                "able_to_cancel": False,
                 "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
                 "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
             },
