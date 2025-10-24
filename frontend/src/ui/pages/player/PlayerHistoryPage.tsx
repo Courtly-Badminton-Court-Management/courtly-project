@@ -2,15 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
-import {
-  useMyBookingRetrieve,
-  getMyBookingRetrieveQueryKey,
-} from "@/api-client/endpoints/my-booking/my-booking";
-import { useBookingsCancelCreate } from "@/api-client/endpoints/bookings/bookings";
-import { getWalletMeRetrieveQueryKey } from "@/api-client/endpoints/wallet/wallet";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
+import { useCancelBooking } from "@/api-client/extras/cancel_booking";
+import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
 
 /* ========================= Runtime types ========================= */
 type SlotItem = {
@@ -75,32 +71,20 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 
 /* ========================= Main Page ========================= */
 export default function PlayerHistoryPage() {
-  const queryClient = useQueryClient();
   const { data, isLoading, isError } = useMyBookingRetrieve();
-
   const [open, setOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
 
-  // 🧭 new filters + sort
+  // 🧭 Filters + Sort
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"created" | "booking">("created");
   const [sortDesc, setSortDesc] = useState(true);
 
-  const cancelMutation = useBookingsCancelCreate({
-    mutation: {
-      onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: getMyBookingRetrieveQueryKey(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: getWalletMeRetrieveQueryKey(),
-          }),
-        ]);
-        setConfirmModal(null);
-        setActive(null);
-      },
+  const { cancelMut, handleCancel } = useCancelBooking({
+    onSuccess: () => {
+      setConfirmModal(null);
+      setActive(null);
     },
   });
 
@@ -142,11 +126,7 @@ export default function PlayerHistoryPage() {
   };
 
   const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b);
-
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
-  const handleCancel = async (b: BookingRow) => {
-    cancelMutation.mutate({ bookingNo: b.booking_id });
-  };
 
   const today = formatDate(new Date().toISOString(), {
     weekday: "short",
@@ -224,10 +204,7 @@ export default function PlayerHistoryPage() {
             </button>
           </div>
         </div>
-      </div>  
-
-
-      
+      </div>
 
       {/* Error */}
       {isError && (
@@ -266,7 +243,7 @@ export default function PlayerHistoryPage() {
                   b.able_to_cancel &&
                   !["cancelled", "end_game"].includes(b.booking_status);
                 const isCancelling =
-                  cancelMutation.isPending &&
+                  cancelMut.isPending &&
                   active &&
                   active.booking_id === b.booking_id;
 
@@ -328,7 +305,7 @@ export default function PlayerHistoryPage() {
                             setActive(b);
                             onCancelConfirm(b);
                           }}
-                          disabled={!canCancel || cancelMutation.isPending}
+                          disabled={!canCancel || cancelMut.isPending}
                           className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
                             !canCancel
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
@@ -353,39 +330,15 @@ export default function PlayerHistoryPage() {
       </div>
 
       {/* Confirm Cancel Modal */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="rounded-xl bg-white p-6 shadow-lg w-[360px] text-center">
-            <h2 className="text-lg font-semibold text-pine mb-2">
-              Cancel this booking?
-            </h2>
-            <p className="text-sm text-neutral-600 mb-5">
-              Booking <strong>{confirmModal.booking_id}</strong> will be cancelled and
-              coins refunded according to the policy.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button
-                className="rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-2 text-neutral-700 hover:bg-neutral-200"
-                onClick={() => setConfirmModal(null)}
-              >
-                Keep Booking
-              </button>
-              <button
-                onClick={() => handleCancel(confirmModal)}
-                className="rounded-lg border border-[#8d3e3e] bg-[#8d3e3e] px-4 py-2 text-white hover:brightness-95 flex items-center justify-center gap-2"
-              >
-                {cancelMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Cancelling…
-                  </>
-                ) : (
-                  "Confirm Cancel"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CancelConfirmModal
+        open={!!confirmModal}
+        bookingId={confirmModal?.booking_id || ""}
+        isPending={cancelMut.isPending}
+        onConfirm={() =>
+          confirmModal && handleCancel(confirmModal.booking_id)
+        }
+        onClose={() => setConfirmModal(null)}
+      />
 
       {/* Receipt Modal */}
       <BookingReceiptModal

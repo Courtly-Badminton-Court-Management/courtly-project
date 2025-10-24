@@ -7,17 +7,10 @@ import dayjs from "dayjs";
 import ImageSlider from "@/ui/components/homepage/ImageSlider";
 import UpcomingModal, { type BookingRow } from "@/ui/components/homepage/UpcomingModal";
 import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
+import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
+import { useCancelBooking } from "@/api-client/extras/cancel_booking";
+import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
 
-import {
-  useMyBookingRetrieve,
-  getMyBookingRetrieveQueryKey,
-} from "@/api-client/endpoints/my-booking/my-booking";
-import { useBookingsCancelCreate } from "@/api-client/endpoints/bookings/bookings";
-import { monthViewKey } from "@/api-client/extras/slots";
-import { getWalletMeRetrieveQueryKey } from "@/api-client/endpoints/wallet/wallet";
-import { useQueryClient } from "@tanstack/react-query";
-
-// ✅ โหลด AvailableSlotPanel แบบ client-only
 const AvailableSlotPanel = dynamic(
   () => import("@/ui/components/homepage/AvailableSlotPanel"),
   { ssr: false }
@@ -37,11 +30,15 @@ function buildMonthDays(year: number, month0: number): CalendarDay[] {
 
 export default function PlayerHomePage() {
   const [ym, setYm] = useState({ year: 2025, month0: 8 });
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
+
   const title = new Date(ym.year, ym.month0, 1).toLocaleDateString(undefined, {
     month: "long",
     year: "numeric",
   });
   const monthDays = useMemo(() => buildMonthDays(ym.year, ym.month0), [ym]);
+
   const prevMonth = () =>
     setYm(({ year, month0 }) =>
       month0 === 0 ? { year: year - 1, month0: 11 } : { year, month0: month0 - 1 }
@@ -51,22 +48,9 @@ export default function PlayerHomePage() {
       month0 === 11 ? { year: year + 1, month0: 0 } : { year, month0: month0 + 1 }
     );
 
-  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
-  const queryClient = useQueryClient();
-
   const { data, isLoading, isError } = useMyBookingRetrieve();
-  const cancelMut = useBookingsCancelCreate({
-    mutation: {
-      onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() }),
-          queryClient.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() }),
-          queryClient.invalidateQueries({
-            queryKey: monthViewKey(CLUB_ID, dayjs().format("YYYY-MM")),
-          }),
-        ]);
-      },
-    },
+  const { cancelMut, handleCancel } = useCancelBooking({
+    onSuccess: () => setConfirmModal(null),
   });
 
   const confirmedList: BookingRow[] = useMemo(() => {
@@ -86,17 +70,15 @@ export default function PlayerHomePage() {
       );
   }, [data]);
 
-  const handleCancel = useCallback(
-    (bk: BookingRow) => {
-      cancelMut.mutate({ bookingNo: bk.booking_id });
-    },
-    [cancelMut]
-  );
+  const onCancelConfirm = useCallback((b: BookingRow) => {
+    setConfirmModal(b);
+  }, []);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   useEffect(() => {
     setSelectedDate(dayjs().format("YYYY-MM-DD"));
   }, []);
+
+  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
 
   return (
     <main className="mx-auto my-auto">
@@ -107,7 +89,7 @@ export default function PlayerHomePage() {
       <div className="mb-12 md:col-span-3">
         <UpcomingModal
           bookings={isLoading || isError ? [] : confirmedList}
-          onCancel={handleCancel}
+          onCancel={onCancelConfirm}
         />
       </div>
 
@@ -132,12 +114,19 @@ export default function PlayerHomePage() {
         </div>
 
         {selectedDate && (
-          <AvailableSlotPanel
-            clubId={CLUB_ID}
-            selectedDate={selectedDate}
-          />
+          <AvailableSlotPanel clubId={CLUB_ID} selectedDate={selectedDate} />
         )}
       </section>
+
+      <CancelConfirmModal
+        open={!!confirmModal}
+        bookingId={confirmModal?.booking_id || ""}
+        isPending={cancelMut.isPending}
+        onConfirm={() =>
+          confirmModal && handleCancel(confirmModal.booking_id)
+        }
+        onClose={() => setConfirmModal(null)}
+      />
     </main>
   );
 }
