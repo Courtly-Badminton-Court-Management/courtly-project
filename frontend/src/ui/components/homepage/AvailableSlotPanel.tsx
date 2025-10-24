@@ -5,12 +5,14 @@ import dayjs from "dayjs";
 import { Sparkle } from "lucide-react";
 import { useMonthView } from "@/api-client/extras/slots";
 import { groupAvailableSlotsByTime } from "@/lib/booking/groupAvailableSlots";
+import Link from "next/link";
 
 type Props = {
   clubId: number;
   selectedDate: string; // YYYY-MM-DD
   mode?: "landing" | "player";
 };
+
 
 export default function AvailableSlotPanel({
   clubId,
@@ -101,12 +103,13 @@ export default function AvailableSlotPanel({
           <p className="text-sm text-neutral-600 mb-2">
             Want to book your court?
           </p>
-          <button
-            disabled
-            className="rounded-full bg-gradient-to-r from-pine to-cambridge px-6 py-2 text-sm font-semibold text-white shadow-md opacity-90 cursor-not-allowed"
-          >
-            Go to Booking Page 🏸
-          </button>
+          <Link
+  href="/booking"
+  prefetch
+  className="rounded-xl bg-gradient-to-r from-pine to-cambridge px-6 py-2 text-sm font-semibold text-white shadow-md hover:opacity-100 hover:scale-105 transition-all duration-200 inline-block"
+>
+  Go to Booking Page 🏸
+</Link>
           <p className="mt-1 text-xs text-neutral-400">
             Sign up to unlock booking
           </p>

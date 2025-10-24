@@ -73,8 +73,9 @@ export default function SlotGrid({
   const selectedStyle =
     "bg-[var(--color-sea)] text-white ring-2 ring-[var(--color-sea)]/40 hover:ring-[var(--color-sea)] cursor-pointer transition-all duration-150 ease-out";
 
+  // responsive column width (90px on mobile → 160px on desktop)
   const gridTemplate = {
-    gridTemplateColumns: `160px repeat(${cols.length}, 1fr)`,
+    gridTemplateColumns: `clamp(90px, 18vw, 160px) repeat(${cols.length}, 1fr)`,
   };
 
   return (
@@ -111,15 +112,16 @@ export default function SlotGrid({
             {grid.map((row, rIdx) => (
               <div key={rIdx} className="grid" style={gridTemplate}>
                 {/* Court label */}
-                <div className="sticky left-0 z-5 bg-white flex items-center gap-2 px-3 py-2">
+                <div className="sticky left-0 z-5 bg-white flex items-center gap-2 px-2 sm:px-3 py-2">
                   <CourtNumberHero
                     court={rIdx + 1}
-                    size={72}
+                    size={64}
                     active={selected.some((s) => s.courtRow === rIdx + 1)}
                     labelWord={courtNames[rIdx] ?? "Court"}
                     className="shrink-0"
                   />
-                  <div className="text-sm font-semibold text-neutral-700">
+                  {/* hide name on mobile */}
+                  <div className="hidden sm:block text-sm font-semibold text-neutral-700">
                     {courtNames[rIdx]}
                   </div>
                 </div>
