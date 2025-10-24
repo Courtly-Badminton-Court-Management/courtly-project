@@ -22,8 +22,8 @@ import { customRequest } from "../../custom-client";
 
 /**
  * List the last 50 bookings of the logged-in user.
- Endpoint:
-GET /api/my-booking/
+Endpoint:
+    GET /api/my-booking/
  */
 export const myBookingRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({

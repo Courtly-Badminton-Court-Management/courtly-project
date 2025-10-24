@@ -27,7 +27,8 @@ import { customRequest } from "../../custom-client";
 
 /**
  * List all recent bookings (for admin or manager view).
-GET /api/bookings/
+Endpoint:
+    GET /api/bookings/
  */
 export const bookingsRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({ url: `/api/bookings/`, method: "GET", signal });
