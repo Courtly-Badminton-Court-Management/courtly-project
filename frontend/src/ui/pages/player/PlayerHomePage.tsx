@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import dayjs from "dayjs";
 import ImageSlider from "@/ui/components/homepage/ImageSlider";
-import UpcomingModal, {type BookingRow } from "@/ui/components/homepage/UpcomingModal";
+import UpcomingModal, { type BookingRow } from "@/ui/components/homepage/UpcomingModal";
 import CalendarModal, { type CalendarDay } from "@/ui/components/homepage/CalendarModal";
-import { SlotModal } from "@/ui/components/homepage/SlotModal";
 
-// ✅ ใช้เส้นเดียวกับ History
 import {
   useMyBookingRetrieve,
   getMyBookingRetrieveQueryKey,
@@ -17,28 +17,12 @@ import { monthViewKey } from "@/api-client/extras/slots";
 import { getWalletMeRetrieveQueryKey } from "@/api-client/endpoints/wallet/wallet";
 import { useQueryClient } from "@tanstack/react-query";
 
-/* ========================= Runtime types ========================= */
-type SlotItem = {
-  status: string;
-  start_time: string;
-  end_time: string;
-  court: number;
-  court_name: string;
-  price_coin: number;
-};
+// ✅ โหลด AvailableSlotPanel แบบ client-only
+const AvailableSlotPanel = dynamic(
+  () => import("@/ui/components/homepage/AvailableSlotPanel"),
+  { ssr: false }
+);
 
-type BookingItem = {
-  created_date: string;
-  booking_id: string;
-  user: string;
-  total_cost: string | number;
-  booking_date: string;
-  booking_status: string;
-  able_to_cancel: boolean;
-  booking_slots: Record<string, SlotItem>;
-};
-
-/* ---------- Calendar mock ---------- */
 function buildMonthDays(year: number, month0: number): CalendarDay[] {
   const daysInMonth = new Date(year, month0 + 1, 0).getDate();
   const pattern = [20, 35, 45, 62, 77, 88, 15];
@@ -51,7 +35,6 @@ function buildMonthDays(year: number, month0: number): CalendarDay[] {
   return days;
 }
 
-/* ---------- Component ---------- */
 export default function PlayerHomePage() {
   const [ym, setYm] = useState({ year: 2025, month0: 8 });
   const title = new Date(ym.year, ym.month0, 1).toLocaleDateString(undefined, {
@@ -67,12 +50,10 @@ export default function PlayerHomePage() {
     setYm(({ year, month0 }) =>
       month0 === 11 ? { year: year + 1, month0: 0 } : { year, month0: month0 + 1 }
     );
-  
-  const now = new Date();
-  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
-  const CURRENT_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
+  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
   const queryClient = useQueryClient();
+
   const { data, isLoading, isError } = useMyBookingRetrieve();
   const cancelMut = useBookingsCancelCreate({
     mutation: {
@@ -80,37 +61,42 @@ export default function PlayerHomePage() {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() }),
-          queryClient.invalidateQueries({ queryKey: monthViewKey(CLUB_ID, CURRENT_MONTH) }),
+          queryClient.invalidateQueries({
+            queryKey: monthViewKey(CLUB_ID, dayjs().format("YYYY-MM")),
+          }),
         ]);
       },
     },
   });
 
-  // 🧮 Normalize + filter เฉพาะ confirmed + sort ตาม booking_date
-const confirmedList: BookingRow[] = useMemo(() => {
-  const raw = data as any;
-  const arr: BookingRow[] = Array.isArray(raw?.data)
-    ? raw.data
-    : Array.isArray(raw?.results)
-    ? raw.results
-    : Array.isArray(raw)
-    ? raw
-    : [];
-
-  return arr
-    .filter((b) => b.booking_status?.toLowerCase() === "confirmed")
-    .sort(
-      (a, b) =>
-        new Date(a.booking_date).getTime() - new Date(b.booking_date).getTime()
-    );
-}, [data]);
+  const confirmedList: BookingRow[] = useMemo(() => {
+    const raw = data as any;
+    const arr: BookingRow[] = Array.isArray(raw?.data)
+      ? raw.data
+      : Array.isArray(raw?.results)
+      ? raw.results
+      : Array.isArray(raw)
+      ? raw
+      : [];
+    return arr
+      .filter((b) => b.booking_status?.toLowerCase() === "confirmed")
+      .sort(
+        (a, b) =>
+          new Date(a.booking_date).getTime() - new Date(b.booking_date).getTime()
+      );
+  }, [data]);
 
   const handleCancel = useCallback(
-    (bk: BookingItem) => {
+    (bk: BookingRow) => {
       cancelMut.mutate({ bookingNo: bk.booking_id });
     },
     [cancelMut]
   );
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  useEffect(() => {
+    setSelectedDate(dayjs().format("YYYY-MM-DD"));
+  }, []);
 
   return (
     <main className="mx-auto my-auto">
@@ -118,7 +104,6 @@ const confirmedList: BookingRow[] = useMemo(() => {
         <ImageSlider />
       </div>
 
-      {/* ✅ Upcoming Booking */}
       <div className="mb-12 md:col-span-3">
         <UpcomingModal
           bookings={isLoading || isError ? [] : confirmedList}
@@ -126,7 +111,6 @@ const confirmedList: BookingRow[] = useMemo(() => {
         />
       </div>
 
-      {/* Dashboard header */}
       <header className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <Link
@@ -137,7 +121,6 @@ const confirmedList: BookingRow[] = useMemo(() => {
         </Link>
       </header>
 
-      {/* Calendar + Slots */}
       <section className="grid items-stretch gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
           <CalendarModal
@@ -147,23 +130,13 @@ const confirmedList: BookingRow[] = useMemo(() => {
             onNextMonth={nextMonth}
           />
         </div>
-        <div className="flex h-full flex-col rounded-2xl border bg-white p-4 shadow-sm md:col-span-1">
-          <SlotModal
-            dayData={{
-              date: "12-09-25",
-              slotList: {
-                s1: {
-                  id: "s1",
-                  time: "10:00 - 11:00",
-                  status: "open",
-                  courts: [{ id: "c1", label: "Court 5", available: true }],
-                },
-              },
-            }}
-            onPrevDay={() => console.log("prev day clicked")}
-            onNextDay={() => console.log("next day clicked")}
+
+        {selectedDate && (
+          <AvailableSlotPanel
+            clubId={CLUB_ID}
+            selectedDate={selectedDate}
           />
-        </div>
+        )}
       </section>
     </main>
   );
