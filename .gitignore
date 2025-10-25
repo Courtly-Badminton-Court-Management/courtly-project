@@ -83,3 +83,4 @@ testing.txt
 frontend/.turbo/
 frontend/.parcel-cache/
 frontend/.vercel/
+venv
