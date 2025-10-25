@@ -1,7 +1,8 @@
 // src/ui/components/bookingpage/SlotGrid.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import dayjs from "dayjs";
 import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
 import type { Col, GridCell, SelectedSlot } from "@/lib/booking/slotGridModel";
 
@@ -40,6 +41,7 @@ type Props = {
   courtNames: string[];
   selected: SelectedSlot[];
   onToggle: (courtRow: number, colIdx: number) => void;
+  currentDate: string; // YYYY-MM-DD
 };
 
 export default function SlotGrid({
@@ -48,7 +50,14 @@ export default function SlotGrid({
   courtNames,
   selected,
   onToggle,
+  currentDate,
 }: Props) {
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (!cols?.length || !grid?.length) {
     return (
       <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
@@ -59,24 +68,28 @@ export default function SlotGrid({
 
   const selectedColIdxSet = new Set(selected.map((s) => s.colIdx));
 
-  const styleByGroup: Record<PlayerGroup, string> = {
+  const styleByGroup: Record<PlayerGroup | "pastAvailable", string> = {
     available:
-      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 hover:border-[var(--color-sea)]/30  hover:scale-[1.02] cursor-pointer transition-all duration-150 ease-out",
+      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 hover:border-[var(--color-sea)]/30 hover:scale-[1.02] cursor-pointer transition-all duration-150 ease-out",
     bookedLike:
       "bg-[var(--color-booked)] text-white border border-[var(--color-walnut)]/30 cursor-not-allowed",
     maintenance:
       "bg-[var(--color-maintenance)] text-white cursor-not-allowed",
     ended:
       "bg-[var(--color-expired)] text-[var(--color-walnut)] cursor-not-allowed",
+    pastAvailable:
+      "bg-[var(--color-walnut)]/15 text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 cursor-not-allowed opacity-80 transition-colors duration-300",
   };
 
   const selectedStyle =
     "bg-[var(--color-sea)] text-white ring-2 ring-[var(--color-sea)]/40 hover:ring-[var(--color-sea)] cursor-pointer transition-all duration-150 ease-out";
 
-  // responsive column width (90px on mobile → 160px on desktop)
   const gridTemplate = {
     gridTemplateColumns: `clamp(90px, 18vw, 160px) repeat(${cols.length}, 1fr)`,
   };
+
+  const todayStr = dayjs().format("YYYY-MM-DD");
+  const isToday = todayStr === currentDate;
 
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
@@ -120,7 +133,6 @@ export default function SlotGrid({
                     labelWord={courtNames[rIdx] ?? "Court"}
                     className="shrink-0"
                   />
-                  {/* hide name on mobile */}
                   <div className="hidden sm:block text-sm font-semibold text-neutral-700">
                     {courtNames[rIdx]}
                   </div>
@@ -137,8 +149,19 @@ export default function SlotGrid({
                     );
                   const disabled = group !== "available";
 
+                  let isPast = false;
+                  if (isToday && group === "available") {
+                    const slotStart = dayjs(
+                      `${currentDate} ${cols[cIdx].start}`,
+                      "YYYY-MM-DD HH:mm"
+                    );
+                    isPast = dayjs().isAfter(slotStart);
+                  }
+
                   const title =
-                    group === "available"
+                    isPast
+                      ? "Time passed"
+                      : group === "available"
                       ? `${cols[cIdx].start}–${cols[cIdx].end} | Click to select`
                       : group === "bookedLike"
                       ? "Already booked"
@@ -151,14 +174,18 @@ export default function SlotGrid({
                       key={cIdx}
                       className={cx(
                         "m-[3px] grid h-10 place-items-center rounded-[4px] text-xs font-semibold transition-transform duration-150 ease-out",
-                        isSelected ? selectedStyle : styleByGroup[group]
+                        isSelected
+                          ? selectedStyle
+                          : isPast
+                          ? styleByGroup["pastAvailable"]
+                          : styleByGroup[group]
                       )}
                       onClick={() => {
-                        if (disabled) return;
+                        if (disabled || isPast) return;
                         onToggle(rIdx + 1, cIdx);
                       }}
-                      disabled={disabled}
-                      aria-disabled={disabled}
+                      disabled={disabled || isPast}
+                      aria-disabled={disabled || isPast}
                       title={title}
                     >
                       {isSelected ? "✓" : ""}

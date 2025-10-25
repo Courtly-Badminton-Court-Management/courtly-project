@@ -22,6 +22,7 @@ import {
 import { useMonthView } from "@/api-client/extras/slots";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
 import { useWalletMeRetrieve } from "@/api-client/endpoints/wallet/wallet";
+import dayjs from "dayjs";
 import CourtlyLoading from "@/ui/components/basic/LoadingOverlay";
 
 /* =========================================================================
@@ -51,6 +52,7 @@ export default function PlayerBookingPage() {
   const today = useMemo(() => startOfDay(new Date()), []);
   const minDate = today;
   const maxDate = useMemo(() => startOfDay(addMonths(today, 1)), [today]);
+
 
   // default เริ่มที่ Today (ห้ามย้อนหลัง)
   const [ymd, setYmd] = useState<string>(() => ymdFromDate(today));
@@ -218,6 +220,8 @@ export default function PlayerBookingPage() {
         courtNames={courtNames}
         selected={selected}
         onToggle={toggleSelect}
+        currentDate={dayjs(today).format("YYYY-MM-DD")} // dayjs(selectedDate).format("YYYY-MM-DD")
+
       />
 
       {/* Bottom info section */}
