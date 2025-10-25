@@ -7,6 +7,9 @@
  */
 import type { SlotStatusStatusEnum } from "./slotStatusStatusEnum";
 
+/**
+ * Serializer for SlotStatus — shows current slot status and last update time.
+ */
 export interface SlotStatus {
   status?: SlotStatusStatusEnum;
   readonly updated_at: string;

@@ -85,13 +85,13 @@ WSGI_APPLICATION = "courtly.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("POSTGRES_DB", default="postgres"),
-        "USER": env("POSTGRES_USER", default="postgres"),
-        "PASSWORD": env("POSTGRES_PASSWORD", default=""),
-        "HOST": env("POSTGRES_HOST", default="db"),
+        "NAME": env("POSTGRES_DB"),
+        "USER": env("POSTGRES_USER"),
+        "PASSWORD": env("POSTGRES_PASSWORD"),
+        "HOST": env("POSTGRES_HOST"),
         "PORT": env("POSTGRES_PORT", default="5432"),
         'OPTIONS': {
-            'sslmode': env("POSTGRES_SSL_MODE", default='disable')
+            'sslmode': env("POSTGRES_SSL_MODE", default='require')
         },
         "CONN_MAX_AGE": 60,
     }

@@ -1,10 +1,10 @@
 // src/ui/components/bookingpage/SlotGrid.tsx
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useState } from "react";
+import dayjs from "dayjs";
 import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
-import type { Col, GridCell, SelectedSlot, SlotStatus } from "@/lib/booking/model";
-import { getCellPriceCoins } from "@/lib/booking/pricing";
+import type { Col, GridCell, SelectedSlot } from "@/lib/booking/slotGridModel";
 
 /* =========================================================================
    Utils
@@ -14,38 +14,26 @@ function strToMin(hhmm: string) {
   return (h || 0) * 60 + (m || 0);
 }
 
-function makeHourBands(cols: Col[]) {
-  const bands: { label: string; span: number }[] = [];
-  let i = 0;
-  while (i < cols.length) {
-    const startMin = strToMin(cols[i].start);
-    const hour = Math.floor(startMin / 60);
-    let span = 0;
-    while (i + span < cols.length && Math.floor(strToMin(cols[i + span].start) / 60) === hour) {
-      span++;
-    }
-    const label = `${String(hour).padStart(2, "0")}:00 - ${String(hour + 1).padStart(2, "0")}:00`;
-    bands.push({ label, span });
-    i += span;
-  }
-  return bands;
+const cx = (...xs: (string | false | null | undefined)[]) =>
+  xs.filter(Boolean).join(" ");
+
+function readStatus(cell: GridCell): string {
+  return String((cell as any)?.status ?? "").trim().toLowerCase();
 }
 
-const cx = (...xs: (string | false | null | undefined)[]) => xs.filter(Boolean).join(" ");
-
-/** กลุ่มสีสำหรับฝั่ง Player */
 type PlayerGroup = "available" | "bookedLike" | "maintenance" | "ended";
 
-/** map สถานะจริง → กลุ่มสีที่ผู้เล่นเห็น */
-function normalizeForPlayer(status: SlotStatus): PlayerGroup {
+function normalizeForPlayer(statusRaw: string): PlayerGroup {
+  const status = (statusRaw || "").toLowerCase();
   if (status === "available") return "available";
   if (status === "maintenance") return "maintenance";
-  if (status === "booked" || status === "walkin" || status === "checkin") return "bookedLike";
-  return "ended"; // endgame / expired / noshow
+  if (["expired", "endgame", "no_show"].includes(status)) return "ended";
+  if (["booked", "walkin", "checkin"].includes(status)) return "bookedLike";
+  return "ended";
 }
 
 /* =========================================================================
-   Props
+   Component
    ========================================================================= */
 type Props = {
   cols: Col[];
@@ -53,105 +41,151 @@ type Props = {
   courtNames: string[];
   selected: SelectedSlot[];
   onToggle: (courtRow: number, colIdx: number) => void;
+  currentDate: string; // YYYY-MM-DD
 };
 
-/* =========================================================================
-   Component
-   ========================================================================= */
-export default function SlotGrid({ cols, grid, courtNames, selected, onToggle }: Props) {
-  const hourBands = useMemo(() => makeHourBands(cols), [cols]);
+export default function SlotGrid({
+  cols,
+  grid,
+  courtNames,
+  selected,
+  onToggle,
+  currentDate,
+}: Props) {
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
-  // สีจาก globals.css (Tailwind CSS variables)
-  const styleByGroup: Record<PlayerGroup, string> = {
+  if (!cols?.length || !grid?.length) {
+    return (
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
+        No slots for this day (or failed to load). Try a different date.
+      </div>
+    );
+  }
+
+  const selectedColIdxSet = new Set(selected.map((s) => s.colIdx));
+
+  const styleByGroup: Record<PlayerGroup | "pastAvailable", string> = {
     available:
-      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-available)]/80",
-    bookedLike: "bg-[var(--color-booked)] text-white",
-    maintenance: "bg-[var(--color-maintenance)] text-white",
-    ended: "bg-[var(--color-expired)] text-[var(--color-walnut)]",
+      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 hover:border-[var(--color-sea)]/30 hover:scale-[1.02] cursor-pointer transition-all duration-150 ease-out",
+    bookedLike:
+      "bg-[var(--color-booked)] text-white border border-[var(--color-walnut)]/30 cursor-not-allowed",
+    maintenance:
+      "bg-[var(--color-maintenance)] text-white cursor-not-allowed",
+    ended:
+      "bg-[var(--color-expired)] text-[var(--color-walnut)] cursor-not-allowed",
+    pastAvailable:
+      "bg-[var(--color-walnut)]/15 text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 cursor-not-allowed opacity-80 transition-colors duration-300",
   };
 
   const selectedStyle =
-    "bg-[var(--color-pine)] text-white ring-2 ring-[var(--color-sea)]/40 hover:opacity-95";
+    "bg-[var(--color-sea)] text-white ring-2 ring-[var(--color-sea)]/40 hover:ring-[var(--color-sea)] cursor-pointer transition-all duration-150 ease-out";
 
-  const pricePerSlot = getCellPriceCoins();
+  const gridTemplate = {
+    gridTemplateColumns: `clamp(90px, 18vw, 160px) repeat(${cols.length}, 1fr)`,
+  };
 
-  const gridTemplate = { gridTemplateColumns: `160px repeat(${cols.length}, 1fr)` };
+  const todayStr = dayjs().format("YYYY-MM-DD");
+  const isToday = todayStr === currentDate;
 
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
-      {/* Header Row */}
-      <div className="px-3 py-2 text-sm font-bold text-neutral-700">Time</div>
-
-      {/* One shared horizontal scroll container for header + body */}
       <div className="overflow-x-auto">
         <div className="min-w-max">
-          {/* Top header: time bands */}
-          <div className="grid" style={gridTemplate}>
-            <div /> {/* Empty corner cell */}
-            {hourBands.map((b, i) => (
+          {/* Header */}
+          <div
+            className="grid border-b border-neutral-100 pb-1"
+            style={gridTemplate}
+          >
+            <div className="sticky left-0 z-20 bg-white px-3 py-2 text-sm font-bold text-neutral-700">
+              Court / Time
+            </div>
+            {cols.map((col, i) => (
               <div
                 key={i}
-                className="flex items-center justify-center px-1 py-1"
-                style={{ gridColumn: `span ${b.span} / span ${b.span}` }}
+                className={cx(
+                  "mx-1 my-1 flex flex-col items-center justify-center rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums text-center transition-colors",
+                  selectedColIdxSet.has(i)
+                    ? "bg-[var(--color-sea)] text-white border-[var(--color-pine)]"
+                    : "bg-neutral-100 text-neutral-600 border-transparent"
+                )}
+                title={`${col.start} - ${col.end}`}
               >
-                <div className="whitespace-nowrap tabular-nums rounded-md border border-neutral-200 bg-neutral-100 px-2 py-[2px] text-[10px] font-semibold text-neutral-600 text-center">
-                  {b.label}
-                </div>
+                <span>{col.start}</span>
+                <span className="text-[10px] opacity-70">→ {col.end}</span>
               </div>
             ))}
           </div>
 
-          {/* Grid rows */}
+          {/* Rows */}
           <div className="mt-1">
             {grid.map((row, rIdx) => (
-              <div
-                key={rIdx}
-                className="grid border-t border-neutral-100"
-                style={gridTemplate}
-              >
-                {/* Court label cell */}
-                <div className="flex items-center gap-2 px-3 py-2">
+              <div key={rIdx} className="grid" style={gridTemplate}>
+                {/* Court label */}
+                <div className="sticky left-0 z-5 bg-white flex items-center gap-2 px-2 sm:px-3 py-2">
                   <CourtNumberHero
                     court={rIdx + 1}
-                    size={72}
+                    size={64}
                     active={selected.some((s) => s.courtRow === rIdx + 1)}
                     labelWord={courtNames[rIdx] ?? "Court"}
                     className="shrink-0"
                   />
-                  <div className="text-sm font-semibold text-neutral-700">
+                  <div className="hidden sm:block text-sm font-semibold text-neutral-700">
                     {courtNames[rIdx]}
                   </div>
                 </div>
 
-                {/* Time cells */}
+                {/* Cells */}
                 {row.map((cell, cIdx) => {
-                  const group = normalizeForPlayer(cell.status);
+                  const rawStatus = readStatus(cell);
+                  const group = normalizeForPlayer(rawStatus);
                   const isSelected =
+                    group === "available" &&
                     selected.some(
                       (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
-                    ) && cell.status === "available";
-                  const disabled = cell.status !== "available";
+                    );
+                  const disabled = group !== "available";
+
+                  let isPast = false;
+                  if (isToday && group === "available") {
+                    const slotStart = dayjs(
+                      `${currentDate} ${cols[cIdx].start}`,
+                      "YYYY-MM-DD HH:mm"
+                    );
+                    isPast = dayjs().isAfter(slotStart);
+                  }
 
                   const title =
-                    group === "available"
-                      ? `Available • ${pricePerSlot} coins (30 min)`
+                    isPast
+                      ? "Time passed"
+                      : group === "available"
+                      ? `${cols[cIdx].start}–${cols[cIdx].end} | Click to select`
                       : group === "bookedLike"
-                      ? "Booked"
+                      ? "Already booked"
                       : group === "maintenance"
-                      ? "Maintenance"
+                      ? "Under maintenance"
                       : "Ended";
 
                   return (
                     <button
                       key={cIdx}
                       className={cx(
-                        "m-[3px] grid h-10 place-items-center rounded-[4px] text-xs font-semibold transition-colors",
-                        isSelected ? selectedStyle : styleByGroup[group],
-                        disabled && "cursor-not-allowed"
+                        "m-[3px] grid h-10 place-items-center rounded-[4px] text-xs font-semibold transition-transform duration-150 ease-out",
+                        isSelected
+                          ? selectedStyle
+                          : isPast
+                          ? styleByGroup["pastAvailable"]
+                          : styleByGroup[group]
                       )}
-                      onClick={() => onToggle(rIdx + 1, cIdx)}
-                      disabled={disabled}
-                      aria-label={`${courtNames[rIdx]} ${cols[cIdx]?.label} ${title}`}
+                      onClick={() => {
+                        if (disabled || isPast) return;
+                        onToggle(rIdx + 1, cIdx);
+                      }}
+                      disabled={disabled || isPast}
+                      aria-disabled={disabled || isPast}
                       title={title}
                     >
                       {isSelected ? "✓" : ""}

@@ -1,7 +1,8 @@
+// src/lib/booking/api.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
 import { hhmmToMin, minToHhmm } from "@/lib/booking/datetime";
-import type { Col, GridCell, PriceGrid, SlotStatus } from "./model";
+import type { Col, GridCell, PriceGrid, SlotStatus } from "./slotGridModel";
 import {
   getWalletMeRetrieveQueryKey,
   useWalletMeRetrieve,
@@ -15,19 +16,30 @@ const FALLBACK_COLS: Col[] = Array.from({ length: 18 }, (_, i) => {
   return { start: s, end: e, label: `${s} - ${e}` };
 });
 
-const STATUS_ORDER: SlotStatus[] = [
+/**
+ * จัดลำดับความแรงของสถานะ (น้อย -> มาก)
+ * วาง maintenance ท้ายสุดให้ชนะทุกอย่าง
+ */
+const STATUS_ORDER = [
   "available",
-  "walkin",
-  "endgame",
-  "maintenance",
   "booked",
-] as any;
-const weight = (s: SlotStatus) => STATUS_ORDER.indexOf(s);
+  "walkin",
+  "checkin",
+  "endgame",
+  "expired",
+  "no_show",
+  "maintenance",
+] as const;
+
+/** ถ้าเจอสถานะนอกลิสต์ → ให้หนักสุด (กันพลาด) */
+function weight(s: string) {
+  const i = STATUS_ORDER.indexOf(s as (typeof STATUS_ORDER)[number]);
+  return i === -1 ? STATUS_ORDER.length - 1 : i;
+}
 
 export function useDayGrid(params: { clubId: number; ymd: string }) {
   const month = params.ymd.slice(0, 7); // YYYY-MM
 
-  // ✅ ดึง month-view พร้อม query club + month
   const q = useQuery({
     queryKey: ["slots-month-view", params.clubId, month],
     queryFn: ({ signal }) =>
@@ -38,7 +50,7 @@ export function useDayGrid(params: { clubId: number; ymd: string }) {
       }),
   });
 
-  const raw = (q.data as any)?.data ?? q.data; // เผื่อ customClient ห่อ data
+  const raw = (q.data as any)?.data ?? q.data;
   const dd = params.ymd.slice(8);
 
   // ไม่มีข้อมูลเลย → สร้างตารางว่าง
@@ -129,11 +141,13 @@ export function useDayGrid(params: { clubId: number; ymd: string }) {
     const c = colIndex.get(s.start_time);
     if (r == null || c == null) continue;
 
-    // สถานะเลือกตาม precedence
-    const cur = grid[r][c].status;
-    if (weight(s.status) > weight(cur)) grid[r][c].status = s.status;
+    const incomingStatus = String(s.status ?? "").trim().toLowerCase();
 
-    // ราคา coins/ช่อง
+    const cur = grid[r][c].status;
+    if (weight(incomingStatus) > weight(cur)) {
+      grid[r][c].status = incomingStatus as SlotStatus;
+    }
+
     const price = Number(s.price_coins ?? s.priceCoins ?? s.price ?? 0) || 0;
     grid[r][c].priceCoins = price;
     priceGrid[r][c] = price;
@@ -157,6 +171,7 @@ export function useWalletBalance() {
 }
 
 type CreateItem = { court: number; date: string; start: string; end: string };
+
 export function useCreateBookings() {
   const qc = useQueryClient();
 
@@ -167,7 +182,7 @@ export function useCreateBookings() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         data: body,
-      }).then((r) => r?.data ?? r), // 👈 รับเฉพาะ payload จริง
+      }).then((r) => r?.data ?? r),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["slots-month-view"] }).catch(() => {});
       qc.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() }).catch(() => {});

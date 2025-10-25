@@ -5,7 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
-  error?: string;         // <- เพิ่มรองรับ error
+  error?: string;        
 };
 
 export default function Field({ label, type = "text", className, error, ...props }: Props) {

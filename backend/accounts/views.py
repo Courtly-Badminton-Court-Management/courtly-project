@@ -1,14 +1,14 @@
-# accounts/views.py
 from django.contrib.auth import get_user_model
-from rest_framework import generics, permissions, serializers
+from django.utils import timezone
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView as DRFTokenRefresh
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .serializers import RegisterSerializer, MeSerializer
-from .serializers import AddCoinSerializer
-from wallet.models import Wallet
 
+from .serializers import RegisterSerializer, MeSerializer, AddCoinSerializer
+from wallet.models import Wallet
 
 User = get_user_model()
 
@@ -18,7 +18,7 @@ class RegisterView(generics.CreateAPIView):
     """
     POST /api/auth/register/
     Body accepts: username, email, password, confirm, firstname, lastname, accept
-    (serializer mapittaa firstname/lastname -> first_name/last_name)
+    (serializer maps firstname/lastname -> first_name/last_name)
     """
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -27,11 +27,11 @@ class RegisterView(generics.CreateAPIView):
 
 # --- LOGIN (JWT) ---
 
-
 class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Accepts either {"username","password"} or {"email","password"}.
     Makes 'username' optional so posting only email works.
+    Also updates last_login and returns { firstLogin, user }.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -41,7 +41,7 @@ class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
         self.fields[self.username_field].required = False
 
     def validate(self, attrs):
-        # If client sent email (and omitted username), resolve username
+        # Resolve username from email if provided (and username omitted)
         email = self.initial_data.get("email")
         username = self.initial_data.get(self.username_field)
 
@@ -53,8 +53,31 @@ class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
             # set the username field so parent validate() can authenticate normally
             attrs[self.username_field] = getattr(u, User.USERNAME_FIELD, u.username)
 
-        # Delegate to SimpleJWT to generate tokens
-        return super().validate(attrs)
+        # Delegate to SimpleJWT to generate tokens (this sets self.user)
+        data = super().validate(attrs)
+
+        # At this point, self.user is the authenticated user
+        user = self.user
+        first_login = user.last_login is None
+
+        # Update last_login now
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+
+        # Optional: include convenient user payload (small)
+        data["firstLogin"] = first_login
+        data["user"] = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "firstname": user.first_name,
+            "lastname": user.last_name,
+            "role": getattr(user, "role", "player"),
+            "coinBalance": getattr(user, "coin_balance", 0),
+            "avatarKey": getattr(user, "avatar_key", None),
+            "lastLogin": user.last_login.isoformat() if user.last_login else None,
+        }
+        return data
 
     @classmethod
     def get_token(cls, user):
@@ -68,11 +91,10 @@ class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
 
-
 class LoginView(TokenObtainPairView):
     """
     POST /api/auth/login/ with {username,password} or {email,password}
-    Returns: {access, refresh}
+    Returns: {access, refresh, firstLogin, user}
     """
     permission_classes = [permissions.AllowAny]
     serializer_class = CourtlyTokenObtainPairSerializer
@@ -84,27 +106,26 @@ class TokenRefreshView(DRFTokenRefresh):
 
 
 # --- ME ---
-# class MeView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
-#     def get(self, request):
-#         data = MeSerializer(request.user).data
-#         # include role if your User has it; otherwise default
-#         data["role"] = getattr(request.user, "role", "player")
-#         return Response(data)
-
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
-
+        # Ensure wallet exists; leave existing logic
         wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"balance": 1000})
 
         data = MeSerializer(user).data
         data["role"] = getattr(user, "role", "player")
         data["balance"] = wallet.balance
-
+        data["lastLogin"] = user.last_login.isoformat() if user.last_login else None
         return Response(data)
+
+    # ✅ allow updating minimal fields (avatarKey, names if needed)
+    def patch(self, request):
+        ser = MeSerializer(instance=request.user, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data, status=status.HTTP_200_OK)
 
 
 class AddCoinView(APIView):

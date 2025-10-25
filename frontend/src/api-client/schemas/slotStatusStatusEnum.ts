@@ -7,9 +7,14 @@
  */
 
 /**
- * * `available` - available
- * `booked` - booked
- * `maintenance` - maintenance
+ * * `available` - Available
+ * `booked` - Booked
+ * `walkin` - Walk-in
+ * `checkin` - Check-in
+ * `endgame` - Endgame
+ * `expired` - Expired
+ * `no_show` - No-Show
+ * `maintenance` - Maintenance
  */
 export type SlotStatusStatusEnum =
   (typeof SlotStatusStatusEnum)[keyof typeof SlotStatusStatusEnum];
@@ -18,5 +23,10 @@ export type SlotStatusStatusEnum =
 export const SlotStatusStatusEnum = {
   available: "available",
   booked: "booked",
+  walkin: "walkin",
+  checkin: "checkin",
+  endgame: "endgame",
+  expired: "expired",
+  no_show: "no_show",
   maintenance: "maintenance",
 } as const;

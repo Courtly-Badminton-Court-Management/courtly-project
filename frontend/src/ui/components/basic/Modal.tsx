@@ -9,9 +9,10 @@ type Props = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  subtitle?: string;
 };
 
-export default function Modal({ open, onClose, title, children, footer, className }: Props) {
+export default function Modal({ open, onClose, title, subtitle, children, footer, className }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // ปิดด้วย ESC + กัน scroll
@@ -49,14 +50,17 @@ export default function Modal({ open, onClose, title, children, footer, classNam
         ref={dialogRef}
         tabIndex={-1}
         className={[
-          "w-full max-w-2xl rounded-2xl bg-white shadow-[var(--box-shadow-soft)]",
+          "w-full max-w-xl rounded-2xl bg-white shadow-[var(--box-shadow-soft)]",
           "outline-none",
           className || "",
         ].join(" ")}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-platinum px-5 py-4">
-            <h3 id="modal-title" className="text-lg font-semibold text-onyx">{title}</h3>
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <h3 id="modal-title" className="text-lg font-extrabold text-onyx">{title}</h3>
+              <p className="mt-1  text-sm text-gray-500">{subtitle}</p>
+            </div>
             <button
               onClick={onClose}
               className="rounded px-2 py-1 text-walnut hover:bg-platinum/40"
@@ -66,8 +70,8 @@ export default function Modal({ open, onClose, title, children, footer, classNam
             </button>
           </div>
         )}
-        <div className="max-h-[70dvh] overflow-auto px-5 py-4 text-onyx">{children}</div>
-        {footer && <div className="border-t border-platinum px-5 py-4">{footer}</div>}
+        <div className="max-h-[50dvh] overflow-auto px-5 py-4 text-onyx">{children}</div>
+        {footer && <div className="px-5 py-4">{footer}</div>}
       </div>
     </div>
   );

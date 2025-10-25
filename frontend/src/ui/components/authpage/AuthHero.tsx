@@ -24,6 +24,7 @@ export default function AuthHero({ side = "left" }: { side?: "left" | "right" })
               src="/brand/corutly-main-logo-tagline.png"
               alt="Courtly"
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-contain"
               priority
             />

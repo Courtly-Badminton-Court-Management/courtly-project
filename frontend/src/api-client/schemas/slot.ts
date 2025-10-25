@@ -7,12 +7,17 @@
  */
 import type { SlotStatus } from "./slotStatus";
 
+/**
+ * Serializer for the Slot model.
+- Converts start_at and end_at to local time (HH:MM format).
+- Includes the related SlotStatus.
+ */
 export interface Slot {
   readonly id: number;
   court: number;
   service_date: string;
-  start_at: string;
-  end_at: string;
+  readonly start_time: string;
+  readonly end_time: string;
   /**
    * @minimum 0
    * @maximum 2147483647

@@ -12,7 +12,7 @@
   --color-pig: #dea4af;
   --color-cherry: #A6485A;
   --color-platinum: #e2e2e2;
-  --color-smoke: #E9E6E2;
+  --color-smoke: #F6F5F4;
   --color-dimgray: #9F9C97;
   --color-silver: #CDBCBC;
   --color-cambridge: #75b2a0;
@@ -31,10 +31,36 @@
   --color-noshow: #CDBCBC;
 
 
-  --color-court-bg: #ede5da;
+  --color-cream: #FDFCF9;
   --color-court-deep: #2b6f66;
   --color-copper-rust: #9e494f;
   
   --box-shadow-soft: 0 8px 30px rgba(0,0,0,.08);
   --font-family-sans: var(--font-poppins), ui-sans-serif, system-ui;
 }
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 1s linear infinite;
+}
+
+/* พลิกหน้า–หลัง (แกน Y) พร้อมยกสูงและเอียงซ้ายเล็กน้อย */
+@keyframes flip-y {
+  0% {
+    transform: translateX(-8%) translateY(-60%) rotateZ(-25deg) rotateY(0deg);
+  }
+  50% {
+    transform: translateX(-8%) translateY(-60%) rotateZ(-25deg) rotateY(180deg);
+  }
+  100% {
+    transform: translateX(-8%) translateY(-60%) rotateZ(-25deg) rotateY(360deg);
+  }
+}
+.animate-flip-y {
+  animation: flip-y 1.5s linear infinite;
+  transform-style: preserve-3d;
+}
+
