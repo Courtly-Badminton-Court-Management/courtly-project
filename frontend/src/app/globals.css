@@ -64,3 +64,32 @@
   transform-style: preserve-3d;
 }
 
+
+
+@layer utilities {
+  @keyframes float {
+    0%, 100% {
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    50% {
+      transform: translate(-50%, -50%) translateY(-30px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  .animate-pop {
+    animation: pop 0.2s ease-in-out;
+  }
+}
+
