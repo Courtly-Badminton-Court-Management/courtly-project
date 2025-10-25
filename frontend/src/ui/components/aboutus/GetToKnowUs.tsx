@@ -9,7 +9,7 @@ export default function GetToKnowUs() {
         <img
           src="/images/badminton-6.jpg"
           alt="Badminton shuttlecock on racket"
-          className="h-[450px] w-[450px] rounded-3xl object-cover shadow-lg md:h-[620px]"
+          className="h-[400px] w-[450px] rounded-3xl object-cover shadow-lg md:h-[620px]"
         />
 
         {/* Floating small image */}
@@ -29,7 +29,7 @@ export default function GetToKnowUs() {
           Get To Know <span className="text-pine">Courtly</span>
         </h1>
 
-        <p className="text-lg text-neutral-700 leading-relaxed md:text-xl md:leading-loose">
+        <p className="text-lg text-neutral-700 leading-relaxed md:text-md md:leading-loose">
           <b>Courtly</b> is Thailand’s leading online badminton court booking platform — designed for players, clubs, 
           and venue owners to connect effortlessly. Whether you’re reserving a quick match with friends or managing 
           multiple courts, <b>Courtly</b> offers a fast, transparent, and stress-free booking experience with secure payment 
@@ -66,7 +66,7 @@ function ContactChip({
   small?: boolean;
 }) {
   return (
-    <div className="group flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-lg hover:shadow-grey-200">
+    <div className="group flex items-center gap-3 rounded-xl border border-platinum px-4 py-3 transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-lg hover:shadow-grey-200">
       <div className="flex h-10 w-10 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110">
         <img src={icon} alt="" className="h-10 w-10" />
       </div>

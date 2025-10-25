@@ -20,7 +20,7 @@ export default function ServiceCost() {
           Service Cost
         </h2>
 
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-platinum bg-white p-6 shadow-sm">
           <div className="text-lg font-semibold text-neutral-600">
             10:00 AM – 22:00 PM
           </div>

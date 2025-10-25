@@ -56,7 +56,7 @@ export default function WhyChooseUs() {
 
 function InfoCard({ title, body }: { title: string; body: string }) {
   return (
-    <div className="group rounded-2xl border bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-grey-200 focus-within:-translate-y-1 focus-within:shadow-lg">
+    <div className="group rounded-2xl border border-platinum bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg hover:shadow-grey-200 focus-within:-translate-y-1 focus-within:shadow-lg">
       <div className="text-lg font-bold">{title}</div>
       <p className="text-neutral-700">{body}</p>
     </div>

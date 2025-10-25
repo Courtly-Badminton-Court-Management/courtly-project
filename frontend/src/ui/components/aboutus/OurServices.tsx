@@ -40,7 +40,7 @@ export default function OurServices() {
         {items.map((s) => (
           <div
             key={s.title}
-            className="group flex items-start gap-4 rounded-2xl border bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-lg hover:shadow-grey-200"
+            className="group flex items-start gap-4 rounded-2xl border border-platinum bg-white p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.03] hover:shadow-lg hover:shadow-grey-200"
           >
             <div className="flex-shrink-0">
               <img
