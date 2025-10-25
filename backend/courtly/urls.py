@@ -8,7 +8,8 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-
+from django.conf import settings
+from django.conf.urls.static import static
 from booking.views import SlotViewSet, BookingViewSet
 from accounts.views import RegisterView, LoginView, MeView
 from core.views import PlayerHomeData, ManagerDashboardData
@@ -47,4 +48,4 @@ urlpatterns = [
     # --- Neutral app paths ---
     path("api/app/home/", PlayerHomeData.as_view(), name="app-home"),
     path("api/app/dashboard/", ManagerDashboardData.as_view(), name="app-dashboard"),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

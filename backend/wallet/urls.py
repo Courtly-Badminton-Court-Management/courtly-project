@@ -1,14 +1,12 @@
-from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import WalletBalanceView, CoinLedgerViewSet, TopupRequestViewSet
+from .views import CoinLedgerViewSet, TopupRequestViewSet, WalletBalanceView
+from django.urls import path
 
 router = DefaultRouter()
-router.register(r"wallet/ledger", CoinLedgerViewSet, basename="wallet-ledger")
-router.register(r"wallet/topups", TopupRequestViewSet, basename="wallet-topups")
+router.register(r"ledger", CoinLedgerViewSet, basename="wallet-ledger")
+router.register(r"topups", TopupRequestViewSet, basename="wallet-topup")
 
 urlpatterns = [
-    # Balance endpoint used by the header
-    path("wallet/balance/", WalletBalanceView.as_view(), name="wallet-balance"),
-    # Router endpoints for ledger & topups
-    path("", include(router.urls)),
+    path("balance/", WalletBalanceView.as_view(), name="wallet-balance"),
 ]
+urlpatterns += router.urls

@@ -21,14 +21,31 @@ class CoinLedger(models.Model):
 
 
 class TopupRequest(models.Model):
-    STATUS = (("pending", "pending"), ("approved", "approved"), ("rejected", "rejected"))
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="topup_requests")
-    amount_thb = models.IntegerField()
-    coins = models.IntegerField()
-    slip_path = models.TextField()
-    status = models.CharField(max_length=16, choices=STATUS, default="pending")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="topups")
+    amount_thb = models.PositiveIntegerField()
+    coins = models.PositiveIntegerField(default=0)
+    transfer_date = models.DateField(null=True,
+                                     blank=True)
+    transfer_time = models.TimeField(null=True,
+                                     blank=True)
+    slip_path = models.ImageField(upload_to="wallet/slips/%Y/%m/%d/",
+                                  max_length=255,
+                                  null=True, blank=True)
+
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class Wallet(models.Model):
