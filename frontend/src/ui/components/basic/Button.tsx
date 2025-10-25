@@ -1,10 +1,10 @@
-// src/ui/components/Button.tsx
 "use client";
 
 import React from "react";
+import * as LucideIcons from "lucide-react";
 
 type ButtonProps = {
-  label?: string; // ← เพิ่ม label
+  label?: string;
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   full?: boolean;
@@ -14,10 +14,12 @@ type ButtonProps = {
   textColor?: string;
   hoverBgColor?: string;
   hoverTextColor?: string;
+  frontIcon?: string; // ✅ icon ที่อยู่หน้าข้อความ
+  backIcon?: string;  // ✅ icon ที่อยู่หลังข้อความ
 };
 
 export default function Button({
-  label = "default label", // ← ถ้าไม่ได้ส่ง label จะใช้ default
+  label = "default label",
   onClick,
   type = "button",
   full = false,
@@ -26,15 +28,21 @@ export default function Button({
   bgColor = "bg-pine",
   textColor = "text-white",
   hoverBgColor = "hover:bg-emerald-800",
-  hoverTextColor = "hover:text-white",
+  hoverTextColor = textColor,
+  frontIcon,
+  backIcon,
 }: ButtonProps) {
+  // ✅ โหลด icon จากชื่อ (ถ้ามี)
+  const FrontIcon = frontIcon ? (LucideIcons as any)[frontIcon] : null;
+  const BackIcon = backIcon ? (LucideIcons as any)[backIcon] : null;
+
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
       className={[
-        "rounded-xl px-4 py-2 text-sm font-bold transition-colors",
+        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all duration-150",
         bgColor,
         textColor,
         hoverBgColor,
@@ -44,7 +52,12 @@ export default function Button({
         className,
       ].join(" ")}
     >
-      {label}
+      {/* ✅ Icon หน้า */}
+      {FrontIcon && <FrontIcon size={16} className="shrink-0" />}
+      {/* Label */}
+      <span>{label}</span>
+      {/* ✅ Icon หลัง */}
+      {BackIcon && <BackIcon size={16} className="shrink-0" />}
     </button>
   );
 }

@@ -5,15 +5,18 @@
  * Your project description
  * OpenAPI spec version: 1.0.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
@@ -22,6 +25,13 @@ import type { Slot } from "../../schemas";
 
 import { customRequest } from "../../custom-client";
 
+/**
+ * ViewSet for viewing court slots.
+
+Endpoints:
+  • GET /api/slots/                     — List all slots
+  • GET /api/slots/month-view?club=1&month=YYYY-MM
+ */
 export const slotsList = (signal?: AbortSignal) => {
   return customRequest<Slot[]>({ url: `/api/slots/`, method: "GET", signal });
 };
@@ -139,6 +149,13 @@ export function useSlotsList<
   return query;
 }
 
+/**
+ * ViewSet for viewing court slots.
+
+Endpoints:
+  • GET /api/slots/                     — List all slots
+  • GET /api/slots/month-view?club=1&month=YYYY-MM
+ */
 export const slotsRetrieve = (id: number, signal?: AbortSignal) => {
   return customRequest<Slot>({
     url: `/api/slots/${id}/`,
@@ -273,12 +290,90 @@ export function useSlotsRetrieve<
 }
 
 /**
- * GET /api/slots/month-view?club=1&month=2025-09
-Response:
-{
-  "month":"09-25",
-  "days":[{"date":"01-09-25","slotList":{"<slotId>":{...}}}, ...]
-}
+ * Manually change a slot’s status (manager-only).
+
+Endpoint:
+  POST /api/slots/<slot_id>/set-status/<new_status>/
+ */
+export const slotsSetStatusCreate = (
+  slotId: number,
+  newStatus: string,
+  signal?: AbortSignal,
+) => {
+  return customRequest<void>({
+    url: `/api/slots/${slotId}/set-status/${newStatus}/`,
+    method: "POST",
+    signal,
+  });
+};
+
+export const getSlotsSetStatusCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+    TError,
+    { slotId: number; newStatus: string },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+  TError,
+  { slotId: number; newStatus: string },
+  TContext
+> => {
+  const mutationKey = ["slotsSetStatusCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+    { slotId: number; newStatus: string }
+  > = (props) => {
+    const { slotId, newStatus } = props ?? {};
+
+    return slotsSetStatusCreate(slotId, newStatus);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SlotsSetStatusCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof slotsSetStatusCreate>>
+>;
+
+export type SlotsSetStatusCreateMutationError = unknown;
+
+export const useSlotsSetStatusCreate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+      TError,
+      { slotId: number; newStatus: string },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+  TError,
+  { slotId: number; newStatus: string },
+  TContext
+> => {
+  const mutationOptions = getSlotsSetStatusCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Retrieve all slots for a given club and month.
+Example:
+    GET /api/slots/month-view?club=1&month=2025-09
  */
 export const slotsMonthViewRetrieve = (signal?: AbortSignal) => {
   return customRequest<Slot>({

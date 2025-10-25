@@ -3,6 +3,7 @@ import "./globals.css";
 import { Poppins } from "next/font/google";
 import Providers from "./providers";
 import AuthBootstrap from "@/ui/providers/AuthBootstrap";
+import type { Metadata } from "next";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -10,7 +11,10 @@ const poppins = Poppins({
   variable: "--font-poppins",
 });
 
-export const metadata = { title: "Courtly" };
+export const metadata: Metadata = {
+  title: "Courtly — Badminton Court Booking",
+  description: "Book badminton courts easily with CL Coins.",
+};
 
 export default function RootLayout({
   children,
@@ -19,7 +23,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={poppins.variable}>
-      <body className="min-h-dvh bg-courtBg text-onyx font-sans">
+       <head>
+        <link rel="icon" href="/brand/icon2.png/" type="image/x-icon" />
+      </head>
+
+      <body className="min-h-dvh bg-cream text-onyx font-sans">
         <Providers>
           <AuthBootstrap />
           {children}

@@ -7,10 +7,11 @@ export default function BrandMark({ size = 55 }: { size?: number }) {
       <Image
         src="/brand/corutlylogosvg.svg"
         alt="Courtly logo"
-        width={size}
+        width={size+10}
         height={size}
         priority
         className="shrink-0"
+        style={{ width: size+10, height: size }}
       />
 
       {/* ตัวหนังสือ */}

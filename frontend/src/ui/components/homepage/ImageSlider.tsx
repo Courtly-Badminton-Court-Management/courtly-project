@@ -25,7 +25,7 @@ export default function ImageSlider() {
 
   // 16:5 aspect ratio (1600x500) using padding-top trick (500/1600 = 31.25%)
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl">
+    <div className="relative w-full overflow-hidden rounded-2xl shadow-sm border border-platinum">
       <div
         className="flex transition-transform duration-700 ease-in-out"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}

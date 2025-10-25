@@ -39,7 +39,7 @@ For venue managers, this leads to **high manual workload** and **limited visibil
 
 ---
 
-## 🚀 MVP Scope (Single Club)
+## 🚀 Our Feature
 
 - Month/Day availability view
 - Booking slot (multi-slot selection)
@@ -47,7 +47,7 @@ For venue managers, this leads to **high manual workload** and **limited visibil
 - CL Coin top-up via slip (manager approval)
 - Check-in & real-time slot status updates
 - Downloadable booking confirmation (PDF)
-- Manager console for schedules, closures, maintenance, walk-ins, top-up approvals, and slip logs
+
 
 ---
 
@@ -144,7 +144,7 @@ git clone https://github.com/Courtly-Badminton-Court-Managment/courtly-project
 ## 📖 Documentation
 
 * Project Proposal: [Project Proposal PDF](https://drive.google.com/file/d/12xOk2idmqJrXaWnmxFgaFw4w6hojjo8z/view?usp=sharing)
-* Jira Board: [Courtly Jira](https://courtly-badminton.atlassian.net/jira/software/projects/SCRUM/boards/1)
+* Jira Board: [Courtly Jira](https://courtly-project.atlassian.net/jira/software/projects/COURTLY/boards/1)
 * GitHub Org: [Courtly-Badminton-Court-Managment](https://github.com/Courtly-Badminton-Court-Management)
 * 🎥 Presentation Video: [Presentation Video on Youtube](https://www.youtube.com/playlist?list=PLy2euUO-1ED_5BwWGAM6IQy1v_EnQUnwQ)
 

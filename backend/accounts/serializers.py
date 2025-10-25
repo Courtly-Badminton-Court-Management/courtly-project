@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 User = get_user_model()
 
+
 class RegisterSerializer(serializers.ModelSerializer):
     # Frontend sends "firstname"/"lastname"; map them to User.first_name/last_name
     firstname = serializers.CharField(source="first_name")
@@ -57,13 +58,38 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class MeSerializer(serializers.ModelSerializer):
-    firstname = serializers.CharField(source="first_name")
-    lastname = serializers.CharField(source="last_name")
+    firstname = serializers.CharField(source="first_name", required=False)
+    lastname = serializers.CharField(source="last_name", required=False)
+
+    # ✅ expose camelCase to FE
+    avatarKey = serializers.CharField(source="avatar_key", required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "firstname", "lastname"]
-        # If your User model actually has 'accept' and you want to expose it, add it here.
+        fields = [
+            "id",
+            "username",
+            "email",
+            "firstname",
+            "lastname",
+            "avatarKey",     # new field
+        ]
+
+    # ✅ allow partial update via PATCH /accounts/me
+    def update(self, instance, validated_data):
+        # pop mapped fields
+        avatar_key = validated_data.pop("avatar_key", serializers.empty)
+
+        # update simple fields (first_name/last_name if provided)
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+
+        if avatar_key is not serializers.empty:
+            instance.avatar_key = avatar_key or None
+
+        instance.save()
+        return instance
+
 
 class AddCoinSerializer(serializers.Serializer):
     amount = serializers.IntegerField(min_value=1)

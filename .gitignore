@@ -39,6 +39,7 @@ db.sqlite3
 # Django migrations cache
 *.pot
 *.mo
+venv/
 
 # ---- Node.js / Next.js ----
 node_modules/
@@ -84,3 +85,4 @@ frontend/.turbo/
 frontend/.parcel-cache/
 frontend/.vercel/
 venv
+

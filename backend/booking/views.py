@@ -1,6 +1,4 @@
-# booking/views.py
-
-from pathlib import Path
+import traceback
 import uuid
 import calendar
 from datetime import date, datetime, timedelta
@@ -8,7 +6,6 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.db import connection, transaction, DatabaseError
 from django.utils import timezone
-from django.views.generic import TemplateView
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
@@ -17,27 +14,47 @@ from rest_framework.views import APIView
 
 from .models import Slot, SlotStatus, Booking, BookingSlot, Court, Club
 from .serializers import SlotSerializer, BookingSerializer, BookingCreateSerializer
-from django.db import models
-from wallet.models import CoinLedger
-from wallet.models import Wallet
-from .serializers import BookingHistorySerializer
+from wallet.models import CoinLedger, Wallet
 
-# ───────────────────────── helpers ─────────────────────────
+
+# ────────────────────────────── Helper Functions ──────────────────────────────
 def gen_booking_no() -> str:
-    # 12 ตัวอ่านง่าย เช่น BK-7F2C9E1A23
+    """Generate a unique booking number, e.g., BK-7F2C9E1A23."""
     return f"BK-{uuid.uuid4().hex[:10].upper()}"
 
 
 def combine_dt(d: date, t) -> datetime:
-    """รวม date + time ให้เป็น aware datetime ตาม TIME_ZONE ของโปรเจกต์"""
+    """Combine a date and time object into a timezone-aware datetime."""
+    if isinstance(t, str):
+        t = datetime.strptime(t, "%H:%M").time()
     dt = datetime.combine(d, t)
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.get_current_timezone())
     return dt
 
 
-# ─────────────────────── Slot (read-only) ───────────────────────
+def calculate_able_to_cancel(first_slot):
+    """Check if booking can be cancelled (more than 24 hours before start)."""
+    if not first_slot or not first_slot.slot or not hasattr(first_slot.slot, "slot_status"):
+        return False
+
+    if first_slot.slot.slot_status.status == "cancelled":
+        return False
+
+    slot_start = first_slot.slot.start_at
+    slot_local = timezone.localtime(slot_start)
+    return timezone.now() <= slot_local - timedelta(hours=24)
+
+
+# ────────────────────────────── Slot (Read-only) ──────────────────────────────
 class SlotViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for viewing court slots.
+
+    Endpoints:
+      • GET /api/slots/                     — List all slots
+      • GET /api/slots/month-view?club=1&month=YYYY-MM
+    """
     queryset = Slot.objects.all()
     serializer_class = SlotSerializer
     permission_classes = [permissions.AllowAny]
@@ -45,145 +62,157 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, url_path="month-view", methods=["GET"])
     def month_view(self, request):
         """
-        GET /api/slots/month-view?club=1&month=2025-09
-        Response:
-        {
-          "month":"09-25",
-          "days":[{"date":"01-09-25","slotList":{"<slotId>":{...}}}, ...]
-        }
+        Retrieve all slots for a given club and month.
+        Example:
+            GET /api/slots/month-view?club=1&month=2025-09
         """
-        # validate params
         raw_club = request.query_params.get("club")
-        month_str = request.query_params.get("month")  # YYYY-MM
+        month_str = request.query_params.get("month")
+
+        # Validate club parameter
         try:
             club_id = int(raw_club)
         except (TypeError, ValueError):
             return Response({"detail": "club must be an integer id"}, status=400)
+
+        # Validate month format
         if not month_str or len(month_str) != 7 or "-" not in month_str:
             return Response({"detail": "month is required as YYYY-MM"}, status=400)
 
-        # first/last day of month
         y, m = map(int, month_str.split("-"))
         first_day = date(y, m, 1)
         last_day = date(y, m, calendar.monthrange(y, m)[1])
+        today = timezone.localdate()
 
+        if last_day < today:
+            return Response({"detail": "Cannot view past months."}, status=400)
+
+        # Query slots for given month and club
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
             .filter(
                 court__club_id=club_id,
-                service_date__gte=first_day,
+                service_date__gte=max(first_day, today),
                 service_date__lte=last_day,
             )
             .order_by("service_date", "court_id", "start_at")
         )
 
-        # group by day → { "DD-MM-YY": { slotId: {...} } }
+        # Group slots by date
+        tz = timezone.get_current_timezone()
         by_day = {}
+
         for s in qs:
             day_key = s.service_date.strftime("%d-%m-%y")
-            slot_key = str(s.id)
+            start_local = timezone.localtime(s.start_at, tz)
+            end_local = timezone.localtime(s.end_at, tz)
             status_val = getattr(getattr(s, "slot_status", None), "status", "available")
-            by_day.setdefault(day_key, {})[slot_key] = {
+
+            by_day.setdefault(day_key, {})[str(s.id)] = {
                 "status": status_val,
-                "start_time": s.start_at.strftime("%H:%M"),
-                "end_time": s.end_at.strftime("%H:%M"),
+                "start_time": start_local.strftime("%H:%M"),
+                "end_time": end_local.strftime("%H:%M"),
                 "court": s.court_id,
-                "courtName": s.court.name,
+                "court_name": s.court.name,
+                "price_coin": s.price_coins
             }
 
         payload = {
             "month": first_day.strftime("%m-%y"),
-            "days": [{"date": d, "slotList": slots} for d, slots in by_day.items()],
+            "days": [{"date": d, "booking_slots": slots} for d, slots in by_day.items()],
         }
         payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
         return Response(payload)
 
 
-# ─────────────────────── Booking (CRUD) ───────────────────────
+# ────────────────────────────── Booking CRUD ──────────────────────────────
 class BookingViewSet(viewsets.ModelViewSet):
+    """
+    CRUD operations for Booking.
+    Supports lookup by booking_no instead of primary key.
+    """
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = "booking_no"
 
     @action(detail=True, methods=["delete"])
-    def cancel(self, request, pk=None):
+    def cancel(self, request, booking_no=None):
+        """Cancel a booking by marking it as 'cancelled'."""
         booking = self.get_object()
         booking.status = "cancelled"
         booking.save(update_fields=["status"])
         return Response({"status": "cancelled"})
 
 
-class BookingUIMockView(TemplateView):
-    template_name = "booking/mock.html"
-
-
-# # ─────────────────────── Create booking ───────────────────────
-
+# ────────────────────────────── Create Booking ──────────────────────────────
 class BookingCreateView(APIView):
     """
-    POST /api/bookings/
-    payload:
-    {
-      "club": 1,
-      "items": [
-        {"court":4,"date":"2025-09-05","start":"10:00","end":"12:00"},
-        {"court":5,"date":"2025-09-05","start":"14:00","end":"15:00"}
-      ]
-    }
-    """
+    Create a new booking.
 
+    Endpoint:
+      POST /api/booking/
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
         try:
+            # -------------------- Validate Input --------------------
             ser = BookingCreateSerializer(data=request.data)
             ser.is_valid(raise_exception=True)
             club_id = ser.validated_data["club"]
             items = ser.validated_data["items"]
 
-            # ตรวจ club
-            try:
-                Club.objects.only("id").get(id=club_id)
-            except Club.DoesNotExist:
-                return Response({"detail": "Club not found"}, status=404)
-
             if not items:
                 return Response({"detail": "No items to book"}, status=400)
 
-            # ใช้ court ของ item แรกเป็น primary court
-            first_court_id = items[0]["court"]
+            # -------------------- Check Club --------------------
+            if not Club.objects.filter(id=club_id).exists():
+                return Response({"detail": "Club not found"}, status=404)
 
+            first_court_id = items[0]["court"]
+            first_date = items[0]["date"]
+            today = timezone.localdate()
+
+            if first_date < today:
+                return Response({"detail": f"Cannot book for a past date: {first_date}"}, status=400)
+
+            # -------------------- Create Booking --------------------
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
-                user=request.user,          # ✅ ผูกกับ user
+                user=request.user,
                 club_id=club_id,
                 court_id=first_court_id,
                 status="confirmed",
+                booking_date=first_date,
             )
 
-            total_slots = 0
             total_cost = 0
             created_slots = []
 
+            # -------------------- Loop through booking items --------------------
             for it in items:
                 court_id = it["court"]
                 d = it["date"]
-                start_t = it["start"]
-                end_t = it["end"]
 
-                # court exist?
-                try:
-                    Court.objects.only("id").get(id=court_id)
-                except Court.DoesNotExist:
-                    return Response({"detail": f"Court {court_id} not found"}, status=404)
+                if d < today:
+                    return Response({"detail": f"Cannot book for a past date: {d}"}, status=400)
 
-                start_dt = combine_dt(d, start_t)
-                end_dt = combine_dt(d, end_t)
+                start_dt = combine_dt(d, it["start"])
+                end_dt = combine_dt(d, it["end"])
+
+                # 🔧 Fix timezone-aware vs naive datetime
+                if timezone.is_aware(start_dt):
+                    start_dt = timezone.make_naive(start_dt)
+                if timezone.is_aware(end_dt):
+                    end_dt = timezone.make_naive(end_dt)
+
                 if start_dt >= end_dt:
                     return Response({"detail": "Invalid time range"}, status=400)
 
+                # -------------------- Find slots --------------------
                 base_qs = Slot.objects.filter(
                     court_id=court_id,
                     service_date=d,
@@ -191,224 +220,295 @@ class BookingCreateView(APIView):
                     end_at__lte=end_dt,
                 ).order_by("start_at")
 
+                # Use row-level lock if available
                 if connection.vendor == "postgresql" and connection.features.has_select_for_update:
                     locked_ids = list(base_qs.select_for_update(of=("self",)).values_list("id", flat=True))
                 else:
                     locked_ids = list(base_qs.values_list("id", flat=True))
 
-                slots_qs = Slot.objects.filter(id__in=locked_ids).select_related("slot_status").order_by("start_at")
-                slots = list(slots_qs)
+                slots = list(Slot.objects.filter(id__in=locked_ids).select_related("slot_status"))
                 if not slots:
-                    return Response({"detail": f"No slots found for court {court_id} in range"}, status=400)
+                    return Response({"detail": f"No slots found for court {court_id}"}, status=400)
 
-                # check available
-                not_available = [
-                    s.id for s in slots
-                    if not getattr(s, "slot_status", None) or s.slot_status.status != "available"
-                ]
-                if not_available:
-                    return Response(
-                        {"detail": "Some slots are not available", "slot_ids": not_available},
-                        status=409,
-                    )
-
-                for slot in slots:
-                    # ✅ คิดราคา slot
-                    total_cost += slot.price_coins
-
+                # -------------------- Check slot availability --------------------
                 for s in slots:
+                    if hasattr(s, "booked_by"):
+                        return Response({"detail": f"Slot {s.id} already booked"}, status=409)
+                    if hasattr(s, "slot_status") and s.slot_status.status != "available":
+                        return Response(
+                            {"detail": f"Slot {s.id} not available", "status": s.slot_status.status},
+                            status=409,
+                        )
+
+                # -------------------- Create booking-slot relation --------------------
+                for s in slots:
+                    total_cost += s.price_coins
                     BookingSlot.objects.create(booking=booking, slot=s)
-                    if getattr(s, "slot_status", None):
-                        s.slot_status.status = "booked"
-                        s.slot_status.save(update_fields=["status", "updated_at"])
-                    else:
-                        SlotStatus.objects.create(slot=s, status="booked")
+                    SlotStatus.objects.update_or_create(
+                        slot=s, defaults={"status": "booked"}
+                    )
+                    created_slots.append(s.id)
 
-                created_slots.extend([s.id for s in slots])
-                total_slots += len(slots)
-
-            # ✅ Wallet check
+            # -------------------- Wallet & Coin deduction --------------------
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
-
             if wallet.balance < total_cost:
                 return Response(
                     {"detail": "Not enough coins", "required": total_cost, "balance": wallet.balance},
                     status=402,
                 )
 
-            # ✅ หัก coin และ log
             wallet.balance -= total_cost
             wallet.save(update_fields=["balance"])
-
             CoinLedger.objects.create(
                 user=request.user,
                 type="capture",
                 amount=-total_cost,
-                ref_booking=booking
+                ref_booking=booking,
             )
 
-            new_balance = wallet.balance
+            booking.total_cost = total_cost
+            booking.save(update_fields=["total_cost"])
 
+            # -------------------- Success --------------------
             return Response(
-    {
-        "ok": True,
-        "booking": {
-            "id": booking.id,                # ✅ NEW: booking id
-            "booking_no": booking.booking_no,
-            "club": club_id,
-            "court": first_court_id,
-            "slots": created_slots,
-        },
-        # ✅ NEW: เผื่อ FE บางจุดยังอ่านจาก res.bookings
-        "bookings": [
-            {
-                "id": booking.id,
-                "booking_no": booking.booking_no,
-            }
-        ],
-        "total_slots": total_slots,
-        "total_cost": total_cost,
-        "new_balance": new_balance,
-    },
-    status=status.HTTP_201_CREATED,
-)
+                {
+                    "ok": True,
+                    "booking": {
+                        "id": booking.id,
+                        "booking_no": booking.booking_no,
+                        "club": club_id,
+                        "court": first_court_id,
+                        "slots": created_slots,
+                    },
+                    "total_cost": total_cost,
+                    "new_balance": wallet.balance,
+                },
+                status=201,
+            )
 
         except DatabaseError as e:
-            return Response({"detail": f"Database error: {e.__class__.__name__}", "message": str(e)}, status=500)
+            traceback.print_exc()
+            return Response(
+                {"detail": "Database error", "error": str(e.__class__.__name__), "message": str(e)},
+                status=500,
+            )
         except Exception as e:
+            traceback.print_exc()
             return Response({"detail": str(e)}, status=400)
 
 
+# ────────────────────────────── Booking History (User) ──────────────────────────────
+
 class BookingHistoryView(APIView):
     """
-    GET /api/history/
-    ดึง booking ของ user ที่ login อยู่
+    List the last 50 bookings of the logged-in user.
+    Endpoint:
+        GET /api/my-booking/
     """
-
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
         data = []
+
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
-            slot_data = [
-                {
-                    "slot": s.slot.id,
-                    "slot__court": s.slot.court.id,
-                    "slot__service_date": str(s.slot.service_date),
-                    "slot__start_at": s.slot.start_at.strftime("%H:%M"),
-                    "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+            # Fetch all slots related to this booking
+            slots = BookingSlot.objects.filter(booking=b).select_related(
+                "slot", "slot__court", "slot__slot_status"
+            )
+            first_slot = slots.first()
+
+            # Determine if this booking can be cancelled (more than 24h before start)
+            able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+
+            # Force 'able_to_cancel = False' if booking is cancelled
+            # or the first slot itself has status 'cancelled'
+            if b.status == "cancelled" or (
+                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+            ):
+                able_to_cancel = False
+
+            # Build slot details
+            booking_slots = {}
+            for s in slots:
+                slot_obj = s.slot
+                status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+                booking_slots[str(slot_obj.id)] = {
+                    "status": status_val,
+                    "start_time": slot_obj.start_at.strftime("%H:%M"),
+                    "end_time": slot_obj.end_at.strftime("%H:%M"),
+                    "court": slot_obj.court_id,
+                    "court_name": slot_obj.court.name,
+                    "price_coin": slot_obj.price_coins,
                 }
-                for s in slots
-            ]
+
+            # Append booking data
             data.append({
-                "id": b.id,
-                "booking_no": b.booking_no,
-                "status": b.status,
-                "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
-                "slots": slot_data,
+                "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "booking_id": b.booking_no,
+                "user": request.user.username,
+                "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
+                "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
+                "booking_status": b.status,
+                "able_to_cancel": able_to_cancel,
+                "booking_slots": booking_slots,
             })
+
         return Response({"results": data})
 
 
+# ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
 class BookingAllView(APIView):
-    # permission_classes = [permissions.IsAdminUser]  # ✅ only admin
-    # permission_classes = [permissions.IsAuthenticated]
+    """
+    List all recent bookings (for admin or manager view).
+    Endpoint:
+        GET /api/bookings/
+    """
 
     def get(self, request):
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
+
         for b in qs:
-            slots = BookingSlot.objects.filter(booking=b).select_related("slot", "slot__court")
-            slot_data = [
-                {
-                    "slot": s.slot.id,
-                    "slot__court": s.slot.court.id,
-                    "slot__service_date": s.slot.service_date,
-                    "slot__start_at": s.slot.start_at.strftime("%H:%M"),
-                    "slot__end_at": s.slot.end_at.strftime("%H:%M"),
+            # Fetch all slots linked to the booking
+            slots = BookingSlot.objects.filter(booking=b).select_related(
+                "slot", "slot__court", "slot__slot_status"
+            )
+            first_slot = slots.first()
+
+            # Determine if booking can be cancelled (more than 24h before start)
+            able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+
+            # Disable cancellation if booking or slot already cancelled
+            if b.status == "cancelled" or (
+                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+            ):
+                able_to_cancel = False
+
+            # Build slot info dictionary
+            booking_slots = {}
+            for s in slots:
+                slot_obj = s.slot
+                status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+                booking_slots[str(slot_obj.id)] = {
+                    "status": status_val,
+                    "start_time": slot_obj.start_at.strftime("%H:%M"),
+                    "end_time": slot_obj.end_at.strftime("%H:%M"),
+                    "court": slot_obj.court_id,
+                    "court_name": slot_obj.court.name,
+                    "price_coin": slot_obj.price_coins,
                 }
-                for s in slots
-            ]
+
+            # Combine booking details
             data.append({
-                "id": b.id,
-                "booking_no": b.booking_no,
-                "user": b.user.email if b.user else None,   # ✅ show user
-                "status": b.status,
-                "created_at": b.created_at.strftime("%Y-%m-%d %H:%M"),
-                "slots": slot_data,
+                "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "booking_id": b.booking_no,
+                "user": b.user.username if b.user else None,
+                "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
+                "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
+                "booking_status": b.status,
+                "able_to_cancel": able_to_cancel,
+                "booking_slots": booking_slots,
             })
-        return Response(data)
+
+        return Response({"results": data})
 
 
-# ─────────────────────── Cancel booking (Refund) ───────────────────────
+# ────────────────────────────── Cancel Booking ──────────────────────────────
+# ────────────────────────────── Cancel Booking ──────────────────────────────
 class BookingCancelView(APIView):
     """
-    POST /api/bookings/<booking_id>/cancel/
-    - Change booking status to "cancelled"
-    - Refund coins back to the wallet
-    - Set all related slot_status records back to "available"
+    Cancel a booking using its booking_no.
+
+    Endpoint:
+      POST /api/bookings/<booking_no>/cancel/
     """
     permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
-    def post(self, request, booking_id):
-        # Try to find the booking
+    def post(self, request, booking_no):
         try:
-            booking = Booking.objects.get(id=booking_id)
+            # Try to find the booking record
+            booking = Booking.objects.get(booking_no=booking_no)
         except Booking.DoesNotExist:
-            return Response(
-                {"detail": "Booking not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Booking not found"}, status=404)
 
-        # ✅ Allow only the owner or manager to cancel
+        # Check user permission: only booking owner or manager can cancel
         user_role = getattr(request.user, "role", None)
         if booking.user != request.user and user_role != "manager":
-            return Response(
-                {"detail": "You do not have permission to cancel this booking"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({"detail": "No permission to cancel"}, status=403)
 
-        # ✅ Prevent duplicate cancellation
+        # Prevent duplicate cancellation
         if booking.status == "cancelled":
+            return Response({
+                "detail": "Already cancelled",
+                "able_to_cancel": False
+            }, status=400)
+
+        # Get the first related slot for this booking
+        first_slot = (
+            BookingSlot.objects.filter(booking=booking)
+            .select_related("slot", "slot__slot_status")
+            .order_by("slot__service_date", "slot__start_at")
+            .first()
+        )
+
+        if not first_slot:
+            return Response({"detail": "No slot info found"}, status=400)
+
+        # If the slot itself is already cancelled, disallow cancellation
+        if first_slot.slot.slot_status.status == "cancelled":
+            slot_local = timezone.localtime(first_slot.slot.start_at)
+            return Response({
+                "detail": "Slot already cancelled",
+                "able_to_cancel": False,
+                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
+            }, status=400)
+
+        # Check if cancellation is within the allowed time window
+        able_to_cancel = calculate_able_to_cancel(first_slot)
+        if not able_to_cancel:
+            slot_local = timezone.localtime(first_slot.slot.start_at)
             return Response(
-                {"detail": "Booking already cancelled"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {
+                    "detail": "Cannot cancel within 24 hours of start time",
+                    "able_to_cancel": False,
+                    "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                    "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
+                },
+                status=400,
             )
 
-        # --- Reset all related slots to 'available' ---
-        booking_slots = (
-            BookingSlot.objects
-            .filter(booking=booking)
-            .select_related("slot", "slot__slot_status")
-        )
+        # ───────────────────── Process Refund ─────────────────────
+        booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot", "slot__slot_status")
         total_refund = 0
+        released_slots = []
 
         for bs in booking_slots:
             slot = bs.slot
             total_refund += getattr(slot, "price_coins", 0)
+            released_slots.append(slot.id)
 
-            # Reset slot status
+            # Mark slot as available again
             if hasattr(slot, "slot_status"):
                 slot.slot_status.status = "available"
-                slot.slot_status.save(update_fields=["status"])
+                slot.slot_status.save(update_fields=["status", "updated_at"])
             else:
                 SlotStatus.objects.create(slot=slot, status="available")
 
-        # --- Update booking status ---
+        # Delete BookingSlot links so the slot becomes truly available
+        BookingSlot.objects.filter(booking=booking).delete()
+
+        # Update booking and refund wallet
         booking.status = "cancelled"
         booking.save(update_fields=["status"])
 
-        # --- Refund coins to the booking owner ---
-        wallet, _ = Wallet.objects.get_or_create(
-            user=booking.user, defaults={"balance": 0}
-        )
+        wallet, _ = Wallet.objects.get_or_create(user=booking.user, defaults={"balance": 0})
         wallet.balance += total_refund
         wallet.save(update_fields=["balance"])
 
-        # --- Log refund transaction ---
+        # Create refund record in CoinLedger
         CoinLedger.objects.create(
             user=booking.user,
             type="refund",
@@ -416,14 +516,71 @@ class BookingCancelView(APIView):
             ref_booking=booking,
         )
 
-        # ✅ Return success response
+        # Prepare response
+        slot_local = timezone.localtime(first_slot.slot.start_at)
         return Response(
             {
-                "detail": "Booking cancelled successfully, refund issued",
+                "detail": "Booking cancelled successfully",
+                "booking_no": booking.booking_no,
                 "refund_amount": total_refund,
+                "released_slots": released_slots,
                 "new_balance": wallet.balance,
                 "cancelled_by": request.user.email,
                 "role": user_role,
+                "able_to_cancel": False,
+                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
+                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
             },
-            status=status.HTTP_200_OK,
+            status=200,
         )
+
+
+# ────────────────────────────── Slot Status Update ──────────────────────────────
+class SlotStatusUpdateView(APIView):
+    """
+    Manually change a slot’s status (manager-only).
+
+    Endpoint:
+      POST /api/slots/<slot_id>/set-status/<new_status>/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, slot_id, new_status):
+        user_role = getattr(request.user, "role", None)
+        if user_role != "manager":
+            return Response({"detail": "Only managers can change status."}, status=403)
+
+        try:
+            slot_status = SlotStatus.objects.select_related("slot").get(slot_id=slot_id)
+        except SlotStatus.DoesNotExist:
+            return Response({"detail": "Slot not found"}, status=404)
+
+        allowed_transitions = {
+            "available": ["maintenance", "walkin", "booked", "expired"],
+            "booked": ["checkin", "noshow"],
+            "walkin": ["checkin", "noshow"],
+            "checkin": ["endgame"],
+            "maintenance": ["available"],
+        }
+
+        if new_status not in dict(SlotStatus.STATUS):
+            return Response({"detail": "Invalid status"}, status=400)
+
+        if new_status not in allowed_transitions.get(slot_status.status, []):
+            return Response({"detail": f"Cannot change from {slot_status.status} → {new_status}"}, status=400)
+
+        slot_status.status = new_status
+        slot_status.save(update_fields=["status", "updated_at"])
+
+        # Update linked booking status (if exists)
+        bs = BookingSlot.objects.filter(slot=slot_status.slot).first()
+        if bs:
+            bs.booking.status = new_status
+            bs.booking.save(update_fields=["status"])
+
+        return Response({
+            "detail": f"Slot {slot_id} status updated to {new_status}",
+            "slot_id": slot_id,
+            "new_status": new_status,
+        }, status=200)

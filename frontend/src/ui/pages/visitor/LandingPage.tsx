@@ -1,157 +1,219 @@
-// src/ui/pages/LandingPage.tsx
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
+import dayjs from "dayjs";
+import { useEffect, useState } from "react";
 import BrandMark from "@/ui/components/basic/BrandMark";
 import Button from "@/ui/components/basic/Button";
+import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
 
 export default function LandingPage() {
+  const [today, setToday] = useState<string>("");
+
+  useEffect(() => {
+    setToday(dayjs().format("YYYY-MM-DD"));
+  }, []);
+
   return (
-    <div className="min-h-dvh bg-courtBg text-onyx">
-      {/* NAV */}
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-        <Link href="/" className="flex items-center gap-3">
-          <BrandMark />
-        </Link>
+    <div className="relative min-h-dvh overflow-hidden text-onyx">
+      {/* ===== BG: สนามแบดจริง ===== */}
+      <div
+        className="absolute inset-0 -translate-y-[60px] z-[0] bg-[url('/brand/court.png')] bg-cover bg-center brightness-105"
+        aria-hidden
+      />
+      {/* ===== OVERLAY ===== */}
+      <div className="absolute inset-0 z-[0] bg-gradient-to-b from-white/100 via-white/85 to-white/50" />
 
-        <div className="flex items-center gap-3">
-          <Link href="/login">
-            <Button
-              label="Sign in"
-              bgColor="bg-transparent"
-              textColor="text-onyx"
-              hoverBgColor="hover:bg-white/60"
-              className="border border-platinum"
-            />
-          </Link>
-          <Link href="/register">
-            <Button label="Create account" />
-          </Link>
-        </div>
-      </nav>
-
-      {/* HERO */}
-      <header className="relative mx-auto max-w-6xl px-4 py-8 sm:py-12">
-        {/* bg decoration */}
-        <div
-          className="absolute inset-0 -z-10 opacity-30 [mask-image:radial-gradient(60%_60%_at_50%_30%,black,transparent)]"
-          aria-hidden
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="relative z-[2]">
+        {/* NAVBAR */}
+        <motion.nav
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto flex w-full items-center justify-between px-4 sm:px-6 py-3 bg-white/85 backdrop-blur-md shadow-sm"
         >
-          <svg className="h-full w-full" viewBox="0 0 1200 600" preserveAspectRatio="none">
-            <rect x="0" y="0" width="1200" height="600" fill="#75B2A0" />
-            <rect x="140" y="80" width="920" height="440" fill="none" stroke="#E2E2E2" strokeWidth="6"/>
-            <line x1="600" y1="80" x2="600" y2="520" stroke="#E2E2E2" strokeWidth="4"/>
-            <line x1="140" y1="180" x2="1060" y2="180" stroke="#E2E2E2" strokeWidth="3"/>
-            <line x1="140" y1="420" x2="1060" y2="420" stroke="#E2E2E2" strokeWidth="3"/>
-            <line x1="360" y1="80" x2="360" y2="520" stroke="#E2E2E2" strokeWidth="2"/>
-            <line x1="840" y1="80" x2="840" y2="520" stroke="#E2E2E2" strokeWidth="2"/>
-          </svg>
-        </div>
+          <Link href="/" className="flex items-center gap-3">
+            <BrandMark />
+          </Link>
 
-        <div className="grid items-center gap-8 sm:grid-cols-2">
-          <div>
-            <h1 className="text-4xl font-extrabold leading-tight sm:text-5xl">
-              Book badminton courts, <br /> the friendly way.
-            </h1>
-            <p className="mt-3 max-w-prose text-walnut">
-              See availability at a glance, pick your time, and you’re all set.
-              No more DM back-and-forth.
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a href="#availability">
-                <Button label="View availability" />
-              </a>
-              <Link href="/register">
+          <div className="hidden sm:flex items-center gap-3">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+              <Link href="/login">
                 <Button
-                  label="Create account"
+                  label="Sign in"
                   bgColor="bg-transparent"
                   textColor="text-onyx"
-                  hoverBgColor="hover:bg-white/70"
-                  className="border border-platinum"
+                  hoverBgColor="hover:bg-pine/10"
+                  className="border border-platinum transition-all text-sm px-3 py-2"
                 />
               </Link>
-            </div>
-
-            <p className="mt-3 text-sm text-walnut">Friendly • Energetic • Accessible</p>
-          </div>
-
-          {/* teaser card */}
-          <div className="rounded-2xl border border-platinum bg-white/80 p-5 shadow-soft backdrop-blur-sm">
-            <div className="rounded-lg bg-gradient-to-br from-platinum/60 to-white p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Today’s snapshot</h3>
-                <span className="rounded-md bg-cambridge px-2 py-1 text-xs text-white">Live</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-lg border border-platinum p-3">
-                  <div className="text-2xl font-bold text-sea">12</div>
-                  <div className="text-xs text-walnut">Slots open</div>
-                </div>
-                <div className="rounded-lg border border-platinum p-3">
-                  <div className="text-2xl font-bold text-brownSugar">3</div>
-                  <div className="text-xs text-walnut">Courts</div>
-                </div>
-                <div className="rounded-lg border border-platinum p-3">
-                  <div className="text-2xl font-bold text-onyx">1h</div>
-                  <div className="text-xs text-walnut">per booking</div>
-                </div>
-              </div>
-              <p className="mt-3 text-center text-xs text-walnut">
-                *Calendar component coming soon.
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* AVAILABILITY */}
-      <section id="availability" className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="rounded-2xl border border-platinum bg-white p-6 shadow-soft">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Check court availability</h2>
-            <span className="text-sm text-walnut">Guest view</span>
-          </div>
-
-          <div className="grid place-items-center rounded-lg border border-dashed border-platinum p-10">
-            <p className="text-walnut">
-              📅 Your availability table will render here (component to add later).
-            </p>
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-walnut">
-              Want to book? Please{" "}
-              <Link href="/register" className="font-semibold text-brownSugar underline">
-                create an account
-              </Link>{" "}
-              or{" "}
-              <Link href="/login" className="font-semibold text-sea underline">
-                sign in
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }}>
+              <Link href="/register">
+                <Button label="Create account" className="text-sm px-3 py-2" />
               </Link>
-              .
-            </p>
-            <div className="flex gap-2">
+            </motion.div>
+          </div>
+
+          {/* Mobile menu buttons */}
+          <div className="flex sm:hidden items-center gap-2">
+            <Link href="/login">
               <Button
-                label="Previous"
-                bgColor="bg-transparent"
+                label="Sign in"
+                bgColor="bg-white/80"
                 textColor="text-onyx"
                 hoverBgColor="hover:bg-white/70"
-                className="border border-platinum"
+                className="border border-platinum px-2 py-1 text-xs"
               />
-              <Button label="Next" />
-            </div>
+            </Link>
+            <Link href="/register">
+              <Button label="Join" className="px-2 py-1 text-xs" />
+            </Link>
           </div>
-        </div>
-      </section>
+        </motion.nav>
 
-      {/* FOOTER */}
-      <footer className="border-t border-platinum/70 bg-white/70">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 text-sm text-walnut">
-          <span>© {new Date().getFullYear()} Courtly</span>
-          <span>“Book Now” • “You’re all set!”</span>
-        </div>
-      </footer>
+        {/* HERO */}
+        <header className="relative mx-auto max-w-6xl px-4 sm:px-6 py-10 sm:py-14 grid grid-cols-1 md:grid-cols-2 items-center gap-8 sm:gap-10">
+          {/* LEFT TEXT SECTION */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center md:text-left"
+          >
+            <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight drop-shadow-[0_2px_3px_rgba(0,0,0,0.1)]">
+              <span className="bg-gradient-to-r from-pine to-cambridge bg-clip-text text-transparent">
+                Book badminton courts
+              </span>
+              <br />
+              the friendly way.
+            </h1>
+
+            <p className="mt-4 text-sm sm:text-base max-w-md text-walnut mx-auto md:mx-0">
+              Real-time availability. CL Coin wallet. Smooth booking experience.
+              Designed for both players and managers.
+            </p>
+
+            {/* Buttons */}
+            <motion.div
+              className="mt-6 sm:mt-8 flex flex-wrap justify-center md:justify-start gap-3"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.15 } },
+              }}
+            >
+              <motion.a
+                href="/login"
+                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                whileHover={{ scale: 1.07 }}
+                whileTap={{ scale: 0.96 }}
+              >
+                <Button
+                  label="Welcome back to Courtly!"
+                  bgColor="bg-white"
+                  textColor="text-onyx"
+                  hoverBgColor="hover:bg-white/80"
+                  className="border border-platinum text-sm sm:text-base px-4 py-2 sm:px-5 sm:py-3"
+                />
+              </motion.a>
+
+              <motion.div
+                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                whileHover={{ scale: 1.07 }}
+                whileTap={{ scale: 0.96 }}
+              >
+                <Link href="/register">
+                  <Button
+                    label="Join Courtly now!"
+                    className="text-sm sm:text-base px-4 py-2 sm:px-5 sm:py-3"
+                  />
+                </Link>
+              </motion.div>
+            </motion.div>
+
+            <p className="mt-4 text-xs sm:text-sm text-walnut">
+              Friendly • Energetic • Accessible
+            </p>
+          </motion.div>
+
+          {/* RIGHT SLOT PANEL */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="rounded-2xl bg-white/90 border border-platinum shadow-lg backdrop-blur-md p-4 sm:p-5 
+              h-[80dvh] sm:h-[420px] overflow-hidden"
+          >
+            {today ? (
+              <AvailableSlotPanel clubId={1} selectedDate={today} mode="landing" />
+            ) : (
+              <div className="flex h-full items-center justify-center text-walnut text-sm">
+                Loading availability...
+              </div>
+            )}
+          </motion.div>
+        </header>
+
+        {/* FEATURES */}
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-16 grid sm:grid-cols-3 gap-6">
+          {[
+            {
+              title: "Instant Booking",
+              desc: "Tap your time, confirm, and you’re ready to play.",
+              icon: "🏸",
+            },
+            {
+              title: "CL Coin Wallet",
+              desc: "Top up once. Pay seamlessly for every booking.",
+              icon: "💰",
+            },
+            {
+              title: "Smart Cancellation",
+              desc: "Cancel early and get coins refunded automatically.",
+              icon: "♻️",
+            },
+          ].map((item, i) => (
+            <motion.div
+              key={item.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1, duration: 0.5 }}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0px 8px 20px rgba(0,0,0,0.1)",
+              }}
+              className="rounded-2xl border border-platinum bg-white p-5 sm:p-6 text-center shadow-soft backdrop-blur-sm"
+            >
+              <div className="text-3xl mb-2">{item.icon}</div>
+              <h4 className="text-base sm:text-lg font-semibold">{item.title}</h4>
+              <p className="text-xs sm:text-sm text-walnut mt-1">{item.desc}</p>
+            </motion.div>
+          ))}
+        </section>
+
+        {/* FOOTER */}
+        <footer className="relative border-t border-platinum/70 bg-gradient-to-r from-white via-[#F9FAF9] to-white shadow-inner">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 pt-3 flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm text-walnut gap-3">
+            <div className="flex items-center gap-2">
+              <BrandMark />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-neutral-600">
+              <Link href="/about-us" className="hover:text-pine transition-colors">
+                About Us
+              </Link>
+            </div>
+
+            <span className="text-neutral-500 text-xs sm:text-sm">
+              © {new Date().getFullYear()} Courtly • Easy Court, Easy Life
+            </span>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
