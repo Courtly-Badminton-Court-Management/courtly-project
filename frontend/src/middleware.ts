@@ -23,7 +23,7 @@ const PROTECTED_PATHS = [
   "/wallet",
   "/booking",
   "/history",
-  "/aboutus",
+  // "/aboutus",
   // manager
   "/dashboard",
   "/approval",
@@ -39,7 +39,7 @@ const ROLE_ALLOWLIST: Record<Role, RegExp[]> = {
     /^\/wallet(?:\/|$)/,
     /^\/booking(?:\/|$)/,
     /^\/history(?:\/|$)/,
-    /^\/aboutus(?:\/|$)/,
+    // /^\/aboutus(?:\/|$)/,
   ],
   manager: [
     /^\/dashboard(?:\/|$)/,
