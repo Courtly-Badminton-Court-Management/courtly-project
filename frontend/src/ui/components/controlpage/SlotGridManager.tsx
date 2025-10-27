@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
 import type { Col, GridCell, SelectedSlot } from "@/lib/slot/slotGridModel";
 
+/* ====================== Utilities ====================== */
 const cx = (...xs: (string | false | null | undefined)[]) =>
   xs.filter(Boolean).join(" ");
 
@@ -32,22 +33,30 @@ function normalizeForManager(statusRaw: string): ManagerGroup {
   return "ended";
 }
 
+/* ====================== Props ====================== */
 type Props = {
   cols: Col[];
   grid: GridCell[][];
   courtNames: string[];
   currentDate: string;
   selected: SelectedSlot[];
+  selectionMode: "available" | "maintenance" | null;
+  setSelectionMode: (v: "available" | "maintenance" | null) => void;
   onToggle: (courtRow: number, colIdx: number, slotId?: string) => void;
+  clearSelection: () => void;
 };
 
+/* ====================== Component ====================== */
 export default function SlotGridManager({
   cols,
   grid,
   courtNames,
   currentDate,
   selected,
+  selectionMode,
+  setSelectionMode,
   onToggle,
+  clearSelection,
 }: Props) {
   const [, setNowTick] = useState(Date.now());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -65,14 +74,17 @@ export default function SlotGridManager({
     );
   }
 
+  /* ====================== Styles ====================== */
   const styleByManager: Record<ManagerGroup | "pastAvailable", string> = {
     available:
       "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 hover:scale-[1.02] cursor-pointer transition-all duration-150 ease-out",
     booked: "bg-[var(--color-booked)] text-white cursor-not-allowed",
     walkin: "bg-[var(--color-walkin)] text-white cursor-not-allowed",
     checkin: "bg-[var(--color-checkin)] text-white cursor-not-allowed",
-    maintenance: "bg-[var(--color-maintenance)] text-white cursor-not-allowed",
-    ended: "bg-[var(--color-expired)] text-[var(--color-walnut)] cursor-not-allowed",
+    maintenance:
+      "bg-[var(--color-maintenance)] text-white hover:scale-[1.02] cursor-pointer transition-all",
+    ended:
+      "bg-[var(--color-expired)] text-[var(--color-walnut)] cursor-not-allowed",
     pastAvailable:
       "bg-[var(--color-walnut)]/15 text-[var(--color-walnut)] border border-[var(--color-walnut)]/10 cursor-not-allowed opacity-80",
   };
@@ -87,71 +99,99 @@ export default function SlotGridManager({
   const todayStr = dayjs().format("YYYY-MM-DD");
   const isToday = todayStr === currentDate;
 
-  // ============================ helpers ============================
+  /* ====================== Helpers ====================== */
   const isColumnSelected = (colIdx: number) =>
     selected.some((s) => s.colIdx === colIdx);
 
-  // ============================ bulk select ============================
-  function handleSelectRow(rowIdx: number) {
-    const row = grid[rowIdx];
-    const availableSlots = row.filter(
-      (c) => normalizeForManager(readStatus(c)) === "available"
-    );
-    if (availableSlots.length !== row.length) {
-      setErrorMsg("Some slots in this court are already booked or unavailable.");
+  /* ====================== Core Click Logic ====================== */
+  function handleCellClick(rIdx: number, cIdx: number, slotId?: string) {
+    const cell = grid[rIdx][cIdx];
+    const group = normalizeForManager(readStatus(cell));
+
+    if (group !== "available" && group !== "maintenance") return;
+
+    // ถ้าคลิกข้าม status → ล้าง selection แล้วตั้งโหมดใหม่
+    if (selectionMode && selectionMode !== group && selected.length > 0) {
+      clearSelection();
+      setSelectionMode(group);
+      onToggle(rIdx + 1, cIdx, slotId);
       return;
     }
+
+    // ถ้ายังไม่มีโหมด → เซ็ตใหม่
+    if (!selectionMode) setSelectionMode(group);
+
+    onToggle(rIdx + 1, cIdx, slotId);
+  }
+
+  /* ====================== Bulk Select: Row / Column / All ====================== */
+  function selectRow(rIdx: number) {
+    const row = grid[rIdx];
+    const target = selectionMode || "available";
+
+    // ตรวจว่ามี status ตรงข้ามอยู่มั้ย
+    if (selected.length > 0 && selectionMode && selectionMode !== target) {
+      clearSelection();
+      setSelectionMode(target);
+    }
+
     row.forEach((cell, cIdx) => {
-      const slotId = (cell as any)?.id;
       const group = normalizeForManager(readStatus(cell));
-      if (group === "available") onToggle(rowIdx + 1, cIdx, slotId);
+      if (group === target) {
+        const slotId = (cell as any)?.id;
+        onToggle(rIdx + 1, cIdx, slotId);
+      }
     });
   }
 
-  function handleSelectColumn(colIdx: number) {
-    const column = grid.map((r) => r[colIdx]);
-    const availableSlots = column.filter(
-      (c) => normalizeForManager(readStatus(c)) === "available"
-    );
-    if (availableSlots.length !== column.length) {
-      setErrorMsg("Some slots in this time range are already booked or unavailable.");
-      return;
+  function selectColumn(cIdx: number) {
+    const target = selectionMode || "available";
+
+    if (selected.length > 0 && selectionMode && selectionMode !== target) {
+      clearSelection();
+      setSelectionMode(target);
     }
-    column.forEach((cell, rIdx) => {
-      const slotId = (cell as any)?.id;
-      const group = normalizeForManager(readStatus(cell));
-      if (group === "available") onToggle(rIdx + 1, colIdx, slotId);
+
+    grid.forEach((row, rIdx) => {
+      const group = normalizeForManager(readStatus(row[cIdx]));
+      if (group === target) {
+        const slotId = (row[cIdx] as any)?.id;
+        onToggle(rIdx + 1, cIdx, slotId);
+      }
     });
   }
 
-  function handleSelectAll() {
-    const flat = grid.flat();
-    const availableSlots = flat.filter(
-      (c) => normalizeForManager(readStatus(c)) === "available"
-    );
-    if (availableSlots.length !== flat.length) {
-      setErrorMsg("Some slots are already booked or unavailable.");
-      return;
+  function selectAll() {
+    const target = selectionMode || "available";
+
+    if (selected.length > 0 && selectionMode && selectionMode !== target) {
+      clearSelection();
+      setSelectionMode(target);
     }
+
     grid.forEach((row, rIdx) =>
       row.forEach((cell, cIdx) => {
-        const slotId = (cell as any)?.id;
         const group = normalizeForManager(readStatus(cell));
-        if (group === "available") onToggle(rIdx + 1, cIdx, slotId);
+        if (group === target) {
+          const slotId = (cell as any)?.id;
+          onToggle(rIdx + 1, cIdx, slotId);
+        }
       })
     );
   }
 
-  // ============================ render ============================
+  /* ====================== Render ====================== */
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="overflow-x-auto">
         <div className="min-w-max">
-          {/* Header */}
-          <div className="grid border-b border-neutral-100 pb-1" style={gridTemplate}>
-            {/* Left header = select all slots */}
+          {/* ===== Header ===== */}
+          <div
+            className="grid border-b border-neutral-100 pb-1"
+            style={gridTemplate}
+          >
             <button
-              onClick={handleSelectAll}
+              onClick={selectAll}
               className="sticky left-0 z-20 bg-white px-3 py-2 text-sm font-bold text-neutral-700 hover:bg-[#EDF2EF] transition rounded-lg"
               title="Select all slots"
             >
@@ -163,7 +203,7 @@ export default function SlotGridManager({
               return (
                 <button
                   key={i}
-                  onClick={() => handleSelectColumn(i)}
+                  onClick={() => selectColumn(i)}
                   className={cx(
                     "mx-1 my-1 flex flex-col items-center justify-center rounded-md px-2 py-1 text-[11px] font-medium tabular-nums text-center transition-colors",
                     active
@@ -179,13 +219,13 @@ export default function SlotGridManager({
             })}
           </div>
 
-          {/* Rows */}
+          {/* ===== Rows ===== */}
           <div className="mt-1">
             {grid.map((row, rIdx) => (
               <div key={rIdx} className="grid" style={gridTemplate}>
-                {/* Court label */}
+                {/* Court Label */}
                 <button
-                  onClick={() => handleSelectRow(rIdx)}
+                  onClick={() => selectRow(rIdx)}
                   className="sticky left-0 z-5 bg-white flex items-center gap-2 px-2 sm:px-3 py-2 hover:bg-[#EDF2EF] transition rounded-lg"
                   title={`Select all slots in ${courtNames[rIdx]}`}
                 >
@@ -206,20 +246,17 @@ export default function SlotGridManager({
                   const rawStatus = readStatus(cell);
                   const group = normalizeForManager(rawStatus);
                   const slotId = (cell as any)?.id;
-                  const isSelected =
-                    group === "available" &&
-                    selected.some(
-                      (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
-                    );
+
+                  const isSelected = selected.some(
+                    (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
+                  );
 
                   const slotStart = dayjs(
                     `${currentDate} ${cols[cIdx].start}`,
                     "YYYY-MM-DD HH:mm"
                   );
                   const isPast = isToday && dayjs().isAfter(slotStart);
-
                   const isPastAvailable = isPast && group === "available";
-                  const disabled = group !== "available" || isPastAvailable;
 
                   return (
                     <button
@@ -232,10 +269,8 @@ export default function SlotGridManager({
                           ? styleByManager["pastAvailable"]
                           : styleByManager[group]
                       )}
-                      onClick={() => {
-                        if (!disabled) onToggle(rIdx + 1, cIdx, slotId);
-                      }}
-                      disabled={disabled}
+                      onClick={() => handleCellClick(rIdx, cIdx, slotId)}
+                      disabled={isPastAvailable}
                       title={group}
                     >
                       {isSelected ? "✓" : ""}
@@ -248,7 +283,7 @@ export default function SlotGridManager({
         </div>
       </div>
 
-      {/* ========== Error Modal ========== */}
+      {/* ===== Error Modal ===== */}
       <AnimatePresence>
         {errorMsg && (
           <motion.div

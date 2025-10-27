@@ -15,15 +15,13 @@ import { useUpdateSlotStatus } from "@/api-client/extras/update_slots";
 import { useBookingsAdminCreate } from "@/api-client/endpoints/bookings-admin/bookings-admin";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
 
-
-
 import {
   buildDayGridFromMonthView,
   buildPlaceholderGrid,
 } from "@/lib/slot/buildDayGridFromMonthView";
 import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
-
 import type { Col, ManagerSelectedSlot } from "@/lib/slot/slotGridModel";
+import type { GridCell } from "@/lib/slot/slotGridModel";
 
 const SlotGridManager = dynamic(
   () => import("@/ui/components/controlpage/SlotGridManager"),
@@ -58,6 +56,15 @@ function dateFromYmd(ymd: string) {
   const [y, m, d] = ymd.split("-").map(Number);
   return startOfDay(new Date(y, (m ?? 1) - 1, d ?? 1));
 }
+function readStatus(cell: GridCell): string {
+  return String((cell as any)?.status ?? "").trim().toLowerCase();
+}
+function normalizeForManager(statusRaw: string): "available" | "maintenance" | string {
+  const status = (statusRaw || "").toLowerCase();
+  if (status === "available") return "available";
+  if (status === "maintenance") return "maintenance";
+  return status;
+}
 
 /* =========================================================================
    CONFIG
@@ -73,6 +80,8 @@ export default function ManagerControlPage() {
   const CURRENT_MONTH = useMemo(() => ymd.slice(0, 7), [ymd]);
 
   const [selected, setSelected] = useState<ManagerSelectedSlot[]>([]);
+  const [selectionMode, setSelectionMode] = useState<"available" | "maintenance" | null>(null);
+
   const [openSummary, setOpenSummary] = useState(false);
   const [openConfirm, setOpenConfirm] = useState(false);
   const [bookingNos, setBookingNos] = useState<string[]>([]);
@@ -85,21 +94,19 @@ export default function ManagerControlPage() {
   const bookingAdminMut = useBookingsAdminCreate();
   const bookingMut = useBookingCreateWithBody(CLUB_ID, CURRENT_MONTH);
 
-  const base = useMemo(
-    () => buildDayGridFromMonthView(mv.data, ymd),
-    [mv.data, ymd]
-  );
-
-  const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell } =
-    useMemo(() => {
-      if (mv.isLoading || !base.cols.length || !base.grid.length) {
-        return buildPlaceholderGrid();
-      }
-      return base;
-    }, [mv.isLoading, base]);
+  const base = useMemo(() => buildDayGridFromMonthView(mv.data, ymd), [mv.data, ymd]);
+  const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell } = useMemo(() => {
+    if (mv.isLoading || !base.cols.length || !base.grid.length) {
+      return buildPlaceholderGrid();
+    }
+    return base;
+  }, [mv.isLoading, base]);
 
   // ======= Selection =======
-  useEffect(() => setSelected([]), [ymd]);
+  useEffect(() => {
+    setSelected([]);
+    setSelectionMode(null);
+  }, [ymd]);
 
   const groups = useMemo(
     () => groupSelectionsWithPrice(selected, cols as Col[], priceGrid),
@@ -107,14 +114,26 @@ export default function ManagerControlPage() {
   );
 
   const selCount = selected.length;
-  const isLoading =
-    mv.isLoading || updateStatusMut.isPending || bookingAdminMut.isPending;
+  const isLoading = mv.isLoading || updateStatusMut.isPending || bookingAdminMut.isPending;
 
+  // ======= Toggle Select =======
   function toggleSelect(courtRow: number, colIdx: number, slotId?: string) {
+    const status = normalizeForManager(readStatus(grid[courtRow - 1][colIdx]));
+
+    // set mode if first click
+    if (!selectionMode) {
+      setSelectionMode(status as "available" | "maintenance");
+    }
+
+    // if different type clicked → reset selection
+    if (selectionMode && selectionMode !== status) {
+      setSelected([{ courtRow, colIdx, slotId: slotId ?? "" }]);
+      setSelectionMode(status as "available" | "maintenance");
+      return;
+    }
+
     const key = `${courtRow}-${colIdx}-${slotId}`;
-    const exists = selected.some(
-      (s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` === key
-    );
+    const exists = selected.some((s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` === key);
     setSelected((prev) =>
       exists
         ? prev.filter((s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` !== key)
@@ -122,8 +141,46 @@ export default function ManagerControlPage() {
     );
   }
 
-  // ======= Maintenance =======
+
+  function clearSelection() {
+  setSelected([]);
+}
+  // ======= Maintenance Toggle =======
   async function handleSetMaintenance() {
+    if (!selected.length) {
+      alert("Please select at least one slot.");
+      return;
+    }
+
+    const newStatus = selectionMode === "maintenance" ? "available" : "maintenance";
+
+    try {
+      await Promise.all(
+        selected.map(async (slot) => {
+          if (!slot.slotId) return;
+          await updateStatusMut.mutateAsync({
+            slotId: slot.slotId,
+            status: newStatus,
+            club: CLUB_ID,
+            month: CURRENT_MONTH,
+          });
+        })
+      );
+    } catch (error) {
+      console.error("❌ Update slot failed:", error);
+      alert("Some slots failed to update. Please check the console.");
+    } finally {
+      setSelected([]);
+      setSelectionMode(null);
+    }
+  }
+
+  // ======= Walk-in =======
+  async function handleConfirm(_customer: {
+    name: string;
+    method: string;
+    detail?: string;
+  }) {
     if (!selected.length) {
       alert("Please select at least one slot.");
       return;
@@ -135,71 +192,33 @@ export default function ManagerControlPage() {
           if (!slot.slotId) return;
           await updateStatusMut.mutateAsync({
             slotId: slot.slotId,
-            status: "maintenance",
+            status: "walkin",
             club: CLUB_ID,
             month: CURRENT_MONTH,
           });
         })
       );
-      
-    } catch (error) {
-      console.error("❌ Update slot failed:", error);
-      alert("Some slots failed to update. Please check the console.");
-    } finally {
+
+      setBookingNos([]);
+      setOpenSummary(false);
+      setOpenConfirm(true);
       setSelected([]);
+    } catch (e: any) {
+      console.error("❌ Walk-in failed:", e);
+      const status = e?.response?.status;
+      let msg = "";
+      if (status === 409) {
+        msg = "This slot has just been taken. Please choose another available time.";
+      } else if (e?.response?.data?.detail) {
+        msg = e.response.data.detail;
+      } else {
+        msg = e?.message || "Walk-in action failed. Please try again.";
+      }
+      setErrorMessage(msg);
+      setErrorModal(true);
+      setOpenSummary(false);
     }
   }
-
- async function handleConfirm(_customer: {
-  name: string;
-  method: string;
-  detail?: string;
-}) {
-  if (!selected.length) {
-    alert("Please select at least one slot.");
-    return;
-  }
-
-  try {
-    // ✅ ยิงเปลี่ยน status เดียวเลย
-    await Promise.all(
-      selected.map(async (slot) => {
-        if (!slot.slotId) {
-          console.warn("⚠️ Missing slotId, skip:", slot);
-          return;
-        }
-
-        await updateStatusMut.mutateAsync({
-          slotId: slot.slotId,
-          status: "walkin",
-          club: CLUB_ID,
-          month: CURRENT_MONTH,
-        });
-      })
-    );
-
-    // ✅ แสดง modal success เหมือน booking
-    setBookingNos([]);
-    setOpenSummary(false);
-    setOpenConfirm(true);
-    setSelected([]);
-  } catch (e: any) {
-    console.error("❌ Walk-in failed:", e);
-    const status = e?.response?.status;
-    let msg = "";
-    if (status === 409) {
-      msg = "This slot has just been taken. Please choose another available time.";
-    } else if (e?.response?.data?.detail) {
-      msg = e.response.data.detail;
-    } else {
-      msg = e?.message || "Walk-in action failed. Please try again.";
-    }
-    setErrorMessage(msg);
-    setErrorModal(true);
-    setOpenSummary(false);
-  }
-}
-
 
   // ======= Date shift =======
   function shiftDay(delta: number) {
@@ -208,6 +227,7 @@ export default function ManagerControlPage() {
     const clamped = clamp(startOfDay(next), minDate, maxDate);
     setYmd(ymdFromDate(clamped));
     setSelected([]);
+    setSelectionMode(null);
   }
 
   // ======= UI =======
@@ -232,9 +252,7 @@ export default function ManagerControlPage() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <DateNavigator
           value={dateFromYmd(ymd)}
-          onChange={(d) =>
-            setYmd(ymdFromDate(clamp(startOfDay(d), minDate, maxDate)))
-          }
+          onChange={(d) => setYmd(ymdFromDate(clamp(startOfDay(d), minDate, maxDate)))}
           minDate={minDate}
           maxDate={maxDate}
         />
@@ -242,11 +260,16 @@ export default function ManagerControlPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleSetMaintenance}
-            className="rounded-xl bg-gray-500 hover:bg-gray-400 text-white px-4 py-2 text-sm font-semibold transition-all disabled:opacity-40"
+            className={`rounded-xl text-white px-4 py-2 text-sm font-semibold transition-all ${
+              selectionMode === "maintenance"
+                ? "bg-gray-500 hover:bg-gray-600"
+                : "bg-maintenance hover:bg-[var(--color-maintenance)]/50"
+            }`}
             disabled={!selected.length || isLoading}
           >
-            Set as Maintenance
+            {selectionMode === "maintenance" ? "Set as Available" : "Set as Maintenance"}
           </button>
+
           <button
             onClick={() => setOpenSummary(true)}
             disabled={!selected.length || isLoading}
@@ -268,7 +291,10 @@ export default function ManagerControlPage() {
         courtNames={courtNames}
         currentDate={ymd}
         selected={selected}
+        selectionMode={selectionMode}
+        setSelectionMode={setSelectionMode}
         onToggle={toggleSelect}
+        clearSelection={clearSelection}
       />
 
       {/* ===== Bottom Info ===== */}
@@ -276,11 +302,7 @@ export default function ManagerControlPage() {
         <div className="sm:order-1 order-2">
           <ManagerSlotStatusLegend />
         </div>
-        <p className="sm:order-2 order-1 text-sm text-gray-600 text-left sm:text-right">
-          
-        </p>
       </div>
-
 
       {/* ===== Summary Modal ===== */}
       <WalkinSummaryModal
