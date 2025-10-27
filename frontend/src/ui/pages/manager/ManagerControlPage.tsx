@@ -5,17 +5,16 @@ import dayjs from "dayjs";
 import dynamic from "next/dynamic";
 
 import DateNavigator from "@/ui/components/bookingpage/DateNavigator";
-import FloatingLegend from "@/ui/components/bookingpage/FloatingLegend";
 import ManagerSlotStatusLegend from "@/ui/components/controlpage/ManagerSlotStatusLegend";
 import WalkinSummaryModal from "@/ui/components/controlpage/WalkinSummaryModal";
-import BookingConfirmedModal from "@/ui/components/bookingpage/BookingConfirmedModal";
+import WalkinConfirmedModal from "@/ui/components/controlpage/WalkinConfirmedModal";
 import BookingErrorModal from "@/ui/components/bookingpage/BookingErrorModal";
 
 import { useMonthView } from "@/api-client/extras/slots";
 import { useUpdateSlotStatus } from "@/api-client/extras/update_slots";
 import { useBookingsAdminCreate } from "@/api-client/endpoints/bookings-admin/bookings-admin";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
-import WalkinConfirmedModal from "@/ui/components/controlpage/WalkinConfirmedModal";
+
 
 
 import {
@@ -142,7 +141,7 @@ export default function ManagerControlPage() {
           });
         })
       );
-      alert("✅ Maintenance status applied successfully.");
+      
     } catch (error) {
       console.error("❌ Update slot failed:", error);
       alert("Some slots failed to update. Please check the console.");
@@ -200,8 +199,6 @@ export default function ManagerControlPage() {
     setOpenSummary(false);
   }
 }
-
-
 
 
   // ======= Date shift =======
@@ -280,11 +277,10 @@ export default function ManagerControlPage() {
           <ManagerSlotStatusLegend />
         </div>
         <p className="sm:order-2 order-1 text-sm text-gray-600 text-left sm:text-right">
-          💡 A slot = {minutesPerCell} minutes · Walk-in bookings generate booking IDs automatically.
+          
         </p>
       </div>
 
-      <FloatingLegend />
 
       {/* ===== Summary Modal ===== */}
       <WalkinSummaryModal

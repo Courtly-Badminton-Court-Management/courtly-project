@@ -2,7 +2,16 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarRange, Clock3, MapPin, Loader2, X, User, MessageSquare } from "lucide-react";
+import {
+  CalendarRange,
+  Clock3,
+  MapPin,
+  Loader2,
+  X,
+  User,
+  MessageSquare,
+  Phone,
+} from "lucide-react";
 import type { GroupedSelection } from "@/lib/slot/slotGridModel";
 
 type Props = {
@@ -125,7 +134,7 @@ export default function WalkinSummaryModal({
                 <motion.div
                   key={i}
                   layout
-                  whileHover={{ scale: 1.00 }}
+                  whileHover={{ scale: 1.0 }}
                   className="rounded-xl border border-gray-100 bg-white/90 p-4 shadow-sm ring-1 ring-black/5 transition"
                 >
                   <div className="flex items-start justify-between">
@@ -152,6 +161,7 @@ export default function WalkinSummaryModal({
 
             {/* Customer Info Form */}
             <div className="space-y-3 mb-5 text-left">
+              {/* Customer Name */}
               <label className="block text-sm font-semibold text-gray-700">
                 Customer Name
               </label>
@@ -166,21 +176,26 @@ export default function WalkinSummaryModal({
                 />
               </div>
 
+              {/* Contact Method */}
               <label className="block text-sm font-semibold text-gray-700 mt-3">
                 Contact Method
               </label>
-              <select
-                value={contactMethod}
-                onChange={(e) => setContactMethod(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-sea/30 outline-none"
-              >
-                <option>Walk-in (no contact)</option>
-                <option>Facebook DM</option>
-                <option>Phone Call</option>
-                <option>Line</option>
-                <option>Other</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-gray-400" />
+                <select
+                  value={contactMethod}
+                  onChange={(e) => setContactMethod(e.target.value)}
+                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-sea/30 outline-none"
+                >
+                  <option>Walk-in (no contact)</option>
+                  <option>Facebook DM</option>
+                  <option>Phone Call</option>
+                  <option>Line</option>
+                  <option>Other</option>
+                </select>
+              </div>
 
+              {/* Contact Detail */}
               <label className="block text-sm font-semibold text-gray-700 mt-3">
                 Contact Detail (optional)
               </label>
