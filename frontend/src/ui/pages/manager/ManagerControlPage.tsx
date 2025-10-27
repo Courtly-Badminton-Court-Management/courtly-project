@@ -21,12 +21,13 @@ const SlotGridManager = dynamic(
   { ssr: false } // ✅ ปิด SSR สำหรับ component นี้
 );
 
-const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
 
 export default function ManagerControlPage() {
   const today = useMemo(() => dayjs().startOf("day").toDate(), []);
   const [ymd, setYmd] = useState(dayjs(today).format("YYYY-MM-DD"));
   const CURRENT_MONTH = useMemo(() => ymd.slice(0, 7), [ymd]);
+  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+
 
   // ======================= DATA ==========================
   const mv = useMonthView(CLUB_ID, CURRENT_MONTH);
@@ -104,6 +105,8 @@ export default function ManagerControlPage() {
         <DateNavigator
           value={dayjs(ymd).toDate()}
           onChange={(d) => setYmd(dayjs(d).format("YYYY-MM-DD"))}
+          minDate={dayjs("2025-01-01").toDate()}
+          maxDate={dayjs("2100-12-31").toDate()}
         />
         <div className="flex items-center gap-3">
           <button

@@ -2,12 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import { motion, AnimatePresence } from "framer-motion";
 import CourtNumberHero from "@/ui/components/bookingpage/CourtNumberHero";
 import type { Col, GridCell, SelectedSlot } from "@/lib/slot/slotGridModel";
 
-/* =========================================================================
-   Utils
-   ========================================================================= */
 const cx = (...xs: (string | false | null | undefined)[]) =>
   xs.filter(Boolean).join(" ");
 
@@ -34,14 +32,11 @@ function normalizeForManager(statusRaw: string): ManagerGroup {
   return "ended";
 }
 
-/* =========================================================================
-   Component
-   ========================================================================= */
 type Props = {
   cols: Col[];
   grid: GridCell[][];
   courtNames: string[];
-  currentDate: string; // YYYY-MM-DD
+  currentDate: string;
   selected: SelectedSlot[];
   onToggle: (courtRow: number, colIdx: number, slotId?: string) => void;
 };
@@ -54,14 +49,12 @@ export default function SlotGridManager({
   selected,
   onToggle,
 }: Props) {
-  const [nowTick, setNowTick] = useState(0);
-
-useEffect(() => {
-  setNowTick(Date.now()); // ✅ set หลังจาก mount แล้ว
-  const timer = setInterval(() => setNowTick(Date.now()), 60000);
-  return () => clearInterval(timer);
-}, []);
-
+  const [, setNowTick] = useState(Date.now());
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (!cols?.length || !grid?.length) {
     return (
@@ -71,21 +64,18 @@ useEffect(() => {
     );
   }
 
+  const selectedColIdxSet = new Set(selected.map((s) => s.colIdx));
+
   const styleByManager: Record<ManagerGroup | "pastAvailable", string> = {
     available:
-      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 cursor-pointer transition-all duration-150 ease-out",
-    booked:
-      "bg-[var(--color-booked)] text-white cursor-not-allowed transition-all duration-150 ease-out",
-    walkin:
-      "bg-[var(--color-walkin)] text-white cursor-not-allowed transition-all duration-150 ease-out",
-    checkin:
-      "bg-[var(--color-checkin)] text-white cursor-not-allowed transition-all duration-150 ease-out",
-    maintenance:
-      "bg-[var(--color-maintenance)] text-white cursor-not-allowed transition-all duration-150 ease-out",
-    ended:
-      "bg-[var(--color-endgame)] text-[var(--color-walnut)] cursor-not-allowed opacity-70 transition-all duration-150 ease-out",
+      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 hover:scale-[1.02] cursor-pointer transition-all duration-150 ease-out",
+    booked: "bg-[var(--color-booked)] text-white cursor-not-allowed",
+    walkin: "bg-[var(--color-walkin)] text-white cursor-not-allowed",
+    checkin: "bg-[var(--color-checkin)] text-white cursor-not-allowed",
+    maintenance: "bg-[var(--color-maintenance)] text-white cursor-not-allowed",
+    ended: "bg-[var(--color-expired)] text-[var(--color-walnut)] cursor-not-allowed",
     pastAvailable:
-      "bg-[var(--color-walnut)]/15 text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 cursor-not-allowed opacity-80 transition-colors duration-300",
+      "bg-[var(--color-walnut)]/15 text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 cursor-not-allowed opacity-80",
   };
 
   const selectedStyle =
@@ -98,8 +88,63 @@ useEffect(() => {
   const todayStr = dayjs().format("YYYY-MM-DD");
   const isToday = todayStr === currentDate;
 
+  // ============================ bulk select ============================
+  function handleSelectRow(rowIdx: number) {
+    const row = grid[rowIdx];
+    const availableSlots = row.filter((c) => normalizeForManager(readStatus(c)) === "available");
+    if (availableSlots.length !== row.length) {
+      setErrorMsg("Some slots in this court are already booked or unavailable.");
+      return;
+    }
+    row.forEach((cell, cIdx) => {
+      const slotId = (cell as any)?.id;
+      const group = normalizeForManager(readStatus(cell));
+      if (group === "available") onToggle(rowIdx + 1, cIdx, slotId);
+    });
+  }
+
+  function handleSelectColumn(colIdx: number) {
+    const column = grid.map((r) => r[colIdx]);
+    const availableSlots = column.filter((c) => normalizeForManager(readStatus(c)) === "available");
+    if (availableSlots.length !== column.length) {
+      setErrorMsg("Some slots in this time range are already booked or unavailable.");
+      return;
+    }
+    column.forEach((cell, rIdx) => {
+      const slotId = (cell as any)?.id;
+      const group = normalizeForManager(readStatus(cell));
+      if (group === "available") onToggle(rIdx + 1, colIdx, slotId);
+    });
+  }
+
+  function handleSelectAll() {
+    const flat = grid.flat();
+    const availableSlots = flat.filter((c) => normalizeForManager(readStatus(c)) === "available");
+    if (availableSlots.length !== flat.length) {
+      setErrorMsg("Some slots are already booked or unavailable.");
+      return;
+    }
+    grid.forEach((row, rIdx) =>
+      row.forEach((cell, cIdx) => {
+        const slotId = (cell as any)?.id;
+        const group = normalizeForManager(readStatus(cell));
+        if (group === "available") onToggle(rIdx + 1, cIdx, slotId);
+      })
+    );
+  }
+
+  // ============================ render ============================
   return (
     <div className="relative rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={handleSelectAll}
+          className="rounded-lg bg-pine text-white text-xs font-semibold px-3 py-1 hover:bg-pine/80 transition"
+        >
+          Select All Slots
+        </button>
+      </div>
+
       <div className="overflow-x-auto">
         <div className="min-w-max">
           {/* Header */}
@@ -108,13 +153,17 @@ useEffect(() => {
               Court / Time
             </div>
             {cols.map((col, i) => (
-              <div
+              <button
                 key={i}
-                className="mx-1 my-1 flex flex-col items-center justify-center rounded-md border bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-600 tabular-nums"
+                onClick={() => handleSelectColumn(i)}
+                className={cx(
+                  "mx-1 my-1 flex flex-col items-center justify-center rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums text-center transition-colors bg-neutral-100 hover:bg-[var(--color-sea)]/10"
+                )}
+                title={`Select all courts at ${col.start}-${col.end}`}
               >
                 <span>{col.start}</span>
                 <span className="text-[10px] opacity-70">→ {col.end}</span>
-              </div>
+              </button>
             ))}
           </div>
 
@@ -123,7 +172,11 @@ useEffect(() => {
             {grid.map((row, rIdx) => (
               <div key={rIdx} className="grid" style={gridTemplate}>
                 {/* Court label */}
-                <div className="sticky left-0 z-5 bg-white flex items-center gap-2 px-2 sm:px-3 py-2">
+                <button
+                  onClick={() => handleSelectRow(rIdx)}
+                  className="sticky left-0 z-5 bg-white flex items-center gap-2 px-2 sm:px-3 py-2 hover:bg-[var(--color-sea)]/10 transition rounded-lg"
+                  title={`Select all slots in ${courtNames[rIdx]}`}
+                >
                   <CourtNumberHero
                     court={rIdx + 1}
                     size={64}
@@ -134,7 +187,7 @@ useEffect(() => {
                   <div className="hidden sm:block text-sm font-semibold text-neutral-700">
                     {courtNames[rIdx]}
                   </div>
-                </div>
+                </button>
 
                 {/* Cells */}
                 {row.map((cell, cIdx) => {
@@ -143,9 +196,7 @@ useEffect(() => {
                   const slotId = (cell as any)?.id;
                   const isSelected =
                     group === "available" &&
-                    selected.some(
-                      (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
-                    );
+                    selected.some((s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx);
 
                   const slotStart = dayjs(`${currentDate} ${cols[cIdx].start}`, "YYYY-MM-DD HH:mm");
                   const isPast = isToday && dayjs().isAfter(slotStart);
@@ -166,6 +217,7 @@ useEffect(() => {
                         if (!disabled) onToggle(rIdx + 1, cIdx, slotId);
                       }}
                       disabled={disabled}
+                      title={group}
                     >
                       {isSelected ? "✓" : ""}
                     </button>
@@ -176,6 +228,34 @@ useEffect(() => {
           </div>
         </div>
       </div>
+
+      {/* ========== Error Modal ========== */}
+      <AnimatePresence>
+        {errorMsg && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-white rounded-2xl shadow-lg p-6 max-w-sm text-center"
+            >
+              <h2 className="text-lg font-semibold text-red-600 mb-2">Selection not allowed</h2>
+              <p className="text-sm text-neutral-700 mb-4">{errorMsg}</p>
+              <button
+                onClick={() => setErrorMsg(null)}
+                className="px-4 py-1.5 bg-pine text-white rounded-lg text-sm font-semibold hover:bg-pine/80"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
