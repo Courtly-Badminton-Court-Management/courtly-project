@@ -220,7 +220,7 @@ export default function PlayerBookingPage() {
         courtNames={courtNames}
         selected={selected}
         onToggle={toggleSelect}
-        currentDate={dayjs(today).format("YYYY-MM-DD")} // dayjs(selectedDate).format("YYYY-MM-DD")
+        currentDate={ymd}
 
       />
 
