@@ -11,12 +11,12 @@ import DateNavigator from "@/ui/components/bookingpage/DateNavigator";
 import FloatingLegend from "@/ui/components/bookingpage/FloatingLegend";
 import { classNames } from "@/lib/booking/datetime";
 
-import type { Col, SelectedSlot } from "@/lib/booking/slotGridModel";
+import type { Col, SelectedSlot } from "@/lib/slot/slotGridModel";
 import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
 import {
   buildDayGridFromMonthView,
   buildPlaceholderGrid,
-} from "@/lib/booking/buildDayGridFromMonthView";
+} from "@/lib/slot/buildDayGridFromMonthView";
 
 // hooks ใหม่
 import { useMonthView } from "@/api-client/extras/slots";

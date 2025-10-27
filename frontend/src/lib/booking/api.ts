@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
 import { hhmmToMin, minToHhmm } from "@/lib/booking/datetime";
-import type { Col, GridCell, PriceGrid, SlotStatus } from "./slotGridModel";
+import type { Col, GridCell, PriceGrid, SlotStatus } from "../slot/slotGridModel";
 import {
   getWalletMeRetrieveQueryKey,
   useWalletMeRetrieve,

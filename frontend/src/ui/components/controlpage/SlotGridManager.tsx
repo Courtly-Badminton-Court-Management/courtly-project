@@ -1,4 +1,3 @@
-// src/ui/components/bookingpage/SlotGrid.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9,11 +8,6 @@ import type { Col, GridCell, SelectedSlot } from "@/lib/slot/slotGridModel";
 /* =========================================================================
    Utils
    ========================================================================= */
-function strToMin(hhmm: string) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
 const cx = (...xs: (string | false | null | undefined)[]) =>
   xs.filter(Boolean).join(" ");
 
@@ -21,14 +15,22 @@ function readStatus(cell: GridCell): string {
   return String((cell as any)?.status ?? "").trim().toLowerCase();
 }
 
-type PlayerGroup = "available" | "bookedLike" | "maintenance" | "ended";
+type ManagerGroup =
+  | "available"
+  | "booked"
+  | "walkin"
+  | "checkin"
+  | "maintenance"
+  | "ended";
 
-function normalizeForPlayer(statusRaw: string): PlayerGroup {
+function normalizeForManager(statusRaw: string): ManagerGroup {
   const status = (statusRaw || "").toLowerCase();
   if (status === "available") return "available";
+  if (status === "booked") return "booked";
+  if (status === "walkin") return "walkin";
+  if (status === "checkin") return "checkin";
   if (status === "maintenance") return "maintenance";
   if (["expired", "endgame", "no_show"].includes(status)) return "ended";
-  if (["booked", "walkin", "checkin"].includes(status)) return "bookedLike";
   return "ended";
 }
 
@@ -39,24 +41,27 @@ type Props = {
   cols: Col[];
   grid: GridCell[][];
   courtNames: string[];
-  selected: SelectedSlot[];
-  onToggle: (courtRow: number, colIdx: number) => void;
   currentDate: string; // YYYY-MM-DD
+  selected: SelectedSlot[];
+  onToggle: (courtRow: number, colIdx: number, slotId?: string) => void;
 };
 
-export default function SlotGrid({
+export default function SlotGridManager({
   cols,
   grid,
   courtNames,
+  currentDate,
   selected,
   onToggle,
-  currentDate,
 }: Props) {
-  const [, setNowTick] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNowTick(Date.now()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+  const [nowTick, setNowTick] = useState(0);
+
+useEffect(() => {
+  setNowTick(Date.now()); // ✅ set หลังจาก mount แล้ว
+  const timer = setInterval(() => setNowTick(Date.now()), 60000);
+  return () => clearInterval(timer);
+}, []);
+
 
   if (!cols?.length || !grid?.length) {
     return (
@@ -66,17 +71,19 @@ export default function SlotGrid({
     );
   }
 
-  const selectedColIdxSet = new Set(selected.map((s) => s.colIdx));
-
-  const styleByGroup: Record<PlayerGroup | "pastAvailable", string> = {
+  const styleByManager: Record<ManagerGroup | "pastAvailable", string> = {
     available:
-      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 hover:border-[var(--color-sea)]/30 hover:scale-[1.02] cursor-pointer transition-all duration-150 ease-out",
-    bookedLike:
-      "bg-[var(--color-booked)] text-white border border-[var(--color-walnut)]/30 cursor-not-allowed",
+      "bg-[var(--color-available)] text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 hover:bg-[var(--color-sea)]/30 cursor-pointer transition-all duration-150 ease-out",
+    booked:
+      "bg-[var(--color-booked)] text-white cursor-not-allowed transition-all duration-150 ease-out",
+    walkin:
+      "bg-[var(--color-walkin)] text-white cursor-not-allowed transition-all duration-150 ease-out",
+    checkin:
+      "bg-[var(--color-checkin)] text-white cursor-not-allowed transition-all duration-150 ease-out",
     maintenance:
-      "bg-[var(--color-maintenance)] text-white cursor-not-allowed",
+      "bg-[var(--color-maintenance)] text-white cursor-not-allowed transition-all duration-150 ease-out",
     ended:
-      "bg-[var(--color-expired)] text-[var(--color-walnut)] cursor-not-allowed",
+      "bg-[var(--color-endgame)] text-[var(--color-walnut)] cursor-not-allowed opacity-70 transition-all duration-150 ease-out",
     pastAvailable:
       "bg-[var(--color-walnut)]/15 text-[var(--color-walnut)] border border-[var(--color-walnut)]/30 cursor-not-allowed opacity-80 transition-colors duration-300",
   };
@@ -96,23 +103,14 @@ export default function SlotGrid({
       <div className="overflow-x-auto">
         <div className="min-w-max">
           {/* Header */}
-          <div
-            className="grid border-b border-neutral-100 pb-1"
-            style={gridTemplate}
-          >
+          <div className="grid border-b border-neutral-100 pb-1" style={gridTemplate}>
             <div className="sticky left-0 z-20 bg-white px-3 py-2 text-sm font-bold text-neutral-700">
               Court / Time
             </div>
             {cols.map((col, i) => (
               <div
                 key={i}
-                className={cx(
-                  "mx-1 my-1 flex flex-col items-center justify-center rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums text-center transition-colors",
-                  selectedColIdxSet.has(i)
-                    ? "bg-[var(--color-sea)] text-white border-[var(--color-pine)]"
-                    : "bg-neutral-100 text-neutral-600 border-transparent"
-                )}
-                title={`${col.start} - ${col.end}`}
+                className="mx-1 my-1 flex flex-col items-center justify-center rounded-md border bg-neutral-100 px-2 py-1 text-[11px] font-medium text-neutral-600 tabular-nums"
               >
                 <span>{col.start}</span>
                 <span className="text-[10px] opacity-70">→ {col.end}</span>
@@ -141,33 +139,17 @@ export default function SlotGrid({
                 {/* Cells */}
                 {row.map((cell, cIdx) => {
                   const rawStatus = readStatus(cell);
-                  const group = normalizeForPlayer(rawStatus);
+                  const group = normalizeForManager(rawStatus);
+                  const slotId = (cell as any)?.id;
                   const isSelected =
                     group === "available" &&
                     selected.some(
                       (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
                     );
-                  const disabled = group !== "available";
 
-                  let isPast = false;
-                  if (isToday && group === "available") {
-                    const slotStart = dayjs(
-                      `${currentDate} ${cols[cIdx].start}`,
-                      "YYYY-MM-DD HH:mm"
-                    );
-                    isPast = dayjs().isAfter(slotStart);
-                  }
-
-                  const title =
-                    isPast
-                      ? "Time passed"
-                      : group === "available"
-                      ? `${cols[cIdx].start}–${cols[cIdx].end} | Click to select`
-                      : group === "bookedLike"
-                      ? "Already booked"
-                      : group === "maintenance"
-                      ? "Under maintenance"
-                      : "Ended";
+                  const slotStart = dayjs(`${currentDate} ${cols[cIdx].start}`, "YYYY-MM-DD HH:mm");
+                  const isPast = isToday && dayjs().isAfter(slotStart);
+                  const disabled = group !== "available" || isPast;
 
                   return (
                     <button
@@ -177,16 +159,13 @@ export default function SlotGrid({
                         isSelected
                           ? selectedStyle
                           : isPast
-                          ? styleByGroup["pastAvailable"]
-                          : styleByGroup[group]
+                          ? styleByManager["pastAvailable"]
+                          : styleByManager[group]
                       )}
                       onClick={() => {
-                        if (disabled || isPast) return;
-                        onToggle(rIdx + 1, cIdx);
+                        if (!disabled) onToggle(rIdx + 1, cIdx, slotId);
                       }}
-                      disabled={disabled || isPast}
-                      aria-disabled={disabled || isPast}
-                      title={title}
+                      disabled={disabled}
                     >
                       {isSelected ? "✓" : ""}
                     </button>

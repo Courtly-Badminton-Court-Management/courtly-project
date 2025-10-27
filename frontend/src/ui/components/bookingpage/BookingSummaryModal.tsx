@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CalendarRange, Clock3, Coins, MapPin, Loader2,X } from "lucide-react";
 import Link from "next/link";
-import type { GroupedSelection } from "@/lib/booking/slotGridModel";
+import type { GroupedSelection } from "@/lib/slot/slotGridModel";
 
 type Props = {
   open: boolean;
