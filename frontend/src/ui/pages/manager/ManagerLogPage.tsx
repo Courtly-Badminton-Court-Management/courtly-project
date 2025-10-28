@@ -1,228 +1,343 @@
+// src/ui/pages/manager/ManagerLogPage.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
+import { useBookingsRetrieve } from "@/api-client/endpoints/bookings/bookings";
+import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
+import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
+import { useCancelBooking } from "@/api-client/extras/cancel_booking";
+import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
 
-/* ========================
-   Types
-======================== */
-type BookingSlot = {
-  slot: number;
-  slot__court: number;
-  slot__service_date: string;
-  slot__start_at: string;
-  slot__end_at: string;
-};
-
-type BookingHistory = {
-  booking_no: string;
-  user?: string;               // email/identifier (may come as user or user_email)
-  user_email?: string;         // be resilient to backend naming
+/* ========================= Runtime types ========================= */
+type SlotItem = {
   status: string;
-  created_at: string;
-  slots: BookingSlot[];
+  start_time: string;
+  end_time: string;
+  court: number;
+  court_name: string;
+  price_coin: number;
 };
 
-type Paginated<T> = {
-  count?: number;
-  next?: string | null;
-  previous?: string | null;
-  results?: T[];
+type BookingRow = {
+  created_date: string;
+  booking_id: string;
+  user: string; // ✅ เพิ่ม username
+  total_cost: string | number;
+  booking_date: string;
+  booking_status: string;
+  able_to_cancel: boolean;
+  booking_slots: Record<string, SlotItem>;
 };
 
-/* ========================
-   Config
-======================== */
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, "") ??
-  "http://localhost:8001";
+/* ========================= Utils ========================= */
+const statusLabel = (s?: string) => {
+  const x = (s || "").toLowerCase();
+  if (x === "end_game" || x === "endgame") return "End Game";
+  if (x === "cancelled") return "Cancelled";
+  if (x === "no_show" || x === "no-show") return "No-show";
+  if (x === "confirmed") return "Upcoming";
+  return "Upcoming";
+};
 
-const BOOKING_ALL_URL = `${API_BASE}/api/bookings/all/`;
-const TOKEN_REFRESH_URL = `${API_BASE}/api/auth/token/refresh/`;
+const statusPillClass = (s?: string) => {
+  const x = (s || "").toLowerCase();
+  if (["confirmed", "endgame", "end_game"].includes(x))
+    return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
+  if (x === "cancelled")
+    return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
+  return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
+};
 
-/* ========================
-   Utils
-======================== */
-function formatDateTime(iso: string) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  // Example: 2025-10-07 11:24
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
-    d.getMinutes()
-  ).padStart(2, "0")}`;
-}
+const fmtCoins = (v: string | number) => {
+  if (typeof v === "number") return `${v} coins`;
+  const s = String(v).trim();
+  return s.toLowerCase().includes("coin") ? s : `${s} coins`;
+};
 
-function safeGetTokens() {
-  // guard for SSR (shouldn't run, but safe)
-  if (typeof window === "undefined") return { access: null as string | null, refresh: null as string | null };
-  const access =
-    localStorage.getItem("accessToken") || localStorage.getItem("access_token");
-  const refresh =
-    localStorage.getItem("refreshToken") || localStorage.getItem("refresh_token");
-  return { access, refresh };
-}
-
-async function fetchWithAuth(url: string) {
-  let { access, refresh } = safeGetTokens();
-
-  let res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(access ? { Authorization: `Bearer ${access}` } : {}),
-    },
-    cache: "no-store",
-  });
-
-  if (res.status !== 401 && res.status !== 403) {
-    return res;
+function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
+  try {
+    const d = new Date(dateStr);
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: opts?.weekday ?? undefined,
+      month: opts?.month ?? "short",
+      day: opts?.day ?? "2-digit",
+      year: opts?.year ?? "numeric",
+      timeZone: "Asia/Bangkok",
+    }).format(d);
+  } catch {
+    return dateStr;
   }
-
-  // Try refresh only if refresh token exists
-  if (!refresh) return res;
-
-  const refreshRes = await fetch(TOKEN_REFRESH_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-
-  if (!refreshRes.ok) {
-    // refresh failed; bubble original 401/403
-    return res;
-  }
-
-  const data = (await refreshRes.json()) as { access?: string };
-  if (!data?.access) return res;
-
-  access = data.access;
-  // persist for both naming styles used around the app
-  localStorage.setItem("accessToken", access);
-  localStorage.setItem("access_token", access);
-
-  // retry original
-  return fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${access}`,
-    },
-    cache: "no-store",
-  });
 }
 
-/* ========================
-   Component
-======================== */
+/* ========================= Main Page ========================= */
 export default function ManagerLogPage() {
-  const [logs, setLogs] = useState<BookingHistory[]>([]);
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, isError } = useBookingsRetrieve();
+  const [open, setOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
+  const [active, setActive] = useState<BookingRow | null>(null);
 
-  // Load all bookings (supports direct array or paginated response)
-  useEffect(() => {
-    let canceled = false;
+  // 🧭 Filters + Sort
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"created" | "booking">("created");
+  const [sortDesc, setSortDesc] = useState(true);
 
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetchWithAuth(BOOKING_ALL_URL);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status} - ${text}`);
-        }
-        const data = (await res.json()) as BookingHistory[] | Paginated<BookingHistory>;
+  const { cancelMut, handleCancel } = useCancelBooking({
+    onSuccess: () => {
+      setConfirmModal(null);
+      setActive(null);
+    },
+  });
 
-        const records = Array.isArray(data) ? data : data?.results ?? [];
-        if (!canceled) setLogs(records);
-      } catch (err: any) {
-        if (!canceled) setError(err?.message ?? "Failed to load bookings.");
-      } finally {
-        if (!canceled) setLoading(false);
-      }
-    })();
+  const rows: BookingRow[] = useMemo(() => {
+    const raw = data as any;
+    const arr = raw?.data ?? raw?.results ?? raw;
+    return Array.isArray(arr)
+      ? arr.map((b: any) => ({
+          ...b,
+          user: b.user ?? "-", // ✅ username
+          booking_status: b.booking_status ?? b.status ?? "upcoming",
+        }))
+      : [];
+  }, [data]);
 
-    return () => {
-      canceled = true;
-    };
-  }, []);
-
+  // 🧩 Filter + Sort logic
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return logs;
-
-    return logs.filter((l) => {
-      const email = l.user ?? l.user_email ?? "";
-      return [l.booking_no, email, l.status, l.created_at]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle);
+    let list = [...rows];
+    if (filterStatus !== "all") {
+      list = list.filter(
+        (b) => b.booking_status.toLowerCase() === filterStatus.toLowerCase()
+      );
+    }
+    return list.sort((a, b) => {
+      const keyA =
+        sortBy === "booking"
+          ? new Date(a.booking_date).getTime()
+          : new Date(a.created_date).getTime();
+      const keyB =
+        sortBy === "booking"
+          ? new Date(b.booking_date).getTime()
+          : new Date(b.created_date).getTime();
+      return sortDesc ? keyB - keyA : keyA - keyB;
     });
-  }, [logs, q]);
+  }, [rows, filterStatus, sortBy, sortDesc]);
+
+  const onView = (b: BookingRow) => {
+    setActive(b);
+    setOpen(true);
+  };
+
+  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b);
+  const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
+
+  const today = formatDate(new Date().toISOString(), {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
 
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-8">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold">All Bookings</h1>
-        <p className="text-sm text-neutral-600">Overview of all bookings across all users.</p>
-      </header>
+    <div className="mx-auto my-auto">
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-pine">
+            Booking Logs
+          </h1>
+          <p className="text-s font-semibold tracking-tight text-dimgray">
+            View all player bookings, download receipts, or manage status.
+          </p>
+        </div>
+      </div>
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search bookings… (booking no, email, status)"
-        className="mb-3 w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400"
+      {/* Top Control Bar */}
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center text-dimgray text-sm">
+          <Calendar size={18} className="mr-2 text-dimgray" />
+          <span className="font-medium text-dimgray">
+            {today} <span className="text-sea font-xs">(Today)</span>
+          </span>
+        </div>
+
+        {/* Right: Filter + Sort Controls */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-pine">Filter:</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded-xl border border-neutral-300 bg-white px-3 py-2 mr-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
+            >
+              <option value="all">All</option>
+              <option value="confirmed">Upcoming</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="end_game">End Game</option>
+              <option value="no_show">No-show</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-pine">Sort by:</label>
+            <select
+              value={sortBy}
+              onChange={(e) =>
+                setSortBy(e.target.value as "created" | "booking")
+              }
+              className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
+            >
+              <option value="created">Created Date</option>
+              <option value="booking">Booking Date</option>
+            </select>
+            <button
+              onClick={() => setSortDesc((v) => !v)}
+              className="ml-1 rounded-xl border border-neutral-300 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50 transition"
+              title="Toggle sort order"
+            >
+              <ArrowUpDown
+                size={16}
+                className={`transition-transform duration-200 ${
+                  sortDesc ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Error */}
+      {isError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          Failed to load booking logs.
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
+        <table className="min-w-[1100px] w-full border-collapse text-[15px] text-neutral-800">
+          <thead className="bg-smoke text-pine font-semibold">
+            <tr>
+              <th className="px-6 py-4 text-left">Created</th>
+              <th className="px-6 py-4 text-left">Booking No.</th>
+              <th className="px-6 py-4 text-left">Username</th>
+              <th className="px-6 py-4 text-center">Total</th>
+              <th className="px-6 py-4 text-center">Booking Date</th>
+              <th className="px-6 py-4 text-center">Status</th>
+              <th className="px-6 py-4 text-center">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {isLoading &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={7} className="px-6 py-3">
+                    <div className="h-10 animate-pulse rounded-md bg-neutral-100" />
+                  </td>
+                </tr>
+              ))}
+
+            {!isLoading &&
+              filtered.map((b) => {
+                const canCancel =
+                  b.able_to_cancel &&
+                  !["cancelled", "end_game"].includes(b.booking_status);
+                const isCancelling =
+                  cancelMut.isPending &&
+                  active &&
+                  active.booking_id === b.booking_id;
+
+                return (
+                  <tr
+                    key={b.booking_id}
+                    className="border-t border-smoke hover:bg-neutral-50/70"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-neutral-600">
+                      {formatDate(b.created_date)}
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-walnut">
+                      {b.booking_id}
+                    </td>
+                    <td className="px-6 py-4 text-neutral-700">
+                      {b.user}
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {fmtCoins(b.total_cost)}
+                    </td>
+                    <td className="px-6 py-4 text-center whitespace-nowrap">
+                      {formatDate(b.booking_date)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm ${statusPillClass(
+                          b.booking_status
+                        )}`}
+                      >
+                        {statusLabel(b.booking_status)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="inline-flex flex-wrap justify-center gap-2">
+                        <button
+                          onClick={() => onView(b)}
+                          className="rounded-lg border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
+                        >
+                          View
+                        </button>
+
+                        <button
+                          onClick={() => onDownload(b)}
+                          className="rounded-lg border border-[#2a756a] text-[#2a756a] px-4 py-2 hover:bg-[#e5f2ef]"
+                        >
+                          Download
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setActive(b);
+                            onCancelConfirm(b);
+                          }}
+                          disabled={!canCancel || cancelMut.isPending}
+                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
+                            !canCancel
+                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : "border-[#8d3e3e] bg-[#8d3e3e] text-white hover:brightness-95"
+                          }`}
+                        >
+                          {isCancelling ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> Cancelling…
+                            </>
+                          ) : (
+                            "Cancel"
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Confirm Cancel Modal */}
+      <CancelConfirmModal
+        open={!!confirmModal}
+        bookingId={confirmModal?.booking_id || ""}
+        isPending={cancelMut.isPending}
+        onConfirm={() =>
+          confirmModal && handleCancel(confirmModal.booking_id)
+        }
+        onClose={() => setConfirmModal(null)}
       />
 
-      <div className="rounded-2xl border bg-white p-4 shadow-sm">
-        {loading && <div className="p-3 text-sm text-neutral-500">Loading bookings…</div>}
-
-        {error && (
-          <div className="mb-3 rounded bg-red-100 p-2 text-red-700">
-            {error}
-          </div>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <div className="p-3 text-sm text-neutral-500">No bookings found.</div>
-        )}
-
-        {!loading && !error && filtered.length > 0 && (
-          <ul className="divide-y">
-            {filtered.map((l) => {
-              const email = l.user ?? l.user_email ?? "-";
-              return (
-                <li
-                  key={l.booking_no} // booking_no should be unique
-                  className="grid grid-cols-12 gap-2 py-3 text-sm"
-                >
-                  <div className="col-span-2 font-medium">{formatDateTime(l.created_at)}</div>
-                  <div className="col-span-2">{l.booking_no}</div>
-                  <div className="col-span-2">{email}</div>
-                  <div className="col-span-2">
-                    <span
-                      className="inline-flex items-center rounded-full border px-2 py-0.5"
-                      title={l.status}
-                    >
-                      {l.status}
-                    </span>
-                  </div>
-                  <div className="col-span-4 text-neutral-700">
-                    {(l.slots ?? [])
-                      .map(
-                        (s) =>
-                          `Court ${s.slot__court} ${s.slot__service_date} ${s.slot__start_at}-${s.slot__end_at}`
-                      )
-                      .join(", ")}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </main>
+      {/* Receipt Modal */}
+      <BookingReceiptModal
+        open={open}
+        onClose={() => setOpen(false)}
+        booking={active as any}
+      />
+    </div>
   );
 }

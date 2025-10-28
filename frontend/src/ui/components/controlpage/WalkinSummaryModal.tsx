@@ -205,7 +205,7 @@ export default function WalkinSummaryModal({
                   type="text"
                   value={contactDetail}
                   onChange={(e) => setContactDetail(e.target.value)}
-                  placeholder="e.g. 0936888850 or Hoshitsuki Hokori"
+                  placeholder="e.g. 0987654321 or Hoshitsuki Hokori"
                   className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-sea/30 outline-none"
                 />
               </div>
