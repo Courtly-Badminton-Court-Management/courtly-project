@@ -10,10 +10,13 @@ export type DayGridResult = {
   minutesPerCell: number;
 };
 
-const hhmmToMin = (t: string) => { const [h,m]=t.split(":").map(Number); return (h||0)*60+(m||0); };
+const hhmmToMin = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
 const toKey = (s: string, e: string) => `${s}-${e}`;
 
-// ⬅️ API ใช้ "DD-MM-YY" ใน days[].date
+// API returns date in "DD-MM-YY" format inside days[].date
 const ymdToDdMmYy = (ymd: string) => {
   const [Y, M, D] = ymd.split("-");
   return `${D}-${M}-${String(Y).slice(-2)}`;
@@ -23,13 +26,17 @@ export function buildDayGridFromMonthView(
   mv: MonthViewResponse | undefined,
   ymd: string
 ) {
-  // หา day ที่ตรงกับ ymd ของหน้า
-  const targetKey = ymdToDdMmYy(ymd);         // "21-10-25"
-  const day = mv?.days?.find(d => d.date === targetKey);
+  // Ensure mv can handle both direct and nested response structures
+  const safeData: any = mv && "data" in mv ? mv.data : mv;
+  const days = Array.isArray(safeData) ? safeData : safeData?.days || [];
+
+  // Find the day object that matches the target date
+  const targetKey = ymdToDdMmYy(ymd); // e.g. "21-10-25"
+  const day = days.find((d: any) => d.date === targetKey);
 
   const slotList = day?.booking_slots ?? {};
 
-  // ถ้าไม่มีข้อมูลวันนั้น คืนโครงว่าง (ให้ UI แสดง empty-state)
+  // If no data exists for that day, return an empty structure (UI will render an empty state)
   if (!Object.keys(slotList).length) {
     return {
       cols: [],
@@ -43,36 +50,43 @@ export function buildDayGridFromMonthView(
 
   const timeSet = new Set<string>();
   const courtMap = new Map<number, string>();
-  Object.values(slotList).forEach(s => {
+
+  // Collect unique time intervals and court mappings
+  Object.values(slotList).forEach((s: any) => {
     timeSet.add(toKey(s.start_time, s.end_time));
     courtMap.set(s.court, s.court_name);
   });
 
-  const courtIds = Array.from(courtMap.keys()).sort((a,b)=>a-b);
-  const courtNames = courtIds.map(id => courtMap.get(id) ?? `Court ${id}`);
+  const courtIds = Array.from(courtMap.keys()).sort((a, b) => a - b);
+  const courtNames = courtIds.map((id) => courtMap.get(id) ?? `Court ${id}`);
 
-  const times = Array.from(timeSet).sort((a,b)=>{
-    const [as] = a.split("-"), [bs] = b.split("-");
+  // Sort time intervals chronologically
+  const times = Array.from(timeSet).sort((a, b) => {
+    const [as] = a.split("-"),
+      [bs] = b.split("-");
     return hhmmToMin(as) - hhmmToMin(bs);
   });
 
-  const cols: Col[] = times.map(k => {
+  // Create columns for each time slot
+  const cols: Col[] = times.map((k) => {
     const [start, end] = k.split("-");
     return { start, end, label: `${start}–${end}` };
   });
 
-  // index lookup
+  // Create a lookup dictionary for fast slot access
   const dict = new Map<string, any>();
-  Object.values(slotList).forEach(s => {
+  Object.values(slotList).forEach((s: any) => {
     dict.set(`${s.court}|${toKey(s.start_time, s.end_time)}`, s);
   });
 
   const grid: GridCell[][] = [];
   const priceGrid: number[][] = [];
-  for (let r=0; r<courtIds.length; r++) {
+
+  // Build grid and price data for each court and time slot
+  for (let r = 0; r < courtIds.length; r++) {
     const row: GridCell[] = [];
     const prow: number[] = [];
-    for (let c=0; c<cols.length; c++) {
+    for (let c = 0; c < cols.length; c++) {
       const key = `${courtIds[r]}|${toKey(cols[c].start, cols[c].end)}`;
       const s = dict.get(key);
       row.push({ status: s?.status ?? "expired" } as GridCell);
@@ -82,26 +96,47 @@ export function buildDayGridFromMonthView(
     priceGrid.push(prow);
   }
 
-  const minutesPerCell = cols[0] ? hhmmToMin(cols[0].end) - hhmmToMin(cols[0].start) : 30;
+  // Determine the duration of a single time slot
+  const minutesPerCell = cols[0]
+    ? hhmmToMin(cols[0].end) - hhmmToMin(cols[0].start)
+    : 30;
 
   return { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell };
 }
 
-
+/**
+ * Builds a placeholder grid (used when no real data is available).
+ * Useful for loading states or empty views.
+ */
 export function buildPlaceholderGrid(
-  start = "10:00", end = "22:00", minutesPerCell = 30, courtCount = 10
+  start = "10:00",
+  end = "22:00",
+  minutesPerCell = 30,
+  courtCount = 10
 ) {
-  const toMin = (t:string)=>{const [h,m]=t.split(":").map(Number);return h*60+(m||0)};
-  const fmt = (m:number)=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+  const toMin = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + (m || 0);
+  };
+  const fmt = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(
+      2,
+      "0"
+    )}`;
 
+  // Create time columns
   const cols: Col[] = [];
-  for (let t=toMin(start); t<toMin(end); t+=minutesPerCell) {
-    const s = fmt(t), e = fmt(t+minutesPerCell);
+  for (let t = toMin(start); t < toMin(end); t += minutesPerCell) {
+    const s = fmt(t),
+      e = fmt(t + minutesPerCell);
     cols.push({ start: s, end: e, label: `${s}–${e}` });
   }
 
+  // Create default grid and price structure
   const grid: GridCell[][] = Array.from({ length: courtCount }, () =>
-    Array.from({ length: cols.length }, () => ({ status: "expired" } as GridCell))
+    Array.from({ length: cols.length }, () => ({
+      status: "expired",
+    }) as GridCell)
   );
   const priceGrid: number[][] = Array.from({ length: courtCount }, () =>
     Array.from({ length: cols.length }, () => 0)
@@ -111,3 +146,4 @@ export function buildPlaceholderGrid(
 
   return { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell };
 }
+

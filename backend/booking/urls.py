@@ -12,6 +12,8 @@ router.register(r"slots", SlotViewSet, basename="slot")
 router.register(r"bookings-admin", BookingViewSet, basename="booking-admin")
 
 urlpatterns = [
+    path("api/slots/month-view", SlotViewSet.as_view({...}), name="month-view"),
+
     # Create a new booking (POST)
     path("booking/", BookingCreateView.as_view(), name="booking-create"),
 

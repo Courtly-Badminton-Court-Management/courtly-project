@@ -18,7 +18,7 @@ import {
   buildPlaceholderGrid,
 } from "@/lib/booking/buildDayGridFromMonthView";
 
-// hooks ใหม่
+// custom hooks
 import { useMonthView } from "@/api-client/extras/slots";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
 import { useWalletMeRetrieve } from "@/api-client/endpoints/wallet/wallet";
@@ -26,10 +26,10 @@ import dayjs from "dayjs";
 import CourtlyLoading from "@/ui/components/basic/LoadingOverlay";
 
 /* =========================================================================
-   Utils (local)
+   Local Utilities
    ========================================================================= */
-function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
-function addMonths(d: Date, n: number) { const x = new Date(d); x.setMonth(x.getMonth()+n); return x; }
+function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
+function addMonths(d: Date, n: number) { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
 function clamp(d: Date, min: Date, max: Date) { if (d < min) return min; if (d > max) return max; return d; }
 function ymdFromDate(d: Date) {
   const y = d.getFullYear();
@@ -43,18 +43,17 @@ function dateFromYmd(ymd: string) {
 }
 
 /* =========================================================================
-   CONFIG
+   Config
    ========================================================================= */
 const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
 
 export default function PlayerBookingPage() {
-  // ขอบเขตวัน: วันนี้ .. วันนี้+1เดือน
+  // Date range: today → today + 1 month
   const today = useMemo(() => startOfDay(new Date()), []);
   const minDate = today;
   const maxDate = useMemo(() => startOfDay(addMonths(today, 1)), [today]);
 
-
-  // default เริ่มที่ Today (ห้ามย้อนหลัง)
+  // Default to today (no past dates)
   const [ymd, setYmd] = useState<string>(() => ymdFromDate(today));
   const CURRENT_MONTH = useMemo(() => ymd.slice(0, 7), [ymd]); // "YYYY-MM"
 
@@ -65,16 +64,16 @@ export default function PlayerBookingPage() {
   const [errorModal, setErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // โหลด month-view จริง
+  // Load real month-view data
   const mv = useMonthView(CLUB_ID, CURRENT_MONTH);
 
-  // แปลงเป็นกริดรายวันจากข้อมูลจริง
+  // Convert month-view data into a daily grid
   const base = useMemo(
     () => buildDayGridFromMonthView(mv.data, ymd),
     [mv.data, ymd]
   );
 
-  // ⬇️ ถ้า loading/ยังไม่มีข้อมูลวันนี้ → ใช้กริดเปล่าชั่วคราว
+  // If still loading or no data → show placeholder grid
   const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell } =
     useMemo(() => {
       if (mv.isLoading || !base.cols.length || !base.grid.length) {
@@ -83,7 +82,7 @@ export default function PlayerBookingPage() {
       return base;
     }, [mv.isLoading, base]);
 
-  // wallet balance (ใช้ hook orval เดิม)
+  // Retrieve wallet balance
   const { data: wallet } = useWalletMeRetrieve();
   const coins = useMemo(() => {
     // @ts-ignore
@@ -92,9 +91,10 @@ export default function PlayerBookingPage() {
     return null;
   }, [wallet]);
 
+  // Clear selection when the day changes
   useEffect(() => setSelected([]), [ymd]);
 
-  // คิดราคาจาก priceGrid จริง
+  // Calculate price groups from grid
   const groups = useMemo(
     () => groupSelectionsWithPrice(selected, cols as Col[], priceGrid),
     [selected, cols, priceGrid]
@@ -102,7 +102,7 @@ export default function PlayerBookingPage() {
   const totalPrice = groups.reduce((s, g) => s + g.price, 0);
   const notEnough = coins !== null && totalPrice > coins;
 
-  // ยิง booking ด้วย body จริง { club, items }
+  // Mutation for creating booking
   const bookingMut = useBookingCreateWithBody(CLUB_ID, CURRENT_MONTH);
 
   function toggleSelect(courtRow: number, colIdx: number) {
@@ -134,26 +134,26 @@ export default function PlayerBookingPage() {
           setSelected([]);
         },
         onError: (e: any) => {
-      const status = e?.response?.status;
-      let msg = "";
+          const status = e?.response?.status;
+          let msg = "";
 
-      if (status === 409) {
-          msg = "This slot has just been taken. Please choose another available time.";
-        } else if (e?.response?.data?.detail) {
-          msg = e.response.data.detail;
-        } else {
-          msg = e?.message || "Booking failed. Please try again.";
-        }
-      
-      setErrorMessage(msg);
-      setErrorModal(true);
-      setOpenSummary(false)
-    },
+          if (status === 409) {
+            msg = "This slot has just been taken. Please choose another available time.";
+          } else if (e?.response?.data?.detail) {
+            msg = e.response.data.detail;
+          } else {
+            msg = e?.message || "Booking failed. Please try again.";
+          }
+
+          setErrorMessage(msg);
+          setErrorModal(true);
+          setOpenSummary(false);
+        },
       }
     );
   }
 
-  // ปรับให้ shiftDay เคารพช่วง min/max เสมอ
+  // Shift day while staying within min/max bounds
   function shiftDay(delta: number) {
     const next = dateFromYmd(ymd);
     next.setDate(next.getDate() + delta);
@@ -167,7 +167,7 @@ export default function PlayerBookingPage() {
 
   return (
     <div className="mx-auto my-auto">
-      {/* Title and subtext */}
+      {/* Title and subtitle */}
       <div className="mb-4">
         <div className="flex items-end">
           <h1 className="text-2xl font-bold tracking-tight text-pine">
@@ -176,19 +176,19 @@ export default function PlayerBookingPage() {
           <p className="text-l pl-2 font-bold tracking-tight text-pine/80">
             (30 Minutes/Slot)
           </p>
-          
         </div>
         <p className="text-s font-semibold tracking-tight text-dimgray">
           Choose your court and time below to make a booking.
         </p>
-        
       </div>
 
-      {/* Header row */}
+      {/* Header Row */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <DateNavigator
           value={dateFromYmd(ymd)}
-          onChange={(d) => setYmd(ymdFromDate(clamp(startOfDay(d), minDate, maxDate)))}
+          onChange={(d) =>
+            setYmd(ymdFromDate(clamp(startOfDay(d), minDate, maxDate)))
+          }
           minDate={minDate}
           maxDate={maxDate}
           className=""
@@ -204,7 +204,9 @@ export default function PlayerBookingPage() {
             onClick={() => setOpenSummary(true)}
             className={classNames(
               "rounded-xl px-4 py-2 text-sm font-bold transition-colors",
-              selCount ? "bg-teal-800 text-white hover:bg-teal-700" : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
+              selCount
+                ? "bg-teal-800 text-white hover:bg-teal-700"
+                : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
             )}
             disabled={!selCount || isLoading}
           >
@@ -213,18 +215,17 @@ export default function PlayerBookingPage() {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Slot Grid */}
       <SlotGrid
         cols={cols as Col[]}
         grid={grid}
         courtNames={courtNames}
         selected={selected}
         onToggle={toggleSelect}
-        currentDate={dayjs(today).format("YYYY-MM-DD")} // dayjs(selectedDate).format("YYYY-MM-DD")
-
+        currentDate={dayjs(today).format("YYYY-MM-DD")}
       />
 
-      {/* Bottom info section */}
+      {/* Info section below grid */}
       <div className="mt-5 mb-5 flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="sm:order-1 order-2">
           <PlayerSlotStatusLegend />
@@ -234,12 +235,10 @@ export default function PlayerBookingPage() {
         </p>
       </div>
 
-      {/* floating legend */}
+      {/* Floating Legend */}
       <FloatingLegend />
 
-
-
-      {/* Summary Modal */}
+      {/* Booking Summary Modal */}
       <BookingSummaryModal
         open={openSummary}
         onClose={() => setOpenSummary(false)}
@@ -252,7 +251,7 @@ export default function PlayerBookingPage() {
         isSubmitting={isLoading}
       />
 
-      {/* Confirmed Modal */}
+      {/* Booking Confirmed Modal */}
       <BookingConfirmedModal
         open={openConfirm}
         onClose={() => setOpenConfirm(false)}
@@ -265,13 +264,9 @@ export default function PlayerBookingPage() {
         message={errorMessage}
         onClose={() => setErrorModal(false)}
       />
-  
 
+      {/* Loading Overlay (optional) */}
       {/* <CourtlyLoading isLoading={isLoading} text="Loading ..." /> */}
-
-
     </div>
-
-    
   );
 }

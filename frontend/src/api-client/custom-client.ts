@@ -16,6 +16,9 @@ import { refreshAccessToken } from "@/lib/auth/refresh";
 import { setSessionCookie, clearSessionCookie } from "@/lib/auth/session";
 import { extractRoleFromAccess } from "@/lib/auth/role";
 
+/* --------------------------------------------------------------------------
+   ⚙️ Base Configuration
+   -------------------------------------------------------------------------- */
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_BASE ||
@@ -26,6 +29,9 @@ const axiosInstance = axios.create({
   withCredentials: false,
 });
 
+/* --------------------------------------------------------------------------
+   Public Endpoints
+   -------------------------------------------------------------------------- */
 const PUBLIC_ENDPOINTS = [
   "/api/auth/login/",
   "/api/auth/register/",
@@ -41,22 +47,29 @@ function getPathname(url?: string) {
     return url;
   }
 }
+
 const isPublic = (url?: string) => {
   const path = getPathname(url);
   return !!path && PUBLIC_ENDPOINTS.some((p) => path.startsWith(p));
 };
 
+/* --------------------------------------------------------------------------
+   Request Interceptor
+   -------------------------------------------------------------------------- */
 axiosInstance.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const path = getPathname(config.url);
 
+    // Refresh access token if nearly expired
     if (!isPublic(path) && willExpireSoon(90)) {
       try {
         await refreshAccessToken();
       } catch {
+        // ignore refresh error; handled by response interceptor
       }
     }
 
+    // Attach Bearer token if private API
     if (!isPublic(path)) {
       const token = getAccess();
       if (token) {
@@ -67,9 +80,12 @@ axiosInstance.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => Promise.reject(error)
 );
 
+/* --------------------------------------------------------------------------
+   Token Refresh Queue
+   -------------------------------------------------------------------------- */
 let refreshing = false;
 let waiters: Array<() => void> = [];
 
@@ -79,22 +95,19 @@ function nukeAndRedirect() {
   if (typeof window !== "undefined") window.location.href = "/login";
 }
 
+/* --------------------------------------------------------------------------
+   Response Interceptor (handle 401/403)
+   -------------------------------------------------------------------------- */
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const status = error.response?.status;
     const orig = error.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    if (!orig || isPublic(orig.url)) {
-      return Promise.reject(error);
-    }
+    if (!orig || isPublic(orig.url)) return Promise.reject(error);
 
-    const shouldTryRefresh =
-      (status === 401 || status === 403) && !orig._retry;
-
-    if (!shouldTryRefresh) {
-      return Promise.reject(error);
-    }
+    const shouldTryRefresh = (status === 401 || status === 403) && !orig._retry;
+    if (!shouldTryRefresh) return Promise.reject(error);
 
     orig._retry = true;
 
@@ -117,10 +130,30 @@ axiosInstance.interceptors.response.use(
     }
 
     return axiosInstance.request(orig);
-  },
+  }
 );
 
-export const customRequest = async <T>(config: AxiosRequestConfig): Promise<T> => {
-  const response = await axiosInstance.request<T>(config);
+/* --------------------------------------------------------------------------
+   Custom Request Wrapper
+   -------------------------------------------------------------------------- */
+export const customRequest = async <T>({
+  url,
+  method = "GET",
+  data,
+  params,
+  signal,
+  headers,
+}: AxiosRequestConfig & {
+  params?: Record<string, any>;
+}): Promise<T> => {
+  const response = await axiosInstance.request<T>({
+    url,
+    method,
+    data,
+    params, // for query e.g. ?club=1&month=2025-10
+    signal,
+    headers,
+  });
+
   return response.data as T;
 };
