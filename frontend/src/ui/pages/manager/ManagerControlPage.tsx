@@ -1,8 +1,10 @@
+// frontend/src/ui/pages/manager/ManagerControlPage.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
 
 import DateNavigator from "@/ui/components/bookingpage/DateNavigator";
 import ManagerSlotStatusLegend from "@/ui/components/controlpage/ManagerSlotStatusLegend";
@@ -20,8 +22,7 @@ import {
   buildPlaceholderGrid,
 } from "@/lib/slot/buildDayGridFromMonthView";
 import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
-import type { Col, ManagerSelectedSlot } from "@/lib/slot/slotGridModel";
-import type { GridCell } from "@/lib/slot/slotGridModel";
+import type { Col, ManagerSelectedSlot, GridCell } from "@/lib/slot/slotGridModel";
 
 const SlotGridManager = dynamic(
   () => import("@/ui/components/controlpage/SlotGridManager"),
@@ -87,6 +88,7 @@ export default function ManagerControlPage() {
   const [bookingNos, setBookingNos] = useState<string[]>([]);
   const [errorModal, setErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isBatchLoading, setIsBatchLoading] = useState(false);
 
   // ======= Hooks =======
   const mv = useMonthView(CLUB_ID, CURRENT_MONTH);
@@ -95,7 +97,7 @@ export default function ManagerControlPage() {
   const bookingMut = useBookingCreateWithBody(CLUB_ID, CURRENT_MONTH);
 
   const base = useMemo(() => buildDayGridFromMonthView(mv.data, ymd), [mv.data, ymd]);
-  const { cols, grid, priceGrid, courtIds, courtNames, minutesPerCell } = useMemo(() => {
+  const { cols, grid, priceGrid, courtNames, minutesPerCell } = useMemo(() => {
     if (mv.isLoading || !base.cols.length || !base.grid.length) {
       return buildPlaceholderGrid();
     }
@@ -114,18 +116,16 @@ export default function ManagerControlPage() {
   );
 
   const selCount = selected.length;
-  const isLoading = mv.isLoading || updateStatusMut.isPending || bookingAdminMut.isPending;
+  const isLoading = mv.isLoading || updateStatusMut.isPending || bookingAdminMut.isPending || isBatchLoading;
 
   // ======= Toggle Select =======
   function toggleSelect(courtRow: number, colIdx: number, slotId?: string) {
     const status = normalizeForManager(readStatus(grid[courtRow - 1][colIdx]));
 
-    // set mode if first click
     if (!selectionMode) {
       setSelectionMode(status as "available" | "maintenance");
     }
 
-    // if different type clicked → reset selection
     if (selectionMode && selectionMode !== status) {
       setSelected([{ courtRow, colIdx, slotId: slotId ?? "" }]);
       setSelectionMode(status as "available" | "maintenance");
@@ -141,10 +141,10 @@ export default function ManagerControlPage() {
     );
   }
 
-
   function clearSelection() {
-  setSelected([]);
-}
+    setSelected([]);
+  }
+
   // ======= Maintenance Toggle =======
   async function handleSetMaintenance() {
     if (!selected.length) {
@@ -153,6 +153,7 @@ export default function ManagerControlPage() {
     }
 
     const newStatus = selectionMode === "maintenance" ? "available" : "maintenance";
+    setIsBatchLoading(true);
 
     try {
       await Promise.all(
@@ -170,22 +171,20 @@ export default function ManagerControlPage() {
       console.error("❌ Update slot failed:", error);
       alert("Some slots failed to update. Please check the console.");
     } finally {
+      setIsBatchLoading(false);
       setSelected([]);
       setSelectionMode(null);
     }
   }
 
   // ======= Walk-in =======
-  async function handleConfirm(_customer: {
-    name: string;
-    method: string;
-    detail?: string;
-  }) {
+  async function handleConfirm(_customer: { name: string; method: string; detail?: string }) {
     if (!selected.length) {
       alert("Please select at least one slot.");
       return;
     }
 
+    setIsBatchLoading(true);
     try {
       await Promise.all(
         selected.map(async (slot) => {
@@ -217,6 +216,8 @@ export default function ManagerControlPage() {
       setErrorMessage(msg);
       setErrorModal(true);
       setOpenSummary(false);
+    } finally {
+      setIsBatchLoading(false);
     }
   }
 
@@ -230,18 +231,23 @@ export default function ManagerControlPage() {
     setSelectionMode(null);
   }
 
-  // ======= UI =======
+  /* ========================== UI ========================== */
   return (
-    <div className="mx-auto my-auto">
+    <div className="relative mx-auto my-auto">
+      {isBatchLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-white">
+            <Loader2 className="animate-spin h-8 w-8" />
+            <p className="font-semibold text-sm">Updating slots...</p>
+          </div>
+        </div>
+      )}
+
       {/* ===== Header ===== */}
       <div className="mb-4">
         <div className="flex items-end">
-          <h1 className="text-2xl font-bold tracking-tight text-pine">
-            Manage Court Slots
-          </h1>
-          <p className="text-l pl-2 font-bold tracking-tight text-pine/80">
-            (30 Minutes/Slot)
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-pine">Manage Court Slots</h1>
+          <p className="text-l pl-2 font-bold tracking-tight text-pine/80">(30 Minutes/Slot)</p>
         </div>
         <p className="text-s font-semibold tracking-tight text-dimgray">
           You can mark slots as maintenance or create walk-in bookings.
@@ -261,9 +267,7 @@ export default function ManagerControlPage() {
           <button
             onClick={handleSetMaintenance}
             className={`rounded-xl text-white px-4 py-2 text-sm font-semibold transition-all ${
-              selectionMode === "maintenance"
-                ? "bg-gray-500 hover:bg-gray-600"
-                : "bg-maintenance hover:bg-[var(--color-maintenance)]/50"
+              selected ? "bg-maintenance hover:bg-gray-600" : "bg-gray-100"
             }`}
             disabled={!selected.length || isLoading}
           >
@@ -279,7 +283,7 @@ export default function ManagerControlPage() {
                 : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
             }`}
           >
-            {selCount ? "Book Walk-in" : "Select Slot!"}
+            {selCount ? `Book Walk-in (${selCount} selected)` : "Select Slot!"}
           </button>
         </div>
       </div>
@@ -297,14 +301,17 @@ export default function ManagerControlPage() {
         clearSelection={clearSelection}
       />
 
-      {/* ===== Bottom Info ===== */}
+      {/* ===== Legend ===== */}
       <div className="mt-5 mb-5 flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="sm:order-1 order-2">
-          <ManagerSlotStatusLegend />
-        </div>
+        <ManagerSlotStatusLegend />
+        {selCount > 0 && (
+          <p className="text-sm font-semibold text-pine sm:order-2 order-1">
+            {selCount} slot{selCount > 1 ? "s" : ""} selected
+          </p>
+        )}
       </div>
 
-      {/* ===== Summary Modal ===== */}
+      {/* ===== Modals ===== */}
       <WalkinSummaryModal
         open={openSummary}
         onClose={() => setOpenSummary(false)}
@@ -315,14 +322,12 @@ export default function ManagerControlPage() {
         isSubmitting={isLoading}
       />
 
-      {/* ===== Confirmed Modal ===== */}
       <WalkinConfirmedModal
         open={openConfirm}
         onClose={() => setOpenConfirm(false)}
         bookingNos={bookingNos}
       />
 
-      {/* ===== Error Modal ===== */}
       <BookingErrorModal
         open={errorModal}
         message={errorMessage}
