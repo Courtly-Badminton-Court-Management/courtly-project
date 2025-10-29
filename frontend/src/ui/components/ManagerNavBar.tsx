@@ -22,10 +22,10 @@ type AdminMe = {
 
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/dashboard" },
-  { name: "Booking Control", href: "/control" },
+  { name: "Slot Control", href: "/control" },
+  { name: "Booking Log", href: "/log" },
   { name: "Top-up Approval", href: "/approval" },
-  { name: "Booking History", href: "/log" },
-  { name: "Setting", href: "/setting" },
+  // { name: "Setting", href: "/setting" },
 ] as const;
 
 export default function ManagerNavBar() {
@@ -136,7 +136,7 @@ export default function ManagerNavBar() {
               onClick={handleLogout}
               disabled={loading}
               full
-              // bgColor="bg-emerald-700" hoverBgColor="hover:bg-emerald-800"
+              
             />
           </div>
         </div>
