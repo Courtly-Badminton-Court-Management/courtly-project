@@ -5,7 +5,7 @@ export default function CourtLocation() {
     <section aria-labelledby="loc-title" className="space-y-5">
       {/* Section header */}
       <div className="mb-3 inline-flex flex-wrap items-center gap-3">
-        <span className="rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-rose-700">
+        <span className="rounded-full bg-cambridge px-4 py-1 text-sm font-semibold text-white">
           Location
         </span>
         <span className="rounded-full bg-neutral-100 px-4 py-1 text-sm font-semibold text-neutral-700">

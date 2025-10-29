@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import BrandMark from "@/ui/components/basic/BrandMark";
 import Button from "@/ui/components/basic/Button";
 import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
+import CourtLocation from "@/ui/components/aboutus/CourtLocation";
 
 export default function LandingPage() {
   const [today, setToday] = useState<string>("");
@@ -193,17 +194,22 @@ export default function LandingPage() {
               <p className="text-xs sm:text-sm text-walnut mt-1">{item.desc}</p>
             </motion.div>
           ))}
+
         </section>
+
 
         {/* FOOTER */}
         <footer className="relative border-t border-platinum/70 bg-gradient-to-r from-white via-[#F9FAF9] to-white shadow-inner">
+        <div className="px-10 py-5">
+              <CourtLocation />
+            </div>
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 pt-3 flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm text-walnut gap-3">
             <div className="flex items-center gap-2">
               <BrandMark />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-neutral-600">
-              <Link href="/about-us" className="hover:text-pine transition-colors">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-pine">
+              <Link href="/about-us" className="font-semibold text-decoration-line: underline hover:text-cambridge transition-colors">
                 About Us
               </Link>
             </div>
