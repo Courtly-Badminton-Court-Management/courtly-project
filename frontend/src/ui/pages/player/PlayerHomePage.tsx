@@ -114,7 +114,7 @@ export default function PlayerHomePage() {
         </div>
 
         {selectedDate && (
-          <AvailableSlotPanel clubId={CLUB_ID} selectedDate={selectedDate} />
+          <AvailableSlotPanel selectedDate={selectedDate} />
         )}
       </section>
 
