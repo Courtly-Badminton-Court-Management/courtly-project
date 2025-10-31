@@ -15,7 +15,6 @@ type CancelOptions = {
 
 export function useCancelBooking(opts?: CancelOptions) {
   const queryClient = useQueryClient();
-  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
   const CURRENT_MONTH = dayjs().format("YYYY-MM");
   const NEXT_MONTH = dayjs().add(1, 'month').format("YYYY-MM");
 
@@ -26,8 +25,8 @@ export function useCancelBooking(opts?: CancelOptions) {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() }),
           queryClient.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() }),
-          queryClient.invalidateQueries({queryKey: monthViewKey(CLUB_ID, CURRENT_MONTH)}),
-          queryClient.invalidateQueries({queryKey: monthViewKey(CLUB_ID, NEXT_MONTH)}), 
+          queryClient.invalidateQueries({queryKey: monthViewKey(CURRENT_MONTH)}),
+          queryClient.invalidateQueries({queryKey: monthViewKey(NEXT_MONTH)}), 
         ]);
         opts?.onSuccess?.();
       },

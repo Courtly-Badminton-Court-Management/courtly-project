@@ -44,7 +44,6 @@ export async function refreshAccessToken(): Promise<string> {
     });
 
     // ✅ คืนค่า access token ใหม่ออกไป
-    console.log("%c[refreshAccessToken] ✅ refreshed", "color: #22c55e", newAccess);
     return newAccess;
   })().finally(() => {
     inflight = null;
