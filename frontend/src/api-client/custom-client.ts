@@ -1,4 +1,3 @@
-// /src/api-client/custom-client.ts
 import axios, {
   AxiosError,
   AxiosRequestConfig,
@@ -6,15 +5,11 @@ import axios, {
 } from "axios";
 import {
   getAccess,
-  getRefresh,
-  setTokens,
-  clearTokens,
   willExpireSoon,
-  schedulePreemptiveRefresh,
+  clearTokens,
 } from "@/lib/auth/tokenStore";
 import { refreshAccessToken } from "@/lib/auth/refresh";
-import { setSessionCookie, clearSessionCookie } from "@/lib/auth/session";
-import { extractRoleFromAccess } from "@/lib/auth/role";
+import { clearSessionCookie } from "@/lib/auth/session";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -31,6 +26,7 @@ const PUBLIC_ENDPOINTS = [
   "/api/auth/register/",
   "/api/auth/token/",
   "/api/auth/token/refresh/",
+  "/api/auth/auth/token/refresh/", // ✅ เผื่อไว้
 ];
 
 function getPathname(url?: string) {
@@ -41,22 +37,33 @@ function getPathname(url?: string) {
     return url;
   }
 }
-const isPublic = (url?: string) => {
+
+function isPublic(url?: string) {
   const path = getPathname(url);
   return !!path && PUBLIC_ENDPOINTS.some((p) => path.startsWith(p));
-};
+}
 
+/* -------------------------------------------------------------------------- */
+/* 🔹 Request Interceptor: แนบ access token และ refresh ล่วงหน้า               */
+/* -------------------------------------------------------------------------- */
 axiosInstance.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const path = getPathname(config.url);
 
+    // ถ้าไม่ใช่ public และ token ใกล้หมด ให้รีเฟรชก่อน
     if (!isPublic(path) && willExpireSoon(90)) {
       try {
-        await refreshAccessToken();
-      } catch {
+        const newAccess = await refreshAccessToken();
+        if (newAccess) {
+          config.headers = config.headers ?? {};
+          (config.headers as any).Authorization = `Bearer ${newAccess}`;
+        }
+      } catch (err) {
+        console.warn("[request] preemptive refresh failed", err);
       }
     }
 
+    // แนบ access token ปัจจุบัน
     if (!isPublic(path)) {
       const token = getAccess();
       if (token) {
@@ -70,13 +77,19 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
+/* -------------------------------------------------------------------------- */
+/* 🔹 Response Interceptor: handle 401 → refresh แล้ว retry                     */
+/* -------------------------------------------------------------------------- */
 let refreshing = false;
 let waiters: Array<() => void> = [];
 
 function nukeAndRedirect() {
   clearTokens();
   clearSessionCookie();
-  if (typeof window !== "undefined") window.location.href = "/login";
+  if (typeof window !== "undefined") {
+    console.warn("[auth] ❌ token expired, redirecting to /login");
+    window.location.href = "/login";
+  }
 }
 
 axiosInstance.interceptors.response.use(
@@ -89,12 +102,8 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const shouldTryRefresh =
-      (status === 401 || status === 403) && !orig._retry;
-
-    if (!shouldTryRefresh) {
-      return Promise.reject(error);
-    }
+    const shouldTryRefresh = (status === 401 || status === 403) && !orig._retry;
+    if (!shouldTryRefresh) return Promise.reject(error);
 
     orig._retry = true;
 
@@ -103,10 +112,14 @@ axiosInstance.interceptors.response.use(
     } else {
       refreshing = true;
       try {
-        await refreshAccessToken();
+        const newAccess = await refreshAccessToken(); // ✅ คืน token ใหม่แล้ว
+        if (newAccess && orig.headers) {
+          (orig.headers as any).Authorization = `Bearer ${newAccess}`;
+        }
         waiters.forEach((fn) => fn());
         waiters = [];
-      } catch {
+      } catch (err) {
+        console.error("[response] refresh failed", err);
         waiters.forEach((fn) => fn());
         waiters = [];
         nukeAndRedirect();
@@ -120,6 +133,9 @@ axiosInstance.interceptors.response.use(
   },
 );
 
+/* -------------------------------------------------------------------------- */
+/* 🔹 Export Custom Request Helper                                            */
+/* -------------------------------------------------------------------------- */
 export const customRequest = async <T>(config: AxiosRequestConfig): Promise<T> => {
   const response = await axiosInstance.request<T>(config);
   return response.data as T;
