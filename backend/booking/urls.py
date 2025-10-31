@@ -7,10 +7,16 @@ from .views import (
     BookingAllView
 )
 
+# ────────────── Router setup ──────────────
 router = DefaultRouter()
 router.register(r"slots", SlotViewSet, basename="slot")
 router.register(r"bookings-admin", BookingViewSet, basename="booking-admin")
 
+# ────────────── Explicit SlotViewSet actions ──────────────
+slot_list = SlotViewSet.as_view({"get": "list"})
+slot_month_view = SlotViewSet.as_view({"get": "month_view"})
+
+# ────────────── URL patterns ──────────────
 urlpatterns = [
     # Create a new booking (POST)
     path("booking/", BookingCreateView.as_view(), name="booking-create"),
@@ -29,4 +35,10 @@ urlpatterns = [
 
     # Update slot status
     path("slots/<int:slot_id>/set-status/<str:new_status>/", SlotStatusUpdateView.as_view(), name="set-slot-status"),
-] + router.urls
+
+    # ────────────── Explicit month-view ──────────────
+    path("slots/month-view/", slot_month_view, name="slot-month-view"),
+]
+
+# ────────────── Include router URLs ──────────────
+urlpatterns += router.urls
