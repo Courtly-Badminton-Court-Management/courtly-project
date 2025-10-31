@@ -36,7 +36,7 @@ export const monthViewKey = (month: string) =>
    ========================================================================= */
 export function useMonthView(monthParam?: string) {
   // 🧠 Default values
-  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
   const MONTH = monthParam || dayjs().format("YYYY-MM");
 
   return useQuery({
