@@ -91,10 +91,10 @@ export default function ManagerControlPage() {
   const [isBatchLoading, setIsBatchLoading] = useState(false);
 
   // ======= Hooks =======
-  const mv = useMonthView(CLUB_ID, CURRENT_MONTH);
+  const mv = useMonthView(CURRENT_MONTH);
   const updateStatusMut = useUpdateSlotStatus();
   const bookingAdminMut = useBookingsAdminCreate();
-  const bookingMut = useBookingCreateWithBody(CLUB_ID, CURRENT_MONTH);
+  const bookingMut = useBookingCreateWithBody(CURRENT_MONTH);
 
   const base = useMemo(() => buildDayGridFromMonthView(mv.data, ymd), [mv.data, ymd]);
   const { cols, grid, priceGrid, courtNames, minutesPerCell } = useMemo(() => {

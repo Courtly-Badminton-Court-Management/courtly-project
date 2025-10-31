@@ -45,7 +45,7 @@ function dateFromYmd(ymd: string) {
 /* =========================================================================
    CONFIG
    ========================================================================= */
-const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+
 
 export default function PlayerBookingPage() {
   // ขอบเขตวัน: วันนี้ .. วันนี้+1เดือน
@@ -66,7 +66,7 @@ export default function PlayerBookingPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   // โหลด month-view จริง
-  const mv = useMonthView(CLUB_ID, CURRENT_MONTH);
+  const mv = useMonthView(CURRENT_MONTH);
 
   // แปลงเป็นกริดรายวันจากข้อมูลจริง
   const base = useMemo(
@@ -103,7 +103,7 @@ export default function PlayerBookingPage() {
   const notEnough = coins !== null && totalPrice > coins;
 
   // ยิง booking ด้วย body จริง { club, items }
-  const bookingMut = useBookingCreateWithBody(CLUB_ID, CURRENT_MONTH);
+  const bookingMut = useBookingCreateWithBody(CURRENT_MONTH);
 
   function toggleSelect(courtRow: number, colIdx: number) {
     const key = `${courtRow}-${colIdx}`;
@@ -125,7 +125,7 @@ export default function PlayerBookingPage() {
     });
 
     bookingMut.mutate(
-      { club: CLUB_ID, items },
+      { items },
       {
         onSuccess: (res: any) => {
           setBookingNos(res?.booking?.booking_no);

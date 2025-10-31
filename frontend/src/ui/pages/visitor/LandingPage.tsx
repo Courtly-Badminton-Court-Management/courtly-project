@@ -150,7 +150,7 @@ export default function LandingPage() {
               h-[80dvh] sm:h-[420px] overflow-hidden"
           >
             {today ? (
-              <AvailableSlotPanel clubId={1} selectedDate={today} mode="landing" />
+              <AvailableSlotPanel selectedDate={today} mode="landing" />
             ) : (
               <div className="flex h-full items-center justify-center text-walnut text-sm">
                 Loading availability...

@@ -8,19 +8,17 @@ import { groupAvailableSlotsByTime } from "@/lib/booking/groupAvailableSlots";
 import Link from "next/link";
 
 type Props = {
-  clubId: number;
   selectedDate: string; // YYYY-MM-DD
   mode?: "landing" | "player";
 };
 
 
 export default function AvailableSlotPanel({
-  clubId,
   selectedDate,
   mode = "player",
 }: Props) {
   const month = dayjs(selectedDate).format("YYYY-MM");
-  const { data, isLoading, isError } = useMonthView(clubId, month);
+  const { data, isLoading, isError } = useMonthView(month);
 
   const dayData = useMemo(() => {
     if (!data?.days) return null;
