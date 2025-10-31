@@ -2,12 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
+import dayjs from "dayjs";
 
 /* =========================================================================
    Types
    ========================================================================= */
 export type SlotItem = {
-  id?: string; // slot id (optional, may exist from backend)
+  id?: string;
   status: string;
   start_time: string;
   end_time: string;
@@ -17,9 +18,9 @@ export type SlotItem = {
 };
 
 export type MonthViewResponse = {
-  month: string; // "10-25"
+  month: string;
   days: Array<{
-    date: string; // "DD-MM-YY"
+    date: string;
     booking_slots: Record<string, SlotItem>;
   }>;
 };
@@ -33,29 +34,30 @@ export const monthViewKey = (club: number, month: string) =>
 /* =========================================================================
    Hook: useMonthView
    ========================================================================= */
-export function useMonthView(club: number, month: string) {
+export function useMonthView(
+  clubParam?: number,
+  monthParam?: string
+) {
+  // 🧠 Default fallback values
+  const CLUB_ID = clubParam || Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
+  const MONTH = monthParam || dayjs().format("YYYY-MM");
+
+  console.log("[useMonthView] using:", { CLUB_ID, MONTH });
+
   return useQuery({
-    queryKey: monthViewKey(club, month),
+    queryKey: monthViewKey(CLUB_ID, MONTH),
     queryFn: ({ signal }) =>
       customRequest<MonthViewResponse>({
         url: "/api/slots/month-view/",
         method: "GET",
         signal,
-        params: { club, month },
+        params: { club: CLUB_ID, month: MONTH },
       }),
 
-    enabled: !!club && !!month,
-
-    // cache considered fresh for 1 minute
+    enabled: !!CLUB_ID && !!MONTH,
     staleTime: 60_000,
-
-    // 🔁 silent auto refresh every 1 minute
     refetchInterval: 60_000,
-
-    // 💤 don’t refetch when user switches tabs
     refetchOnWindowFocus: false,
-
-    // silent update
     notifyOnChangeProps: ["data", "error"],
   });
 }
