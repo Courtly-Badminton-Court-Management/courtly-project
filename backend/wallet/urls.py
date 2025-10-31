@@ -1,10 +1,13 @@
+# backend/wallet/urls.py
+from rest_framework.routers import DefaultRouter
+from .views import CoinLedgerViewSet, TopupRequestViewSet, WalletBalanceView
 from django.urls import path
-from wallet.views import WalletBalanceView
-from .views import WalletMeView
+
+router = DefaultRouter()
+router.register(r"ledger", CoinLedgerViewSet, basename="wallet-ledger")
+router.register(r"topups", TopupRequestViewSet, basename="wallet-topup")
 
 urlpatterns = [
-    path("wallet/balance/", WalletBalanceView.as_view(), name="wallet-balance"),
-    path("me/", WalletMeView.as_view(), name="wallet-me"),
-
-#     path("wallet/add-coin/", AddCoinView.as_view(), name="wallet-add-coin"),
+    path("balance/", WalletBalanceView.as_view(), name="wallet-balance"),
 ]
+urlpatterns += router.urls
