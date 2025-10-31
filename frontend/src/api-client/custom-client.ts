@@ -1,4 +1,3 @@
-// frontend/src/api-client/custom-client.ts
 import axios, {
   AxiosError,
   AxiosRequestConfig,
@@ -12,10 +11,7 @@ import {
 import { refreshAccessToken } from "@/lib/auth/refresh";
 import { clearSessionCookie } from "@/lib/auth/session";
 
-/* -------------------------------------------------------------------------- */
-/* 🔹 API Base URL setup                                                      */
-/* -------------------------------------------------------------------------- */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ||  "http://backend.courtlyeasy.app/";
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,
@@ -58,8 +54,8 @@ axiosInstance.interceptors.request.use(
           config.headers = config.headers ?? {};
           (config.headers as any).Authorization = `Bearer ${newAccess}`;
         }
-      } catch {
-        // ignore refresh errors silently
+      } catch (err) {
+        console.warn("[request] preemptive refresh failed", err);
       }
     }
 
@@ -87,6 +83,7 @@ function nukeAndRedirect() {
   clearTokens();
   clearSessionCookie();
   if (typeof window !== "undefined") {
+    console.warn("[auth] ❌ token expired, redirecting to /login");
     window.location.href = "/login";
   }
 }
@@ -111,13 +108,14 @@ axiosInstance.interceptors.response.use(
     } else {
       refreshing = true;
       try {
-        const newAccess = await refreshAccessToken();
+        const newAccess = await refreshAccessToken(); // ✅ คืน token ใหม่แล้ว
         if (newAccess && orig.headers) {
           (orig.headers as any).Authorization = `Bearer ${newAccess}`;
         }
         waiters.forEach((fn) => fn());
         waiters = [];
-      } catch {
+      } catch (err) {
+        console.error("[response] refresh failed", err);
         waiters.forEach((fn) => fn());
         waiters = [];
         nukeAndRedirect();
