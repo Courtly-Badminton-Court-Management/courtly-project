@@ -1,61 +1,183 @@
 "use client";
 
 import { useState } from "react";
-import WalletBalance from "@/ui/components/wallet/WalletBalance";
-import TopupForm, { TopupFormValues } from "@/ui/components/wallet/TopupForm";
-import TransactionHistory, { LedgerItem } from "@/ui/components/wallet/TransactionHistory";
+import { useQueryClient } from "@tanstack/react-query";
+import PlayerWalletBalance from "@/ui/components/wallet/PlayerWalletBalance";
+import PlayerTopupForm from "@/ui/components/wallet/PlayerTopupForm";
+import PlayerTransactionHistory from "@/ui/components/wallet/PlayerTransactionHistory";
+
+// ✅ wallet hooks
+import {
+  useWalletBalanceRetrieve,
+  useWalletTopupsList,
+  useWalletTopupsCreate,
+  useWalletLedgerExportCsvRetrieve,
+  getWalletBalanceRetrieveQueryKey,
+  getWalletTopupsListQueryKey,
+} from "@/api-client/endpoints/wallet/wallet";
+import type { LedgerItem } from "@/ui/components/wallet/PlayerTransactionHistory";
+
+// ✅ user info hook
+import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 
 export default function PlayerWalletPage() {
-  // —— mock data ———————————————————————————————————————————————
-  const [balance] = useState(150);
+  const queryClient = useQueryClient();
 
-  const [topup, setTopup] = useState<TopupFormValues>({
-    amount: "",
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 1. Fetch User Info (me)                                                */
+  /* -------------------------------------------------------------------------- */
+  const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
+  const username: string =
+    meData?.username ?? meData?.name ?? meData?.email ?? "User";
+
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 2. Fetch Wallet Balance                                                 */
+  /* -------------------------------------------------------------------------- */
+  const {
+    data: balanceData,
+    isLoading: balanceLoading,
+  } = useWalletBalanceRetrieve<{ balance: number }>();
+
+  const balanceCoins = balanceData?.balance ?? 0;
+
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 3. Fetch Top-up Requests (Pending + History)                            */
+  /* -------------------------------------------------------------------------- */
+  const {
+    data: topupsData,
+    isLoading: topupsLoading,
+  } = useWalletTopupsList();
+
+  const ledger: LedgerItem[] =
+    topupsData?.map((item: any) => ({
+      id: String(item.id),
+      dt: new Date(item.created_at).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      type: "Topup",
+      amount: Number(item.coins ?? 0),
+      status:
+        item.status === "pending"
+          ? "Pending"
+          : item.status === "approved"
+          ? "Approved"
+          : "Rejected",
+    })) ?? [];
+
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 4. Top-up Form                                                          */
+  /* -------------------------------------------------------------------------- */
+  const [topup, setTopup] = useState({
+    amount: "" as number | "",
     date: "",
     time: "",
-    slip: null,
+    slip: null as File | null,
     note: "",
   });
 
-  const [ledger] = useState<LedgerItem[]>([
-    { id: "REQ02419824379", dt: "5 Sep 2025, 12:24 PM", type: "Topup", amount: +200, status: "Pending" },
-    { id: "REQ02419824377", dt: "5 Sep 2025, 11:47 PM", type: "Topup", amount: +200, status: "Rejected" },
-    { id: "REQ02419824368", dt: "1 Sep 2025, 10:39 AM", type: "Booking Deduction", amount: -150, status: "Approved" },
-    { id: "REQ02419824353", dt: "30 Aug 2025, 09:12 AM", type: "Booking Deduction", amount: -300, status: "Approved" },
-    { id: "REQ02419824344", dt: "21 Aug 2025, 09:03 AM", type: "Refund", amount: +100, status: "Approved" },
-  ]);
+  const { mutate: createTopup, isPending: topupLoading } = useWalletTopupsCreate({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: getWalletBalanceRetrieveQueryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getWalletTopupsListQueryKey(),
+        });
+        alert("✅ Top-up request submitted successfully!");
+        resetTopup();
+      },
+      onError: (err) => {
+        console.error(err);
+        alert("❌ Failed to submit top-up. Please try again.");
+      },
+    },
+  });
 
-  // —— handlers ————————————————————————————————————————————————
   const submitTopup = () => {
-    alert("Mock submit top-up");
+    if (!topup.amount || !topup.slip || !topup.date || !topup.time) {
+      alert("⚠ Please fill in all required fields and upload your slip.");
+      return;
+    }
+
+    createTopup({
+      data: {
+        amount_thb: Number(topup.amount),
+        transfer_date: topup.date,
+        transfer_time: topup.time,
+        slip_path: topup.slip as any, // 👈 orval expects string, but backend accepts File (FormData)
+      },
+    });
   };
 
   const resetTopup = () => {
-    setTopup({ amount: "", date: "", time: "", slip: null, note: "" });
+    setTopup({
+      amount: "",
+      date: "",
+      time: "",
+      slip: null,
+      note: "",
+    });
   };
 
-  const exportCSV = () => {
-    alert("Mock export CSV");
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 5. Export CSV (Optional: still uses ledger export for full coin history) */
+  /* -------------------------------------------------------------------------- */
+  const { refetch: exportCsv, isFetching: csvLoading } =
+    useWalletLedgerExportCsvRetrieve({ query: { enabled: false } });
+
+  const exportCSV = async () => {
+    const { data } = await exportCsv();
+    if (!data) {
+      alert("⚠ No transaction data to export.");
+      return;
+    }
+
+    const blob = new Blob([data as any], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "wallet_ledger.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
-  // —— layout ————————————————————————————————————————————————
+  /* -------------------------------------------------------------------------- */
+  /* 🔹 6. Layout                                                               */
+  /* -------------------------------------------------------------------------- */
+  const loadingAll = balanceLoading || meLoading;
+
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-8">
-
+    <main className="mx-auto max-w-6xl p-4 md:p-8 space-y-8">
       {/* Wallet Balance */}
-      <WalletBalance balanceCoins={balance} userName="Senior19" />
+      <PlayerWalletBalance
+        balanceCoins={balanceCoins}
+        userName={username}
+        isLoading={loadingAll}
+      />
 
-      {/* Topup + (then) Pending + Transactions to match visual flow */}
-      <div className="space-y-8">
-        <TopupForm
-          values={topup}
-          onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
-          onSubmit={submitTopup}
-          onReset={resetTopup}
-        />
+      {/* Top-up Form */}
+      <PlayerTopupForm
+        values={topup}
+        onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
+        onSubmit={submitTopup}
+        onReset={resetTopup}
+        loading={topupLoading}
+      />
 
-        <TransactionHistory items={ledger} onExport={exportCSV} />
-      </div>
+      {/* Transaction History (Top-up only) */}
+      <PlayerTransactionHistory
+        items={ledger}
+        onExport={exportCSV}
+        loading={topupsLoading || csvLoading}
+      />
     </main>
   );
 }
