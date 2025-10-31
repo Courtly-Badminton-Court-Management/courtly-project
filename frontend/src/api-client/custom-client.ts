@@ -11,10 +11,14 @@ import {
 import { refreshAccessToken } from "@/lib/auth/refresh";
 import { clearSessionCookie } from "@/lib/auth/session";
 
+/* -------------------------------------------------------------------------- */
+/* 🔹 API Base URL setup                                                      */
+/* -------------------------------------------------------------------------- */
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE ||
-  "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
+  "https://backend.courtlyeasy.app";
+
+console.log("[custom-client] API_BASE =", API_BASE);
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,
@@ -26,7 +30,6 @@ const PUBLIC_ENDPOINTS = [
   "/api/auth/register/",
   "/api/auth/token/",
   "/api/auth/token/refresh/",
-  "/api/auth/auth/token/refresh/", // ✅ เผื่อไว้
 ];
 
 function getPathname(url?: string) {
