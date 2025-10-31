@@ -4,8 +4,8 @@ import { customRequest } from "@/api-client/custom-client";
 import { hhmmToMin, minToHhmm } from "@/lib/booking/datetime";
 import type { Col, GridCell, PriceGrid, SlotStatus } from "../slot/slotGridModel";
 import {
-  getWalletMeRetrieveQueryKey,
-  useWalletMeRetrieve,
+  getWalletBalanceRetrieveQueryKey,
+  useWalletBalanceRetrieve,
 } from "@/api-client/endpoints/wallet/wallet";
 
 /** top row fallback ถ้าไม่มีข้อมูล */
@@ -165,7 +165,7 @@ export function useDayGrid(params: { clubId: number; ymd: string }) {
 }
 
 export function useWalletBalance() {
-  const q = useWalletMeRetrieve();
+  const q = useWalletBalanceRetrieve();
   const raw = (q.data as any) ?? {};
   return { balance: raw.balance ?? raw?.data?.balance ?? 0, isLoading: q.isLoading };
 }
@@ -185,7 +185,7 @@ export function useCreateBookings() {
       }).then((r) => r?.data ?? r),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["slots-month-view"] }).catch(() => {});
-      qc.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() }).catch(() => {});
+      qc.invalidateQueries({ queryKey: getWalletBalanceRetrieveQueryKey() }).catch(() => {});
     },
   });
 

@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
 import { monthViewKey } from "./slots";
 import {
-  getWalletMeRetrieveQueryKey,
+  getWalletBalanceRetrieveQueryKey,
 } from "@/api-client/endpoints/wallet/wallet";
 import {
   getBookingsRetrieveQueryKey,
@@ -46,7 +46,7 @@ export function useBookingCreateWithBody(month: string) {
     onSuccess: (response) => {
       // ✅ invalidate ทุก cache ที่เกี่ยวข้อง
       qc.invalidateQueries({ queryKey: monthViewKey(month) });
-      qc.invalidateQueries({ queryKey: getWalletMeRetrieveQueryKey() });
+      qc.invalidateQueries({ queryKey: getWalletBalanceRetrieveQueryKey() });
       qc.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() });
       qc.invalidateQueries({ queryKey: getBookingsRetrieveQueryKey() });
       return response;

@@ -11,7 +11,7 @@ import {
 import { refreshAccessToken } from "@/lib/auth/refresh";
 import { clearSessionCookie } from "@/lib/auth/session";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ||  "http://backend.courtlyeasy.app/";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ||  "http://localhost:8001/";
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,

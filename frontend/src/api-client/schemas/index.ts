@@ -8,10 +8,16 @@
 
 export * from "./booking";
 export * from "./bookingStatusEnum";
+export * from "./coinLedger";
 export * from "./courtlyTokenObtainPair";
 export * from "./patchedBooking";
+export * from "./patchedTopupRequestList";
 export * from "./register";
 export * from "./slot";
 export * from "./slotStatus";
 export * from "./slotStatusStatusEnum";
+export * from "./statusDe3Enum";
 export * from "./tokenRefresh";
+export * from "./topupRequestCreate";
+export * from "./topupRequestList";
+export * from "./typeEnum";

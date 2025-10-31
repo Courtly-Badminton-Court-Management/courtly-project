@@ -21,7 +21,7 @@ import {
 // hooks ใหม่
 import { useMonthView } from "@/api-client/extras/slots";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
-import { useWalletMeRetrieve } from "@/api-client/endpoints/wallet/wallet";
+import { useWalletBalanceRetrieve } from "@/api-client/endpoints/wallet/wallet";
 import dayjs from "dayjs";
 import CourtlyLoading from "@/ui/components/basic/LoadingOverlay";
 
@@ -84,7 +84,7 @@ export default function PlayerBookingPage() {
     }, [mv.isLoading, base]);
 
   // wallet balance (ใช้ hook orval เดิม)
-  const { data: wallet } = useWalletMeRetrieve();
+  const { data: wallet } = useWalletBalanceRetrieve();
   const coins = useMemo(() => {
     // @ts-ignore
     if (typeof wallet?.balance === "number") return wallet.balance as number;

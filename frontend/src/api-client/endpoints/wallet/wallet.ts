@@ -5,74 +5,124 @@
  * Your project description
  * OpenAPI spec version: 1.0.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
+import type {
+  CoinLedger,
+  PatchedTopupRequestList,
+  TopupRequestCreate,
+  TopupRequestList,
+} from "../../schemas";
+
 import { customRequest } from "../../custom-client";
 
-export const walletMeRetrieve = (signal?: AbortSignal) => {
-  return customRequest<void>({ url: `/api/wallet/me/`, method: "GET", signal });
+// https://stackoverflow.com/questions/49579094/typescript-conditional-types-filter-out-readonly-properties-pick-only-requir/49579497#49579497
+type IfEquals<X, Y, A = X, B = never> =
+  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? A : B;
+
+type WritableKeys<T> = {
+  [P in keyof T]-?: IfEquals<
+    { [Q in P]: T[P] },
+    { -readonly [Q in P]: T[P] },
+    P
+  >;
+}[keyof T];
+
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I,
+) => void
+  ? I
+  : never;
+type DistributeReadOnlyOverUnions<T> = T extends any ? NonReadonly<T> : never;
+
+type Writable<T> = Pick<T, WritableKeys<T>>;
+type NonReadonly<T> = [T] extends [UnionToIntersection<T>]
+  ? {
+      [P in keyof Writable<T>]: T[P] extends object
+        ? NonReadonly<NonNullable<T[P]>>
+        : T[P];
+    }
+  : DistributeReadOnlyOverUnions<T>;
+
+/**
+ * GET /api/wallet/balance/  -> {"balance": <int>}
+Used by the header chip showing current coins.
+ */
+export const walletBalanceRetrieve = (signal?: AbortSignal) => {
+  return customRequest<void>({
+    url: `/api/wallet/balance/`,
+    method: "GET",
+    signal,
+  });
 };
 
-export const getWalletMeRetrieveQueryKey = () => {
-  return [`/api/wallet/me/`] as const;
+export const getWalletBalanceRetrieveQueryKey = () => {
+  return [`/api/wallet/balance/`] as const;
 };
 
-export const getWalletMeRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof walletMeRetrieve>>,
+export const getWalletBalanceRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof walletBalanceRetrieve>>,
   TError = unknown,
 >(options?: {
   query?: Partial<
-    UseQueryOptions<Awaited<ReturnType<typeof walletMeRetrieve>>, TError, TData>
+    UseQueryOptions<
+      Awaited<ReturnType<typeof walletBalanceRetrieve>>,
+      TError,
+      TData
+    >
   >;
 }) => {
   const { query: queryOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getWalletMeRetrieveQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getWalletBalanceRetrieveQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof walletMeRetrieve>>
-  > = ({ signal }) => walletMeRetrieve(signal);
+    Awaited<ReturnType<typeof walletBalanceRetrieve>>
+  > = ({ signal }) => walletBalanceRetrieve(signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof walletMeRetrieve>>,
+    Awaited<ReturnType<typeof walletBalanceRetrieve>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type WalletMeRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof walletMeRetrieve>>
+export type WalletBalanceRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof walletBalanceRetrieve>>
 >;
-export type WalletMeRetrieveQueryError = unknown;
+export type WalletBalanceRetrieveQueryError = unknown;
 
-export function useWalletMeRetrieve<
-  TData = Awaited<ReturnType<typeof walletMeRetrieve>>,
+export function useWalletBalanceRetrieve<
+  TData = Awaited<ReturnType<typeof walletBalanceRetrieve>>,
   TError = unknown,
 >(
   options: {
     query: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletMeRetrieve>>,
+        Awaited<ReturnType<typeof walletBalanceRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof walletMeRetrieve>>,
+          Awaited<ReturnType<typeof walletBalanceRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof walletMeRetrieve>>
+          Awaited<ReturnType<typeof walletBalanceRetrieve>>
         >,
         "initialData"
       >;
@@ -81,23 +131,23 @@ export function useWalletMeRetrieve<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useWalletMeRetrieve<
-  TData = Awaited<ReturnType<typeof walletMeRetrieve>>,
+export function useWalletBalanceRetrieve<
+  TData = Awaited<ReturnType<typeof walletBalanceRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletMeRetrieve>>,
+        Awaited<ReturnType<typeof walletBalanceRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof walletMeRetrieve>>,
+          Awaited<ReturnType<typeof walletBalanceRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof walletMeRetrieve>>
+          Awaited<ReturnType<typeof walletBalanceRetrieve>>
         >,
         "initialData"
       >;
@@ -106,14 +156,14 @@ export function useWalletMeRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useWalletMeRetrieve<
-  TData = Awaited<ReturnType<typeof walletMeRetrieve>>,
+export function useWalletBalanceRetrieve<
+  TData = Awaited<ReturnType<typeof walletBalanceRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletMeRetrieve>>,
+        Awaited<ReturnType<typeof walletBalanceRetrieve>>,
         TError,
         TData
       >
@@ -124,14 +174,14 @@ export function useWalletMeRetrieve<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 
-export function useWalletMeRetrieve<
-  TData = Awaited<ReturnType<typeof walletMeRetrieve>>,
+export function useWalletBalanceRetrieve<
+  TData = Awaited<ReturnType<typeof walletBalanceRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletMeRetrieve>>,
+        Awaited<ReturnType<typeof walletBalanceRetrieve>>,
         TError,
         TData
       >
@@ -141,7 +191,7 @@ export function useWalletMeRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getWalletMeRetrieveQueryOptions(options);
+  const queryOptions = getWalletBalanceRetrieveQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,
@@ -153,25 +203,173 @@ export function useWalletMeRetrieve<
   return query;
 }
 
-export const walletWalletBalanceRetrieve = (signal?: AbortSignal) => {
-  return customRequest<void>({
-    url: `/api/wallet/wallet/balance/`,
+/**
+ * GET /api/wallet/ledger/ -> transaction history.
+- Players see their own rows.
+- Managers can see all, or filter by ?user=<id>.
+Also exposes: GET /api/wallet/ledger/export-csv/ for the "Export CSV" button.
+ */
+export const walletLedgerList = (signal?: AbortSignal) => {
+  return customRequest<CoinLedger[]>({
+    url: `/api/wallet/ledger/`,
     method: "GET",
     signal,
   });
 };
 
-export const getWalletWalletBalanceRetrieveQueryKey = () => {
-  return [`/api/wallet/wallet/balance/`] as const;
+export const getWalletLedgerListQueryKey = () => {
+  return [`/api/wallet/ledger/`] as const;
 };
 
-export const getWalletWalletBalanceRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+export const getWalletLedgerListQueryOptions = <
+  TData = Awaited<ReturnType<typeof walletLedgerList>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof walletLedgerList>>, TError, TData>
+  >;
+}) => {
+  const { query: queryOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getWalletLedgerListQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof walletLedgerList>>
+  > = ({ signal }) => walletLedgerList(signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof walletLedgerList>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type WalletLedgerListQueryResult = NonNullable<
+  Awaited<ReturnType<typeof walletLedgerList>>
+>;
+export type WalletLedgerListQueryError = unknown;
+
+export function useWalletLedgerList<
+  TData = Awaited<ReturnType<typeof walletLedgerList>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletLedgerList>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletLedgerList>>,
+          TError,
+          Awaited<ReturnType<typeof walletLedgerList>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useWalletLedgerList<
+  TData = Awaited<ReturnType<typeof walletLedgerList>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletLedgerList>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletLedgerList>>,
+          TError,
+          Awaited<ReturnType<typeof walletLedgerList>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useWalletLedgerList<
+  TData = Awaited<ReturnType<typeof walletLedgerList>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletLedgerList>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useWalletLedgerList<
+  TData = Awaited<ReturnType<typeof walletLedgerList>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletLedgerList>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getWalletLedgerListQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Exports the currently viewable transactions to CSV.
+(If manager passes ?user=<id> it exports that user's rows.)
+Adds BOM for proper UTF-8 display in Excel and includes username.
+ */
+export const walletLedgerExportCsvRetrieve = (signal?: AbortSignal) => {
+  return customRequest<CoinLedger>({
+    url: `/api/wallet/ledger/export-csv/`,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getWalletLedgerExportCsvRetrieveQueryKey = () => {
+  return [`/api/wallet/ledger/export-csv/`] as const;
+};
+
+export const getWalletLedgerExportCsvRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
   TError = unknown,
 >(options?: {
   query?: Partial<
     UseQueryOptions<
-      Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+      Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
       TError,
       TData
     >
@@ -180,41 +378,41 @@ export const getWalletWalletBalanceRetrieveQueryOptions = <
   const { query: queryOptions } = options ?? {};
 
   const queryKey =
-    queryOptions?.queryKey ?? getWalletWalletBalanceRetrieveQueryKey();
+    queryOptions?.queryKey ?? getWalletLedgerExportCsvRetrieveQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>
-  > = ({ signal }) => walletWalletBalanceRetrieve(signal);
+    Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>
+  > = ({ signal }) => walletLedgerExportCsvRetrieve(signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+    Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type WalletWalletBalanceRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>
+export type WalletLedgerExportCsvRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>
 >;
-export type WalletWalletBalanceRetrieveQueryError = unknown;
+export type WalletLedgerExportCsvRetrieveQueryError = unknown;
 
-export function useWalletWalletBalanceRetrieve<
-  TData = Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+export function useWalletLedgerExportCsvRetrieve<
+  TData = Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
   TError = unknown,
 >(
   options: {
     query: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+        Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+          Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>
+          Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>
         >,
         "initialData"
       >;
@@ -223,23 +421,23 @@ export function useWalletWalletBalanceRetrieve<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useWalletWalletBalanceRetrieve<
-  TData = Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+export function useWalletLedgerExportCsvRetrieve<
+  TData = Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+        Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+          Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>
+          Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>
         >,
         "initialData"
       >;
@@ -248,14 +446,14 @@ export function useWalletWalletBalanceRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useWalletWalletBalanceRetrieve<
-  TData = Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+export function useWalletLedgerExportCsvRetrieve<
+  TData = Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+        Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
         TError,
         TData
       >
@@ -266,14 +464,14 @@ export function useWalletWalletBalanceRetrieve<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 
-export function useWalletWalletBalanceRetrieve<
-  TData = Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+export function useWalletLedgerExportCsvRetrieve<
+  TData = Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof walletWalletBalanceRetrieve>>,
+        Awaited<ReturnType<typeof walletLedgerExportCsvRetrieve>>,
         TError,
         TData
       >
@@ -283,7 +481,7 @@ export function useWalletWalletBalanceRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getWalletWalletBalanceRetrieveQueryOptions(options);
+  const queryOptions = getWalletLedgerExportCsvRetrieveQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,
@@ -294,3 +492,854 @@ export function useWalletWalletBalanceRetrieve<
 
   return query;
 }
+
+/**
+ * Top-up requests:
+- Player:
+    POST /api/wallet/topups/   -> create new top-up request (pending)
+    GET  /api/wallet/topups/   -> list own requests (pending/history)
+- Manager:
+    GET  /api/wallet/topups/   -> list all users' requests (filter ?user=&status=)
+    POST /api/wallet/topups/{id}/approve/
+    POST /api/wallet/topups/{id}/reject/
+ */
+export const walletTopupsList = (signal?: AbortSignal) => {
+  return customRequest<TopupRequestList[]>({
+    url: `/api/wallet/topups/`,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getWalletTopupsListQueryKey = () => {
+  return [`/api/wallet/topups/`] as const;
+};
+
+export const getWalletTopupsListQueryOptions = <
+  TData = Awaited<ReturnType<typeof walletTopupsList>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<Awaited<ReturnType<typeof walletTopupsList>>, TError, TData>
+  >;
+}) => {
+  const { query: queryOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getWalletTopupsListQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof walletTopupsList>>
+  > = ({ signal }) => walletTopupsList(signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof walletTopupsList>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type WalletTopupsListQueryResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsList>>
+>;
+export type WalletTopupsListQueryError = unknown;
+
+export function useWalletTopupsList<
+  TData = Awaited<ReturnType<typeof walletTopupsList>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsList>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletTopupsList>>,
+          TError,
+          Awaited<ReturnType<typeof walletTopupsList>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useWalletTopupsList<
+  TData = Awaited<ReturnType<typeof walletTopupsList>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsList>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletTopupsList>>,
+          TError,
+          Awaited<ReturnType<typeof walletTopupsList>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useWalletTopupsList<
+  TData = Awaited<ReturnType<typeof walletTopupsList>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsList>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useWalletTopupsList<
+  TData = Awaited<ReturnType<typeof walletTopupsList>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsList>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getWalletTopupsListQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Top-up requests:
+- Player:
+    POST /api/wallet/topups/   -> create new top-up request (pending)
+    GET  /api/wallet/topups/   -> list own requests (pending/history)
+- Manager:
+    GET  /api/wallet/topups/   -> list all users' requests (filter ?user=&status=)
+    POST /api/wallet/topups/{id}/approve/
+    POST /api/wallet/topups/{id}/reject/
+ */
+export const walletTopupsCreate = (
+  topupRequestCreate: NonReadonly<TopupRequestCreate>,
+  signal?: AbortSignal,
+) => {
+  const formData = new FormData();
+  formData.append(`amount_thb`, topupRequestCreate.amount_thb.toString());
+  if (
+    topupRequestCreate.transfer_date !== undefined &&
+    topupRequestCreate.transfer_date !== null
+  ) {
+    formData.append(`transfer_date`, topupRequestCreate.transfer_date);
+  }
+  if (
+    topupRequestCreate.transfer_time !== undefined &&
+    topupRequestCreate.transfer_time !== null
+  ) {
+    formData.append(`transfer_time`, topupRequestCreate.transfer_time);
+  }
+  formData.append(`slip_path`, topupRequestCreate.slip_path);
+
+  return customRequest<TopupRequestCreate>({
+    url: `/api/wallet/topups/`,
+    method: "POST",
+    headers: { "Content-Type": "multipart/form-data" },
+    data: formData,
+    signal,
+  });
+};
+
+export const getWalletTopupsCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof walletTopupsCreate>>,
+    TError,
+    { data: NonReadonly<TopupRequestCreate> },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof walletTopupsCreate>>,
+  TError,
+  { data: NonReadonly<TopupRequestCreate> },
+  TContext
+> => {
+  const mutationKey = ["walletTopupsCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof walletTopupsCreate>>,
+    { data: NonReadonly<TopupRequestCreate> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return walletTopupsCreate(data);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WalletTopupsCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsCreate>>
+>;
+export type WalletTopupsCreateMutationBody = NonReadonly<TopupRequestCreate>;
+export type WalletTopupsCreateMutationError = unknown;
+
+export const useWalletTopupsCreate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof walletTopupsCreate>>,
+      TError,
+      { data: NonReadonly<TopupRequestCreate> },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof walletTopupsCreate>>,
+  TError,
+  { data: NonReadonly<TopupRequestCreate> },
+  TContext
+> => {
+  const mutationOptions = getWalletTopupsCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Top-up requests:
+- Player:
+    POST /api/wallet/topups/   -> create new top-up request (pending)
+    GET  /api/wallet/topups/   -> list own requests (pending/history)
+- Manager:
+    GET  /api/wallet/topups/   -> list all users' requests (filter ?user=&status=)
+    POST /api/wallet/topups/{id}/approve/
+    POST /api/wallet/topups/{id}/reject/
+ */
+export const walletTopupsRetrieve = (id: string, signal?: AbortSignal) => {
+  return customRequest<TopupRequestList>({
+    url: `/api/wallet/topups/${id}/`,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getWalletTopupsRetrieveQueryKey = (id?: string) => {
+  return [`/api/wallet/topups/${id}/`] as const;
+};
+
+export const getWalletTopupsRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+) => {
+  const { query: queryOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getWalletTopupsRetrieveQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof walletTopupsRetrieve>>
+  > = ({ signal }) => walletTopupsRetrieve(id, signal);
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type WalletTopupsRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsRetrieve>>
+>;
+export type WalletTopupsRetrieveQueryError = unknown;
+
+export function useWalletTopupsRetrieve<
+  TData = Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+  TError = unknown,
+>(
+  id: string,
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof walletTopupsRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useWalletTopupsRetrieve<
+  TData = Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof walletTopupsRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useWalletTopupsRetrieve<
+  TData = Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useWalletTopupsRetrieve<
+  TData = Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+  TError = unknown,
+>(
+  id: string,
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof walletTopupsRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getWalletTopupsRetrieveQueryOptions(id, options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
+ * Top-up requests:
+- Player:
+    POST /api/wallet/topups/   -> create new top-up request (pending)
+    GET  /api/wallet/topups/   -> list own requests (pending/history)
+- Manager:
+    GET  /api/wallet/topups/   -> list all users' requests (filter ?user=&status=)
+    POST /api/wallet/topups/{id}/approve/
+    POST /api/wallet/topups/{id}/reject/
+ */
+export const walletTopupsUpdate = (
+  id: string,
+  topupRequestList: NonReadonly<TopupRequestList>,
+) => {
+  const formData = new FormData();
+
+  return customRequest<TopupRequestList>({
+    url: `/api/wallet/topups/${id}/`,
+    method: "PUT",
+    headers: { "Content-Type": "multipart/form-data" },
+    data: formData,
+  });
+};
+
+export const getWalletTopupsUpdateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof walletTopupsUpdate>>,
+    TError,
+    { id: string; data: NonReadonly<TopupRequestList> },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof walletTopupsUpdate>>,
+  TError,
+  { id: string; data: NonReadonly<TopupRequestList> },
+  TContext
+> => {
+  const mutationKey = ["walletTopupsUpdate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof walletTopupsUpdate>>,
+    { id: string; data: NonReadonly<TopupRequestList> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return walletTopupsUpdate(id, data);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WalletTopupsUpdateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsUpdate>>
+>;
+export type WalletTopupsUpdateMutationBody = NonReadonly<TopupRequestList>;
+export type WalletTopupsUpdateMutationError = unknown;
+
+export const useWalletTopupsUpdate = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof walletTopupsUpdate>>,
+      TError,
+      { id: string; data: NonReadonly<TopupRequestList> },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof walletTopupsUpdate>>,
+  TError,
+  { id: string; data: NonReadonly<TopupRequestList> },
+  TContext
+> => {
+  const mutationOptions = getWalletTopupsUpdateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Top-up requests:
+- Player:
+    POST /api/wallet/topups/   -> create new top-up request (pending)
+    GET  /api/wallet/topups/   -> list own requests (pending/history)
+- Manager:
+    GET  /api/wallet/topups/   -> list all users' requests (filter ?user=&status=)
+    POST /api/wallet/topups/{id}/approve/
+    POST /api/wallet/topups/{id}/reject/
+ */
+export const walletTopupsPartialUpdate = (
+  id: string,
+  patchedTopupRequestList: NonReadonly<PatchedTopupRequestList>,
+) => {
+  const formData = new FormData();
+
+  return customRequest<TopupRequestList>({
+    url: `/api/wallet/topups/${id}/`,
+    method: "PATCH",
+    headers: { "Content-Type": "multipart/form-data" },
+    data: formData,
+  });
+};
+
+export const getWalletTopupsPartialUpdateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof walletTopupsPartialUpdate>>,
+    TError,
+    { id: string; data: NonReadonly<PatchedTopupRequestList> },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof walletTopupsPartialUpdate>>,
+  TError,
+  { id: string; data: NonReadonly<PatchedTopupRequestList> },
+  TContext
+> => {
+  const mutationKey = ["walletTopupsPartialUpdate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof walletTopupsPartialUpdate>>,
+    { id: string; data: NonReadonly<PatchedTopupRequestList> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return walletTopupsPartialUpdate(id, data);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WalletTopupsPartialUpdateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsPartialUpdate>>
+>;
+export type WalletTopupsPartialUpdateMutationBody =
+  NonReadonly<PatchedTopupRequestList>;
+export type WalletTopupsPartialUpdateMutationError = unknown;
+
+export const useWalletTopupsPartialUpdate = <
+  TError = unknown,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof walletTopupsPartialUpdate>>,
+      TError,
+      { id: string; data: NonReadonly<PatchedTopupRequestList> },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof walletTopupsPartialUpdate>>,
+  TError,
+  { id: string; data: NonReadonly<PatchedTopupRequestList> },
+  TContext
+> => {
+  const mutationOptions = getWalletTopupsPartialUpdateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Top-up requests:
+- Player:
+    POST /api/wallet/topups/   -> create new top-up request (pending)
+    GET  /api/wallet/topups/   -> list own requests (pending/history)
+- Manager:
+    GET  /api/wallet/topups/   -> list all users' requests (filter ?user=&status=)
+    POST /api/wallet/topups/{id}/approve/
+    POST /api/wallet/topups/{id}/reject/
+ */
+export const walletTopupsDestroy = (id: string) => {
+  return customRequest<void>({
+    url: `/api/wallet/topups/${id}/`,
+    method: "DELETE",
+  });
+};
+
+export const getWalletTopupsDestroyMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof walletTopupsDestroy>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof walletTopupsDestroy>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["walletTopupsDestroy"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof walletTopupsDestroy>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return walletTopupsDestroy(id);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WalletTopupsDestroyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsDestroy>>
+>;
+
+export type WalletTopupsDestroyMutationError = unknown;
+
+export const useWalletTopupsDestroy = <TError = unknown, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof walletTopupsDestroy>>,
+      TError,
+      { id: string },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof walletTopupsDestroy>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationOptions = getWalletTopupsDestroyMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Manager approves the request:
+- Lock row (select_for_update) to avoid double approvals
+- Mark as 'approved'
+- Insert a positive CoinLedger 'topup' row with the coin amount
+- Return the updated TopupRequest plus ledger_id for UI refresh
+ */
+export const walletTopupsApproveCreate = (
+  id: string,
+  topupRequestList: NonReadonly<TopupRequestList>,
+  signal?: AbortSignal,
+) => {
+  const formData = new FormData();
+
+  return customRequest<TopupRequestList>({
+    url: `/api/wallet/topups/${id}/approve/`,
+    method: "POST",
+    headers: { "Content-Type": "multipart/form-data" },
+    data: formData,
+    signal,
+  });
+};
+
+export const getWalletTopupsApproveCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof walletTopupsApproveCreate>>,
+    TError,
+    { id: string; data: NonReadonly<TopupRequestList> },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof walletTopupsApproveCreate>>,
+  TError,
+  { id: string; data: NonReadonly<TopupRequestList> },
+  TContext
+> => {
+  const mutationKey = ["walletTopupsApproveCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof walletTopupsApproveCreate>>,
+    { id: string; data: NonReadonly<TopupRequestList> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return walletTopupsApproveCreate(id, data);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WalletTopupsApproveCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsApproveCreate>>
+>;
+export type WalletTopupsApproveCreateMutationBody =
+  NonReadonly<TopupRequestList>;
+export type WalletTopupsApproveCreateMutationError = unknown;
+
+export const useWalletTopupsApproveCreate = <
+  TError = unknown,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof walletTopupsApproveCreate>>,
+      TError,
+      { id: string; data: NonReadonly<TopupRequestList> },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof walletTopupsApproveCreate>>,
+  TError,
+  { id: string; data: NonReadonly<TopupRequestList> },
+  TContext
+> => {
+  const mutationOptions = getWalletTopupsApproveCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};
+/**
+ * Manager rejects the request:
+- Lock row (select_for_update)
+- Mark TopupRequest as 'rejected' (no ledger entry)
+- Return updated object for UI refresh
+ */
+export const walletTopupsRejectCreate = (
+  id: string,
+  topupRequestList: NonReadonly<TopupRequestList>,
+  signal?: AbortSignal,
+) => {
+  const formData = new FormData();
+
+  return customRequest<TopupRequestList>({
+    url: `/api/wallet/topups/${id}/reject/`,
+    method: "POST",
+    headers: { "Content-Type": "multipart/form-data" },
+    data: formData,
+    signal,
+  });
+};
+
+export const getWalletTopupsRejectCreateMutationOptions = <
+  TError = unknown,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof walletTopupsRejectCreate>>,
+    TError,
+    { id: string; data: NonReadonly<TopupRequestList> },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof walletTopupsRejectCreate>>,
+  TError,
+  { id: string; data: NonReadonly<TopupRequestList> },
+  TContext
+> => {
+  const mutationKey = ["walletTopupsRejectCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof walletTopupsRejectCreate>>,
+    { id: string; data: NonReadonly<TopupRequestList> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return walletTopupsRejectCreate(id, data);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WalletTopupsRejectCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof walletTopupsRejectCreate>>
+>;
+export type WalletTopupsRejectCreateMutationBody =
+  NonReadonly<TopupRequestList>;
+export type WalletTopupsRejectCreateMutationError = unknown;
+
+export const useWalletTopupsRejectCreate = <
+  TError = unknown,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof walletTopupsRejectCreate>>,
+      TError,
+      { id: string; data: NonReadonly<TopupRequestList> },
+      TContext
+    >;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof walletTopupsRejectCreate>>,
+  TError,
+  { id: string; data: NonReadonly<TopupRequestList> },
+  TContext
+> => {
+  const mutationOptions = getWalletTopupsRejectCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
+};

@@ -15,7 +15,7 @@ import { clientLogout } from "@/lib/auth/logout";
 
 // ✅ orval hooks
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
-import { useWalletMeRetrieve } from "@/api-client/endpoints/wallet/wallet";
+import { useWalletBalanceRetrieve } from "@/api-client/endpoints/wallet/wallet";
 
 const NAV_ITEMS = [
   { name: "Home", href: "/home" },
@@ -41,7 +41,7 @@ export default function PlayerNavBar() {
   const avatarUrl: string | null = meData?.avatarUrl ?? null;
 
   // balance
-  const { data: walletData, isLoading: balLoading } = useWalletMeRetrieve<any>();
+  const { data: walletData, isLoading: balLoading } = useWalletBalanceRetrieve<any>();
   const balance: number =
     typeof walletData?.balance === "number" ? walletData.balance : 0;
   const loading = meLoading || balLoading;
