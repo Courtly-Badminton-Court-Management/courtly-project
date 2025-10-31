@@ -1,16 +1,18 @@
-// src/ui/pages/visitor/RegisterPage.tsx
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { z } from "zod";
+import { useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, AlertCircle, X } from "lucide-react";
+
 import SplitPage from "@/ui/components/authpage/SplitPage";
 import AuthHero from "@/ui/components/authpage/AuthHero";
 import Field from "@/ui/components/basic/Field";
 import PrimaryButton from "@/ui/components/basic/PrimaryButton";
-import TermsModal from "../../components/authpage/TermsModal";
-import { z } from "zod";
-import { useRef, useState } from "react";
-import { useAuthRegisterCreate } from  "@/api-client/endpoints/auth/auth";
+import TermsModal from "@/ui/components/authpage/TermsModal";
+import { useAuthRegisterCreate } from "@/api-client/endpoints/auth/auth";
 
 const schema = z
   .object({
@@ -26,53 +28,42 @@ const schema = z
       .regex(/[0-9]/, "Must include a number")
       .regex(/[^A-Za-z0-9]/, "Must include a special character"),
     confirm: z.string().min(1, "Required"),
-    accept: z.boolean().refine((v) => v === true, { message: "Please accept terms" }),
+    accept: z.boolean().refine((v) => v === true, {
+      message: "Please accept terms",
+    }),
   })
-  .refine((d) => d.password === d.confirm, { message: "Passwords do not match", path: ["confirm"] });
-
-type RegisterPayload = {
-  username: string;
-  email: string;
-  firstname: string;
-  lastname: string;
-  password: string;
-  confirm: string;
-  accept: boolean;
-};
+  .refine((d) => d.password === d.confirm, {
+    message: "Passwords do not match",
+    path: ["confirm"],
+  });
 
 export default function RegisterPage() {
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiErrors, setApiErrors] = useState<string[]>([]);
   const [showTerms, setShowTerms] = useState(false);
   const acceptRef = useRef<HTMLInputElement>(null);
 
-  // ✅ Generated mutation
   const registerMutation = useAuthRegisterCreate({
     mutation: {
       onSuccess: (_, variables) => {
-        // cleanup any stale tokens just in case
-        // redirect with email prefilled
+        setApiErrors([]);
         router.replace(`/login?email=${encodeURIComponent(variables.data.email)}`);
       },
-      onError: (e: any) => {
-        const map: Record<string, string> = {};
-        if (typeof e?.status === "number") {
-          map.root = `HTTP ${e.status} ${e.statusText || ""}`.trim();
-        }
-        if (e && typeof e === "object") {
-          for (const [k, v] of Object.entries(e as Record<string, any>)) {
-            if (k === "status" || k === "statusText") continue;
-            if (k === "non_field_errors") {
-              map.root = Array.isArray(v) ? v.join(", ") : String(v);
-              continue;
-            }
-            if (Array.isArray(v)) map[k] = v.join(", ");
-            else if (typeof v === "string") map[k] = v;
+      onError: (err: any) => {
+        const data = err?.response?.data || {};
+        const list: string[] = [];
+
+        // 🧩 รวมข้อความทั้งหมดจาก backend
+        if (typeof data === "string") list.push(data);
+        else if (data && typeof data === "object") {
+          for (const v of Object.values(data)) {
+            if (Array.isArray(v)) list.push(...v.map(String));
+            else if (typeof v === "string") list.push(v);
           }
         }
-        if (!Object.keys(map).length && typeof e?.detail === "string") map.root = e.detail;
-        if (!Object.keys(map).length) map.root = "Registration failed";
-        setErrors(map);
+        if (!list.length) list.push("Registration failed. Please try again.");
+        setApiErrors(list);
       },
     },
   });
@@ -80,20 +71,15 @@ export default function RegisterPage() {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrors({});
+    setApiErrors([]);
 
     const fd = new FormData(e.currentTarget);
-    const payload: RegisterPayload = {
-      username: String(fd.get("username") ?? ""),
-      email: String(fd.get("email") ?? ""),
-      firstname: String(fd.get("firstname") ?? ""),
-      lastname: String(fd.get("lastname") ?? ""),
-      password: String(fd.get("password") ?? ""),
-      confirm: String(fd.get("confirm") ?? ""),
-      accept: String(fd.get("accept") ?? "") === "on",
-    };
+    const payload = Object.fromEntries(fd.entries()) as Record<string, any>;
+    const parsed = schema.safeParse({
+      ...payload,
+      accept: payload.accept === "on",
+    });
 
-    // client-side validation
-    const parsed = schema.safeParse(payload);
     if (!parsed.success) {
       const map: Record<string, string> = {};
       for (const issue of parsed.error.issues) {
@@ -104,79 +90,133 @@ export default function RegisterPage() {
       return;
     }
 
-    // ✅ Call generated mutation
     registerMutation.mutate({
       data: {
         username: payload.username,
         email: payload.email,
-        password: payload.password,
-        confirm: payload.confirm,
         firstname: payload.firstname,
         lastname: payload.lastname,
-        accept: payload.accept,
+        password: payload.password,
+        confirm: payload.confirm,
+        accept: payload.accept === "on",
       },
     });
   };
 
-  const Right = (
-    <>
-      <h2 className="text-4xl md:text-4xl font-extrabold mb-5">
-        <span className="text-pine">Game on!</span>{" "}
-        <span className="text-walnut">Create an Account.</span>
-      </h2>
+  return (
+    <div className="relative">
+      <SplitPage
+        heroPosition="right"
+        heroSide={<AuthHero side="left" />}
+        formSide={
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h2 className="text-4xl font-extrabold mb-6">
+              <span className="text-pine">Game on!</span>{" "}
+              <span className="text-walnut">Create an Account!</span>
+            </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        {errors.root && <div className="rounded-md border p-3 text-sm text-red-600">{errors.root}</div>}
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Field label="Username" name="username" placeholder="e.g. smashtiger88" error={errors.username} />
+              <Field type="email" label="Email" name="email" placeholder="e.g. player@email.com" error={errors.email} />
 
-        <Field label="Username" name="username" placeholder="e.g. smashtiger88" error={errors.username} />
-        <Field type="email" label="Email" name="email" placeholder="e.g. player@email.com" error={errors.email} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Firstname" name="firstname" placeholder="e.g. Tanawat" error={errors.firstname} />
+                <Field label="Lastname" name="lastname" placeholder="e.g. Srisawat" error={errors.lastname} />
+              </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Firstname" name="firstname" placeholder="e.g. Tanawat" error={errors.firstname} />
-          <Field label="Lastname" name="lastname" placeholder="e.g. Srisawat" error={errors.lastname} />
-        </div>
+              <Field type="password" label="Password" name="password" placeholder="Must include symbols" error={errors.password} />
+              <Field type="password" label="Confirm password" name="confirm" placeholder="Re-enter your password" error={errors.confirm} />
 
-        <Field type="password" label="Password" name="password" placeholder="Must be 8+ characters, include symbols" error={errors.password} />
-        <Field type="password" label="Confirm password" name="confirm" placeholder="Re-enter your password" error={errors.confirm} />
+              <label className="mt-5 flex items-center gap-2 text-sm text-onyx">
+                <input
+                  ref={acceptRef}
+                  type="checkbox"
+                  name="accept"
+                  className="h-4 w-4 rounded border-platinum text-white focus:ring-sea accent-pine"
+                />
+                <span>
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    onClick={() => setShowTerms(true)}
+                    className="font-semibold text-sea underline underline-offset-2"
+                  >
+                    Terms & Conditions
+                  </button>
+                </span>
+              </label>
+              {errors.accept && <span className="text-xs text-red-600">{errors.accept}</span>}
 
-        <label className="mt-8 flex items-center gap-2 text-sm text-onyx">
-          <input ref={acceptRef} type="checkbox" name="accept" className="h-4 w-4 rounded border-platinum text-sea focus:ring-sea" />
-          <span>
-            I agree to the{" "}
-            <button
-              type="button"
-              onClick={() => setShowTerms(true)}
-              className="font-semibold text-sea underline underline-offset-2"
-            >
-              Terms &amp; Conditions
-            </button>
-          </span>
-        </label>
-        {errors.accept && <span className="text-xs text-red-600">{errors.accept}</span>}
+              <div className="mt-6">
+                <PrimaryButton
+                  type="submit"
+                  disabled={registerMutation.isPending}
+                  className="flex w-full items-center justify-center gap-2 text-white transition-all duration-300 hover:scale-[1.02]"
 
-        <div className="mt-8">
-          <PrimaryButton type="submit" disabled={registerMutation.isPending} className="text-white">
-            {registerMutation.isPending ? "Please wait…" : "Sign up Now!"}
-          </PrimaryButton>
-        </div>
+                >
+                  {registerMutation.isPending ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" /> Creating account…
+                    </>
+                  ) : (
+                    "Sign up Now!"
+                  )}
+                </PrimaryButton>
+              </div>
 
-        <p className="pt-2 text-center text-sm text-walnut">
-          Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-sea underline">
-            Sign In
-          </Link>
-        </p>
-      </form>
+              <p className="pt-2 text-center text-sm text-walnut">
+                Already have an account?{" "}
+                <Link href="/login" className="font-semibold text-sea underline">
+                  Sign In
+                </Link>
+              </p>
+            </form>
 
-      <TermsModal
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-        onAccept={() => {
-          if (acceptRef.current) acceptRef.current.checked = true;
-        }}
+            <TermsModal
+              open={showTerms}
+              onClose={() => setShowTerms(false)}
+              onAccept={() => {
+                if (acceptRef.current) acceptRef.current.checked = true;
+              }}
+            />
+          </motion.div>
+        }
       />
-    </>
-  );
 
-  return <SplitPage heroPosition="right" heroSide={<AuthHero side="left" />} formSide={Right} />;
+      {/* ================= Error Modal ================= */}
+      <AnimatePresence>
+        {apiErrors.length > 0 && (
+          <motion.div
+            key="register-error"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-6 left-1/2 z-[999] w-[min(90%,400px)] -translate-x-1/2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg backdrop-blur-md"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1">
+                {apiErrors.map((msg, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <AlertCircle size={16} className="mt-[2px]" /> {msg}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setApiErrors([])}
+                className="ml-2 rounded-full p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }

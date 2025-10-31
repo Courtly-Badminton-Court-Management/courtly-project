@@ -19,6 +19,7 @@ import { setTokens, schedulePreemptiveRefresh } from "@/lib/auth/tokenStore";
 import { setSessionCookie } from "@/lib/auth/session";
 import { refreshAccessToken } from "@/lib/auth/refresh";
 import { extractRoleFromAccess, type Role } from "@/lib/auth/role";
+import { X } from "lucide-react";
 
 /* =========================================================
    Types & Schema
@@ -50,6 +51,8 @@ function LoginContent() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+
 
   const loginMutation = useAuthLoginCreate({
     mutation: {
@@ -141,7 +144,7 @@ function LoginContent() {
         className="mb-5 text-4xl font-extrabold leading-tight md:text-4xl"
       >
         <span className="text-pine">Welcome back,</span>{" "}
-        <span className="text-walnut">Player! 🏸</span>
+        <span className="text-walnut">Player!</span>
       </motion.h2>
 
 
@@ -191,9 +194,13 @@ function LoginContent() {
             />
             Remember me
           </label>
-          <Link href="/forgot-password" className="underline hover:text-sea">
+          <button
+            type="button"
+            onClick={() => setShowForgotModal(true)}
+            className="underline hover:text-sea"
+          >
             Forgot password?
-          </Link>
+          </button>
         </div>
 
         <PrimaryButton
@@ -238,9 +245,12 @@ function LoginContent() {
         </div>
       </form>
     </>
+
+
   );
 
   return (
+    <div>
     <SplitPage
       heroPosition="left"
       formSide={
@@ -254,7 +264,56 @@ function LoginContent() {
       }
       heroSide={<AuthHero side="right" />}
     />
-  );
+
+    {/* ================= Forgot Password Modal ================= */}
+    
+    <AnimatePresence>
+      {showForgotModal && (
+        <motion.div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="relative w-[min(90%,400px)] rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/10"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ type: "spring", duration: 0.35 }}
+          >
+            {/* close icon */}
+            <button
+              onClick={() => setShowForgotModal(false)}
+              className="absolute right-3 top-3 rounded-full p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <h2 className="text-lg text-center font-bold text-pine mb-2">
+              Forgot password?
+            </h2>
+            <p className="text-center text-onyx font-medium mb-5">
+              please contact our developer via this email, <CopyToClipboard text="courtly.project@gmail.com" />
+            </p>
+
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="rounded-xl bg-pine w-full py-2.5 text-sm font-semibold text-white hover:bg-pine/90 transition"
+              >
+                OK
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    </div>
+    
+    );
 }
 
 /* =========================================================
