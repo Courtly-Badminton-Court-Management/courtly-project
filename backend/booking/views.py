@@ -125,6 +125,119 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
         return Response(payload)
 
+    @action(detail=False, url_path="available-view", methods=["GET"])
+    def available_view(self, request):
+        """
+        Simplified calendar vie-endpoint.
+
+        Example:
+            GET /api/slots/available-view?club=1&month=YYYY-MM
+            Optional: &date=YYYY-MM-DD  →  filter a specific day
+
+        Returns:
+            - date: string (YYYY-MM-DD)
+            - percent: integer (percentage of available slots for that day)
+            - slots[]: list of available slots with details
+        """
+        raw_club = request.query_params.get("club")
+        month_str = request.query_params.get("month")
+        date_str = request.query_params.get("date")  # add for optional for query to see each day
+
+        # ────────────────────────────── Validate club and month ──────────────────────────────
+        try:
+            club_id = int(raw_club)
+        except (TypeError, ValueError):
+            return Response({"detail": "club must be an integer id"}, status=400)
+
+        if not month_str or len(month_str) != 7 or "-" not in month_str:
+            return Response({"detail": "month is required as YYYY-MM"}, status=400)
+
+        try:
+            y, m = map(int, month_str.split("-"))
+        except ValueError:
+            return Response({"detail": "invalid month format, use YYYY-MM"}, status=400)
+
+        first_day = date(y, m, 1)
+        last_day = date(y, m, calendar.monthrange(y, m)[1])
+        today = timezone.localdate()
+
+        # ────────────────────────────── Build base filters ──────────────────────────────
+        filters = dict(
+            court__club_id=club_id,
+            service_date__gte=max(first_day, today),
+            service_date__lte=last_day,
+        )
+
+        # Optional filter by a specific date
+        if date_str:
+            try:
+                specific_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                filters["service_date"] = specific_date
+            except ValueError:
+                return Response({"detail": "date must be in format YYYY-MM-DD"}, status=400)
+
+        # ────────────────────────────── Query slots ──────────────────────────────
+        qs = (
+            Slot.objects
+            .select_related("court", "court__club", "slot_status")
+            .filter(**filters)
+        )
+
+        # ────────────────────────────── Group slots by day ──────────────────────────────
+        by_day = {}
+        tz = timezone.get_current_timezone()
+
+        for s in qs:
+            d = s.service_date
+            status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+
+            # Initialize the day's record if not present
+            if d not in by_day:
+                by_day[d] = {"total": 0, "available": 0, "slots": []}
+
+            by_day[d]["total"] += 1
+
+            # Only count and include available slots
+            if status_val == "available":
+                by_day[d]["available"] += 1
+                by_day[d]["slots"].append({
+                    "slot_id": s.id,
+                    "court": s.court_id,
+                    "court_name": s.court.name,
+                    "start_time": timezone.localtime(s.start_at, tz).strftime("%H:%M"),
+                    "end_time": timezone.localtime(s.end_at, tz).strftime("%H:%M"),
+                    "price_coin": s.price_coins,
+                    "status": status_val,
+                })
+
+        # ────────────────────────────── Build full-day list ──────────────────────────────
+        days_payload = []
+
+        # Iterate through every day in the month (so empty days are also returned)
+        day_cursor = max(first_day, today)
+        while day_cursor <= last_day:
+            info = by_day.get(day_cursor, {"total": 0, "available": 0, "slots": []})
+            total = info["total"]
+            available = info["available"]
+            percent = round((available / total) * 100) if total > 0 else 0
+
+            days_payload.append({
+                "date": day_cursor.strftime("%Y-%m-%d"),
+                "percent": percent,
+                "slots": info["slots"],  # only available slots
+            })
+            day_cursor += timezone.timedelta(days=1)
+
+        # ────────────────────────────── Apply date filter (if provided) ──────────────────────────────
+        if date_str:
+            days_payload = [d for d in days_payload if d["date"] == date_str]
+
+        # ────────────────────────────── Return Response ──────────────────────────────
+        return Response({
+            "month": f"{y}-{str(m).zfill(2)}",
+            "days": days_payload
+        })
+
 
 # ────────────────────────────── Booking CRUD ──────────────────────────────
 class BookingViewSet(viewsets.ModelViewSet):
