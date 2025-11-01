@@ -1,113 +1,177 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
+import dayjs from "dayjs";
+import weekday from "dayjs/plugin/weekday";
+import isoWeek from "dayjs/plugin/isoWeek";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { mockAvailableSlotsNov25 } from "@/lib/slot/mockAvailableSlotsNov25";
 
-/** What the month view needs for each day */
-export type CalendarDay = {
-  day: number;          // 1..31
-  percent?: number;     // 0..100 (omit if no data)
-  dayOff?: boolean;     // true = "Day off" band
+dayjs.extend(weekday);
+dayjs.extend(isoWeek);
+dayjs.extend(customParseFormat);
+
+type CalendarModalProps = {
+  onSelectDate?: (date: string) => void;
 };
 
-type Props = {
-  title: string;
-  days: CalendarDay[];
-  weekLabels?: string[];
-  onPrevMonth?: () => void;  
-  onNextMonth?: () => void;  
+const getColorByPercent = (p: number) => {
+  if (p === 0) return "bg-dimgray";
+  if (p <= 0.3) return "bg-cherry";
+  if (p <= 0.6) return "bg-lion";
+  return "bg-cambridge";
 };
 
-export default function CalendarModal({
-  title,
-  days,
-  weekLabels = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
-  onPrevMonth,
-  onNextMonth,
-}: Props) {
+export default function CalendarModal({ onSelectDate }: CalendarModalProps) {
+  const data = mockAvailableSlotsNov25;
+  const [month, setMonth] = useState(dayjs().startOf("month"));
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const handleSelect = (date: string) => {
+    setSelected(date);
+    onSelectDate?.(date);
+  };
+
+  const goToPrevMonth = () => setMonth(month.subtract(1, "month"));
+  const goToNextMonth = () => setMonth(month.add(1, "month"));
+
+  const firstDay = month.startOf("month");
+  const startOffset = (firstDay.isoWeekday() + 6) % 7;
+  const daysInMonth = month.daysInMonth();
+
+  // ✅ ใช้ strict mode ให้ parse ถูกต้อง
+  const dayMap = new Map(
+    data.days.map((d) => [
+      dayjs(d.date, "DD-MM-YY", true).format("YYYY-MM-DD"),
+      d,
+    ])
+  );
+
+  const cells = useMemo(() => {
+    return Array.from({ length: startOffset + daysInMonth }, (_, i) => {
+      if (i < startOffset) return null;
+      const date = firstDay.add(i - startOffset, "day");
+      const formatted = date.format("YYYY-MM-DD");
+      const backend = dayMap.get(formatted);
+      return {
+        date,
+        available_percent: backend?.available_percent ?? 0,
+      };
+    });
+  }, [month]);
+
   return (
-    <div className="md:col-span-2 rounded-2xl border bg-white p-4 gap-3 shadow-sm flex flex-col h-full">
-      {/* Header with chevrons */}
-      <div className="mb-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Previous month"
-            onClick={onPrevMonth}
-            className="h-8 w-8 grid place-items-center rounded-full border border-slate-300 hover:bg-slate-50"
-          >
-            ‹
-          </button>
-        <h2 className="text-lg font-semibold">{title}</h2>
-          <button
-            type="button"
-            aria-label="Next month"
-            onClick={onNextMonth}
-            className="h-8 w-8 grid place-items-center rounded-full border border-slate-300 hover:bg-slate-50"
-          >
-            ›
-          </button>
+    <div className="flex h-full flex-col rounded-2xl border border-[#1C4532]/30 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="mb-5 border-b-4 border-pine/80 pb-2 flex items-center justify-between">
+        
+        {/* Left: Title */}
+        <div className="flex">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-pine/10 p-2 text-pine">
+              <CalendarDays size={18} strokeWidth={2.2} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-pine">Courtly Calendar</h2>
+              <p className="text-sm font-medium text-neutral-500">
+                {month.format("MMMM YYYY")} · Overview
+              </p>
+            </div>
+          </div>
+
+          {/*Month navigation */}
+          <div className="ml-5 flex items-center gap-2">
+            <button
+              onClick={goToPrevMonth}
+              className="flex items-center justify-center rounded-full text-pine p-1 hover:bg-pine/20 hover:scale-105 transition-all duration-200"
+              aria-label="Previous month"
+            >
+              <ChevronLeft size={18} strokeWidth={2.2} />
+            </button>
+            <button
+              onClick={goToNextMonth}
+              className="flex items-center justify-center rounded-full text-pine p-1 hover:bg-pine/20 hover:scale-105 transition-all duration-200"
+              aria-label="Next month"
+            >
+              <ChevronRight size={18} strokeWidth={2.2} />
+            </button>
+          </div>
+        </div>
+
+        {/* Right:  Legend */}
+        <div className="hidden md:flex items-center gap-4 text-sm font-medium text-neutral-500">
+          <div className="flex items-center gap-1">
+            <span className="w-3 h-3 bg-cambridge rounded-full" /> Available
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-3 h-3 bg-walkin rounded-full" /> Medium
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-3 h-3 bg-cherry rounded-full" /> Almost Full
+          </div>
+        </div>
+
+      </div>
+
+
+      {/* Calendar grid */}
+      <div className="rounded-xl bg-neutral-50/70 p-4 shadow-inner">
+        <div className="grid grid-cols-7 text-center text-sm font-medium text-neutral-500 mb-2">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+            <div key={d} className="font-semibold">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-2 text-center">
+          {cells.map((cell, idx) =>
+            !cell ? (
+              <div key={`empty-${idx}`} />
+            ) : (
+  <button
+  key={cell.date.format("YYYY-MM-DD")}
+  onClick={() => handleSelect(cell.date.format("YYYY-MM-DD"))}
+  className={`relative flex flex-col items-center justify-center rounded-lg border border-platinum bg-white transition-all overflow-hidden h-[70px] w-full
+    ${
+      selected === cell.date.format("YYYY-MM-DD")
+        ? "ring-2 ring-cambridge shadow-sm"
+        : "hover:bg-cambridge/10 hover:ring-1 ring-cambridge"
+    }`}
+>
+  {/* วันที่ */}
+  <span className="font-semibold text-neutral-700 z-10 mb-5">
+    {cell.date.date()}
+  </span>
+
+  {/* % bar */}
+  <div className="absolute bottom-0 left-0 w-full h-[16px] bg-neutral-200 overflow-hidden flex  justify-left">
+    {/* แถบสี (เริ่มจากซ้าย) */}
+    <div
+      className={`${getColorByPercent(
+        cell.available_percent
+      )} h-full transition-all duration-300`}
+      style={{
+        width: `${Math.round(cell.available_percent * 100)}%`,
+      }}
+    ></div>
+
+    {/* ตัวเลขเปอร์เซ็นต์ (อยู่กลาง bar เสมอ) */}
+    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
+      {Math.round(cell.available_percent * 100)}%
+    </span>
+  </div>                          
+
+
+</button>
+
+
+            )
+          )}
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-7 gap-2">
-        {weekLabels.map((d) => (
-          <div key={d} className="pb-1 text-center text-xs font-semibold text-neutral-500">
-            {d}
-          </div>
-        ))}
-
-        {days.map((d) => (
-          <div
-            key={d.day}
-            className="
-              relative rounded-lg border bg-white hover:border-emerald-300
-              overflow-hidden
-              min-h-[90px]
-            "
-          >
-            {/* Day number (top-left) */}
-            <div className="px-3 pt-2 pb-9 text-left">
-              <div className="text-m font-medium">{d.day}</div>
-            </div>
-
-            {/* Full-width band at bottom */}
-            <DayBand percent={d.percent} dayOff={d.dayOff} />
-          </div>
-        ))}
-      </div>
     </div>
   );
-}
-
-/** The full-width band at bottom of each day cell */
-function DayBand({ percent, dayOff }: { percent?: number; dayOff?: boolean }) {
-  if (dayOff) {
-    return (
-      <div className="absolute inset-x-0 bottom-0 h-7 flex items-center justify-center bg-neutral-200 text-neutral-700 text-[11px] sm:text-xs font-semibold rounded-b-lg">
-        Day off
-      </div>
-    );
-  }
-
-  if (typeof percent !== "number") {
-    return <div className="absolute inset-x-0 bottom-0 h-7" />;
-  }
-
-  const { bandClass, label } = bandForPercent(percent);
-  return (
-    <div className={`absolute inset-x-0 bottom-0 h-7 flex items-center justify-center rounded-b-lg ${bandClass}`}>
-      <span className="px-2 text-white text-[11px] sm:text-xs font-semibold leading-none">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-/** Map percent → color + label */
-function bandForPercent(pct: number): { bandClass: string; label: string } {
-  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
-  if (clamped >= 100) return { bandClass: "bg-copper-rust", label: "Full" };
-  if (clamped >= 50)  return { bandClass: "bg-lion",        label: `${clamped}%` };
-  return { bandClass: "bg-pine", label: `${clamped}%` };
 }

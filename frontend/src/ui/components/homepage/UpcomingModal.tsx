@@ -8,7 +8,7 @@ import {
   Clock3,
   Coins,
   MapPin,
-  CalendarDays,
+  CalendarCheck,
   Loader2,
 } from "lucide-react";
 import dayjs from "dayjs";
@@ -163,7 +163,7 @@ export default function UpcomingModal({
       <aside className="rounded-2xl border border-platinum bg-white p-6 shadow-sm transition hover:shadow-md text-center">
         <div className="flex flex-col items-center gap-3 animate-[fadeUp_0.4s_ease]">
           <div className="rounded-full bg-pine/10 p-2 text-pine">
-          <CalendarDays className="h-6 w-6 text-pine" />
+            <CalendarCheck size={18} strokeWidth={2.2} />
           </div>
           <h3 className="text-lg font-semibold text-pine">No Upcoming Games 🏸</h3>
           <p className="text-sm text-gray-500">
@@ -184,12 +184,23 @@ export default function UpcomingModal({
   /* ======================== Main Content ======================== */
   return (
     <aside className="rounded-2xl border border-platinum bg-white p-6 shadow-sm transition hover:shadow-md">
-      <div className="flex items-center gap-2 mb-5">
-        <div className="rounded-full bg-pine/10 p-2 text-pine">
-          <CalendarDays className="h-6 w-6 text-pine" />
+
+      {/* Header */}
+      <div className="mb-5 border-b-4 border-pine/80 pb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-pine/10 p-2 text-pine">
+            <CalendarCheck size={18} strokeWidth={2.2} />
           </div>
-        <h3 className="text-lg font-bold text-pine">Upcoming Booking</h3>
-      </div>
+          <div>
+            <h2 className="text-xl font-bold text-pine">
+              Upcoming Booking
+            </h2>
+            <p className="text-sm font-medium text-neutral-500">
+              Free cancellation up to 24 hrs before playtime.
+            </p>
+          </div></div></div>
+        
+
 
       <ul className="space-y-5 animate-[fadeUp_0.4s_ease]">
         {bookings.map((bk, i) => {
