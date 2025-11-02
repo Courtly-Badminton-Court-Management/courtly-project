@@ -1,13 +1,14 @@
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev netcat-openbsd \
- && rm -rf /var/lib/apt/lists/*
+    build-essential libpq-dev netcat-openbsd ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && update-ca-certificates
 
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --no-cache-dir -r requirements.txt
 
 COPY . /app
 
