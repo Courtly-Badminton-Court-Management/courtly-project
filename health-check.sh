@@ -1,9 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Courtly Project Health Check Script
 # This script verifies that all components of the Courtly system are working properly
 
 set -e
+
+# Service ports
+BACKEND_PORT=8001
+FRONTEND_PORT=3001
+PGADMIN_PORT=5050
 
 echo "======================================"
 echo "  Courtly Project Health Check"
@@ -20,11 +25,11 @@ NC='\033[0m' # No Color
 check_service() {
     local service_name=$1
     local port=$2
+    local endpoint=${3:-""}
     
     echo -n "Checking $service_name... "
     
-    if curl -f -s "http://localhost:$port" > /dev/null 2>&1 || \
-       curl -f -s "http://localhost:$port/api/" > /dev/null 2>&1; then
+    if curl -f -s --max-time 5 "http://localhost:$port$endpoint" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ RUNNING${NC}"
         return 0
     else
@@ -56,9 +61,9 @@ echo ""
 
 echo "2. Checking service accessibility:"
 echo "-----------------------------------"
-check_service "Backend API" "8001"
-check_service "Frontend" "3001"
-check_service "pgAdmin" "5050"
+check_service "Backend API" "$BACKEND_PORT" "/api/"
+check_service "Frontend" "$FRONTEND_PORT"
+check_service "pgAdmin" "$PGADMIN_PORT"
 echo ""
 
 echo "3. Checking database connection:"
@@ -74,10 +79,10 @@ echo ""
 echo "4. Checking API endpoints:"
 echo "---------------------------"
 echo -n "Testing /api/ endpoint... "
-if curl -f -s http://localhost:8001/api/ > /dev/null 2>&1; then
+if curl -f -s --max-time 5 "http://localhost:$BACKEND_PORT/api/" > /dev/null 2>&1; then
     echo -e "${GREEN}✓ RESPONDING${NC}"
     echo "Available endpoints:"
-    curl -s http://localhost:8001/api/ | python3 -m json.tool 2>/dev/null || echo "  (Could not parse JSON)"
+    curl -s "http://localhost:$BACKEND_PORT/api/" | python3 -m json.tool 2>/dev/null || echo "  (Could not parse JSON)"
 else
     echo -e "${RED}✗ NOT RESPONDING${NC}"
 fi
@@ -85,9 +90,9 @@ echo ""
 
 echo "5. System Summary:"
 echo "-------------------"
-echo "Backend (Django):  http://localhost:8001"
-echo "Frontend (Next.js): http://localhost:3001"
-echo "pgAdmin:           http://localhost:5050"
+echo "Backend (Django):  http://localhost:$BACKEND_PORT"
+echo "Frontend (Next.js): http://localhost:$FRONTEND_PORT"
+echo "pgAdmin:           http://localhost:$PGADMIN_PORT"
 echo "Database:          localhost:5432"
 echo ""
 
