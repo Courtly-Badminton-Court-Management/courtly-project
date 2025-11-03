@@ -6,11 +6,12 @@ import dynamic from "next/dynamic";
 import dayjs from "dayjs";
 
 import ImageSlider from "@/ui/components/homepage/ImageSlider";
-import UpcomingModal, { type BookingRow } from "@/ui/components/homepage/UpcomingModal";
+import UpcomingModal from "@/ui/components/homepage/UpcomingModal";
 import CalendarModal from "@/ui/components/homepage/CalendarModal";
 import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
+import { BookingRow} from "@/ui/components/bookingpage/BookingCard";
 
 const AvailableSlotPanel = dynamic(
   () => import("@/ui/components/homepage/AvailableSlotPanel"),

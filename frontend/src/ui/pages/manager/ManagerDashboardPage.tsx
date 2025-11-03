@@ -1,64 +1,68 @@
 "use client";
 
-import { useState } from "react";
-import AuthCalendarModal, { type CalendarDay } 
-  from "@/ui/components/authpage/AuthCalendarModal";
-
-/** Build month data: % bands + day off examples */
-function buildMonthDays(year: number, month0: number): CalendarDay[] {
-  const daysInMonth = new Date(year, month0 + 1, 0).getDate();
-  const pattern = [20, 35, 45, 62, 77, 88, 15];
-
-  const days: CalendarDay[] = [];
-  for (let d = 1; d <= daysInMonth; d++) {
-    if (d === 1 || d === 2) { days.push({ day: d, dayOff: true }); continue; } // sample days off
-    if (d === 21 || d === 28) { days.push({ day: d, percent: 100 }); continue; } // sample "Full"
-    days.push({ day: d, percent: pattern[(d - 1) % pattern.length] });
-  }
-  return days;
-}
+import { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
+import CalendarModal from "@/ui/components/homepage/CalendarModal";
+import DailyBookingPanel from "@/ui/components/dashboardpage/DailyBookingsPanel";
+import { useBookingsRetrieve } from "@/api-client/endpoints/bookings/bookings";
+import { groupBookingDate } from "@/lib/booking/groupBookingDate";
 
 export default function ManagerDashboardPage() {
-  // Start manager view at current month
-  const now = new Date();
-  const [ym, setYm] = useState({ year: now.getFullYear(), month0: now.getMonth() });
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const title = new Date(ym.year, ym.month0, 1).toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
+  // ✅ ดึง bookings ทั้งเดือนเดียวพอ
+  const currentMonth = dayjs().format("YYYY-MM");
+  const { data, isLoading, isError } = useBookingsRetrieve({
+    query: {
+      queryKey: ["bookings-month", currentMonth],
+      queryFn: async ({ signal }) => {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/bookings/?month=${currentMonth}`,
+          { signal, credentials: "include" }
+        );
+        if (!res.ok) throw new Error("Failed to fetch bookings for month");
+        return res.json();
+      },
+    },
   });
 
-  const monthDays = buildMonthDays(ym.year, ym.month0);
+  const allBookings = useMemo(() => {
+    const raw = data as any;
+    const arr = raw?.data ?? raw?.results ?? raw;
+    return Array.isArray(arr) ? arr : [];
+  }, [data]);
 
-  const prevMonth = () =>
-    setYm(({ year, month0 }) =>
-      month0 === 0 ? { year: year - 1, month0: 11 } : { year, month0: month0 - 1 }
-    );
+  const groupedBookings = useMemo(
+    () => groupBookingDate(allBookings),
+    [allBookings]
+  );
 
-  const nextMonth = () =>
-    setYm(({ year, month0 }) =>
-      month0 === 11 ? { year: year + 1, month0: 0 } : { year, month0: month0 + 1 }
-    );
-
-  const onDayClick = (day: number) => {
-    console.log("Manager clicked day:", `${ym.year}-${ym.month0 + 1}-${day}`);
-    // Navigate or open a drawer/modal with day details here.
-  };
+  useEffect(() => {
+    setSelectedDate(dayjs().format("YYYY-MM-DD"));
+  }, []);
 
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-8">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Manager Dashboard</h1>
+    <main className="mx-auto my-auto w-full max-w-7xl p-6">
+      <header className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-pine">Manager Dashboard</h1>
+        <p className="text-neutral-600">
+          View and manage bookings per day.
+        </p>
       </header>
 
-      <section className="rounded-2xl border bg-white p-4 shadow-sm">
-        <AuthCalendarModal
-          title={title}
-          days={monthDays}
-          onPrevMonth={prevMonth}
-          onNextMonth={nextMonth}
-          onDayClick={onDayClick}
-        />
+      <section className="grid items-stretch mb-8 gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <CalendarModal onSelectDate={(d) => setSelectedDate(d)} />
+        </div>
+
+        {selectedDate && (
+          <DailyBookingPanel
+            selectedDate={selectedDate}
+            groupedBookings={groupedBookings}
+            isLoading={isLoading}
+            isError={isError}
+          />
+        )}
       </section>
     </main>
   );
