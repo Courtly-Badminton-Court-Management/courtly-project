@@ -5,30 +5,46 @@ import dayjs from "dayjs";
 import weekday from "dayjs/plugin/weekday";
 import isoWeek from "dayjs/plugin/isoWeek";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { mockAvailableSlotsNov25 } from "@/lib/slot/mockAvailableSlotsNov25";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { useAvailableView } from "@/api-client/extras/slots";
 
 dayjs.extend(weekday);
 dayjs.extend(isoWeek);
 dayjs.extend(customParseFormat);
 
+/* =========================================================================
+   Props
+   ========================================================================= */
 type CalendarModalProps = {
   onSelectDate?: (date: string) => void;
+  clubId?: number;
 };
 
+/* =========================================================================
+   Helpers
+   ========================================================================= */
 const getColorByPercent = (p: number) => {
   if (p === 0) return "bg-dimgray";
-  if (p <= 0.3) return "bg-cherry";
-  if (p <= 0.6) return "bg-lion";
+  if (p <= 30) return "bg-cherry";
+  if (p <= 60) return "bg-lion";
   return "bg-cambridge";
 };
 
-export default function CalendarModal({ onSelectDate }: CalendarModalProps) {
-  const data = mockAvailableSlotsNov25;
-
-  // ✅ ใช้ month format ใหม่ YYYY-MM
+/* =========================================================================
+   Component
+   ========================================================================= */
+export default function CalendarModal({
+  onSelectDate,
+  clubId = 1,
+}: CalendarModalProps) {
   const [month, setMonth] = useState(dayjs().startOf("month"));
   const [selected, setSelected] = useState<string | null>(null);
+
+  /* ✅ ใช้ endpoint จริง /api/slots/available-view?club=1&month=YYYY-MM */
+  const { data, isLoading, isError } = useAvailableView(
+    month.format("YYYY-MM"),
+    clubId
+  );
 
   const handleSelect = (date: string) => {
     setSelected(date);
@@ -38,14 +54,18 @@ export default function CalendarModal({ onSelectDate }: CalendarModalProps) {
   const goToPrevMonth = () => setMonth(month.subtract(1, "month"));
   const goToNextMonth = () => setMonth(month.add(1, "month"));
 
+  /* =========================================================================
+     Build calendar grid
+     ========================================================================= */
   const firstDay = month.startOf("month");
-  const startOffset = (firstDay.isoWeekday() + 6) % 7;
+  const startOffset = (firstDay.isoWeekday() + 6) % 7; // ให้จันทร์เป็น column แรก
   const daysInMonth = month.daysInMonth();
 
-  // ✅ ตอนนี้ backend ส่ง date เป็น YYYY-MM-DD แล้ว
-  const dayMap = new Map(
-    data.days.map((d) => [dayjs(d.date, "YYYY-MM-DD", true).format("YYYY-MM-DD"), d])
-  );
+  // ✅ map backend data: { date: YYYY-MM-DD, percent }
+  const dayMap = useMemo(() => {
+    if (!data?.days) return new Map();
+    return new Map(data.days.map((d) => [d.date, d]));
+  }, [data]);
 
   const cells = useMemo(() => {
     return Array.from({ length: startOffset + daysInMonth }, (_, i) => {
@@ -60,11 +80,15 @@ export default function CalendarModal({ onSelectDate }: CalendarModalProps) {
     });
   }, [month, data]);
 
+  /* =========================================================================
+     Render
+     ========================================================================= */
   return (
     <div className="flex h-full flex-col rounded-2xl border border-[#1C4532]/30 bg-white p-5 shadow-sm">
       {/* Header */}
       <div className="mb-5 border-b-4 border-pine/80 pb-2 flex items-center justify-between">
-        <div className="flex">
+        <div className="flex items-center">
+          {/* Left section */}
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-pine/10 p-2 text-pine">
               <CalendarDays size={18} strokeWidth={2.2} />
@@ -110,50 +134,65 @@ export default function CalendarModal({ onSelectDate }: CalendarModalProps) {
         </div>
       </div>
 
+      {/* Loading / Error */}
+      {isLoading && (
+        <div className="flex items-center justify-center h-[300px]">
+          <Loader2 className="animate-spin text-pine" size={24} />
+        </div>
+      )}
+      {isError && (
+        <div className="text-center text-cherry font-medium">
+          Failed to load data 😢
+        </div>
+      )}
+
       {/* Calendar grid */}
-      <div className="rounded-xl bg-neutral-50/70 p-4 shadow-inner">
-        <div className="grid grid-cols-7 text-center text-sm font-medium text-neutral-500 mb-2">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-            <div key={d} className="font-semibold">
-              {d}
-            </div>
-          ))}
-        </div>
+      {!isLoading && !isError && (
+        <div className="rounded-xl bg-neutral-50/70 p-4 shadow-inner">
+          <div className="grid grid-cols-7 text-center text-sm font-medium text-neutral-500 mb-2">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+              <div key={d} className="font-semibold">
+                {d}
+              </div>
+            ))}
+          </div>
 
-        <div className="grid grid-cols-7 gap-2 text-center">
-          {cells.map((cell, idx) =>
-            !cell ? (
-              <div key={`empty-${idx}`} />
-            ) : (
-              <button
-                key={cell.date.format("YYYY-MM-DD")}
-                onClick={() => handleSelect(cell.date.format("YYYY-MM-DD"))}
-                className={`relative flex flex-col items-center justify-center rounded-lg border border-platinum bg-white transition-all overflow-hidden h-[70px] w-full
-                  ${
-                    selected === cell.date.format("YYYY-MM-DD")
-                      ? "ring-2 ring-cambridge shadow-sm"
-                      : "hover:bg-cambridge/10 hover:ring-1 ring-cambridge"
-                  }`}
-              >
-                <span className="font-semibold text-neutral-700 z-10 mb-5">
-                  {cell.date.date()}
-                </span>
-
-                {/* % bar */}
-                <div className="absolute bottom-0 left-0 w-full h-[16px] bg-neutral-200 overflow-hidden flex justify-left">
-                  <div
-                    className={`${getColorByPercent(cell.percent)} h-full transition-all duration-300`}
-                    style={{ width: `${Math.round(cell.percent * 100)}%` }}
-                  ></div>
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
-                    {Math.round(cell.percent * 100)}%
+          <div className="grid grid-cols-7 gap-2 text-center">
+            {cells.map((cell, idx) =>
+              !cell ? (
+                <div key={`empty-${idx}`} />
+              ) : (
+                <button
+                  key={cell.date.format("YYYY-MM-DD")}
+                  onClick={() => handleSelect(cell.date.format("YYYY-MM-DD"))}
+                  className={`relative flex flex-col items-center justify-center rounded-lg border border-platinum bg-white transition-all overflow-hidden h-[70px] w-full
+                    ${
+                      selected === cell.date.format("YYYY-MM-DD")
+                        ? "ring-2 ring-cambridge shadow-sm"
+                        : "hover:bg-cambridge/10 hover:ring-1 ring-cambridge"
+                    }`}
+                >
+                  {/* วันที่ */}
+                  <span className="font-semibold text-neutral-700 z-10 mb-5">
+                    {cell.date.date()}
                   </span>
-                </div>
-              </button>
-            )
-          )}
+
+                  {/* แถบเปอร์เซ็นต์ */}
+                  <div className="absolute bottom-0 left-0 w-full h-[16px] bg-neutral-200 overflow-hidden flex justify-left">
+                    <div
+                      className={`${getColorByPercent(cell.percent)} h-full transition-all duration-300`}
+                      style={{ width: `${Math.round(cell.percent)}%` }}
+                    ></div>
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
+                      {Math.round(cell.percent)}%
+                    </span>
+                  </div>
+                </button>
+              )
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
