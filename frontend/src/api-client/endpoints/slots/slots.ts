@@ -371,6 +371,160 @@ export const useSlotsSetStatusCreate = <TError = unknown, TContext = unknown>(
   return useMutation(mutationOptions, queryClient);
 };
 /**
+ * Simplified calendar vie-endpoint.
+
+Example:
+    GET /api/slots/available-view?club=1&month=YYYY-MM
+    Optional: &date=YYYY-MM-DD  →  filter a specific day
+
+Returns:
+    - date: string (YYYY-MM-DD)
+    - percent: integer (percentage of available slots for that day)
+    - slots[]: list of available slots with details
+ */
+export const slotsAvailableViewRetrieve = (signal?: AbortSignal) => {
+  return customRequest<Slot>({
+    url: `/api/slots/available-view/`,
+    method: "GET",
+    signal,
+  });
+};
+
+export const getSlotsAvailableViewRetrieveQueryKey = () => {
+  return [`/api/slots/available-view/`] as const;
+};
+
+export const getSlotsAvailableViewRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+  TError = unknown,
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+      TError,
+      TData
+    >
+  >;
+}) => {
+  const { query: queryOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSlotsAvailableViewRetrieveQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
+  > = ({ signal }) => slotsAvailableViewRetrieve(signal);
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+    TError,
+    TData
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type SlotsAvailableViewRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
+>;
+export type SlotsAvailableViewRetrieveQueryError = unknown;
+
+export function useSlotsAvailableViewRetrieve<
+  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+  TError = unknown,
+>(
+  options: {
+    query: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): DefinedUseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useSlotsAvailableViewRetrieve<
+  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+        TError,
+        TData
+      >
+    > &
+      Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
+        >,
+        "initialData"
+      >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+export function useSlotsAvailableViewRetrieve<
+  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+};
+
+export function useSlotsAvailableViewRetrieve<
+  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+  TError = unknown,
+>(
+  options?: {
+    query?: Partial<
+      UseQueryOptions<
+        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+        TError,
+        TData
+      >
+    >;
+  },
+  queryClient?: QueryClient,
+): UseQueryResult<TData, TError> & {
+  queryKey: DataTag<QueryKey, TData, TError>;
+} {
+  const queryOptions = getSlotsAvailableViewRetrieveQueryOptions(options);
+
+  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey;
+
+  return query;
+}
+
+/**
  * Retrieve all slots for a given club and month.
 Example:
     GET /api/slots/month-view?club=1&month=2025-09
