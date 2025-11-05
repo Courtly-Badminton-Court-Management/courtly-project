@@ -17,6 +17,7 @@ export type SlotItem = {
   price_coin: number;
 };
 
+/* 🟢 For month-view endpoint */
 export type MonthViewResponse = {
   month: string;
   days: Array<{
@@ -25,23 +26,34 @@ export type MonthViewResponse = {
   }>;
 };
 
+/* 🟢 For available-view endpoint */
+export type AvailableViewResponse = {
+  month: string; // YYYY-MM
+  days: Array<{
+    date: string; // YYYY-MM-DD
+    percent: number; // available %
+    slots: SlotItem[];
+  }>;
+};
+
 /* =========================================================================
-   Query key
+   Query Keys
    ========================================================================= */
 export const monthViewKey = (month: string) =>
   ["slots/month-view", { month }] as const;
+
+export const availableViewKey = (club: number, month: string) =>
+  ["slots/available-view", { club, month }] as const;
 
 /* =========================================================================
    Hook: useMonthView
    ========================================================================= */
 export function useMonthView(monthParam?: string) {
-  // 🧠 Default values
   const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
   const MONTH = monthParam || dayjs().format("YYYY-MM");
 
   return useQuery({
     queryKey: monthViewKey(MONTH),
-
     queryFn: ({ signal }) =>
       customRequest<MonthViewResponse>({
         url: "/api/slots/month-view/",
@@ -49,7 +61,34 @@ export function useMonthView(monthParam?: string) {
         signal,
         params: { club: CLUB_ID, month: MONTH },
       }),
+    enabled: !!MONTH,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+    notifyOnChangeProps: ["data", "error"],
+  });
+}
 
+/* =========================================================================
+   Hook: useAvailableView
+   ========================================================================= */
+/**
+ * ✅ Simplified calendar view
+ * GET /api/slots/available-view?club=1&month=YYYY-MM
+ */
+export function useAvailableView(monthParam?: string, clubParam?: number) {
+  const CLUB_ID = clubParam || Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
+  const MONTH = monthParam || dayjs().format("YYYY-MM");
+
+  return useQuery({
+    queryKey: availableViewKey(CLUB_ID, MONTH),
+    queryFn: ({ signal }) =>
+      customRequest<AvailableViewResponse>({
+        url: "/api/slots/available-view/",
+        method: "GET",
+        signal,
+        params: { club: CLUB_ID, month: MONTH },
+      }),
     enabled: !!MONTH,
     staleTime: 60_000,
     refetchInterval: 60_000,

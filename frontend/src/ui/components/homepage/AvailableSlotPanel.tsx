@@ -74,7 +74,7 @@ export default function AvailableSlotPanel({
         ) : (
           groupedSlots.map((group, i) => (
             <div key={group.label} className="pb-5">
-              <p className="mb-2 text-sm font-semibold text-neutral-700">
+              <p className="mb-2 text-sm font-medium text-neutral-500">
                 {group.label}
               </p>
               <div className="flex flex-wrap gap-2">
