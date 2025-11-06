@@ -2,27 +2,7 @@
 import dayjs from "dayjs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-
-/* ========================= Schema จาก Modal ========================= */
-type SlotItem = {
-  status: string;
-  start_time: string;
-  end_time: string;
-  court: number;
-  court_name: string;
-  price_coin: number;
-};
-
-export type BookingRow = {
-  created_date: string;
-  booking_id: string;
-  user: string; // ✅ เพิ่มฟิล user
-  total_cost: string | number;
-  booking_date: string;
-  booking_status: string;
-  able_to_cancel: boolean;
-  booking_slots: Record<string, SlotItem>;
-};
+import type { SlotItem, BookingRow } from "@/api-client/extras/types";
 
 /* ========================= Helper ========================= */
 function formatDuration(mins: number) {

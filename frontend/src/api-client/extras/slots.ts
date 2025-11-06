@@ -3,19 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
 import dayjs from "dayjs";
-
-/* =========================================================================
-   Types
-   ========================================================================= */
-export type SlotItem = {
-  id?: string;
-  status: string;
-  start_time: string;
-  end_time: string;
-  court: number;
-  court_name: string;
-  price_coin: number;
-};
+import type { SlotItem } from "@/api-client/extras/types";
 
 /* 🟢 For month-view endpoint */
 export type MonthViewResponse = {

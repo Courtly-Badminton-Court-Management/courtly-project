@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import dayjs from "dayjs";
 import { Sparkle } from "lucide-react";
 import { useMonthView } from "@/api-client/extras/slots";
-import { groupAvailableSlotsByTime } from "@/lib/booking/groupAvailableSlots";
+import { groupAvailableSlotsByTime } from "@/lib/slot/groupAvailableSlots";
 import Link from "next/link";
 
 type Props = {

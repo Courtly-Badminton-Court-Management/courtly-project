@@ -1,5 +1,5 @@
-// src/lib/booking/groupSelections.ts
-import type { Col, GroupedSelection, SelectedSlot } from "../slot/slotGridModel";
+//frontend/src/lib/slot/groupSelections.ts
+import type { Col, GroupedSelection, SelectedSlot } from "./slotGridModel";
 
 
 /**

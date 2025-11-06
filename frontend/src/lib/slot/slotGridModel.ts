@@ -1,16 +1,12 @@
-// ใช้ type จาก Orval (โดเมนมาจาก backend)
-import type { Slot as ApiSlot } from "@/api-client/schemas/slot";
-import type { SlotStatusStatusEnum as ApiSlotStatus } from "@/api-client/schemas/slotStatusStatusEnum";
+import type { SlotStatusStatusEnum } from "@/api-client/schemas/slotStatusStatusEnum";
 
-export type Slot = ApiSlot;
-export type SlotStatus = ApiSlotStatus;
 
 // View-model สำหรับ UI
 export type Col = { start: string; end: string; label: string };
 
 // เพิ่ม priceCoins เพื่อไว้แสดง/ตรวจสอบใน UI ถ้าจำเป็น
 export type GridCell = {
-  status: SlotStatus;
+  status: SlotStatusStatusEnum;
   priceCoins?: number;
   /** ✅ เพิ่ม id ของ slot แต่ละช่อง */
   id?: string;

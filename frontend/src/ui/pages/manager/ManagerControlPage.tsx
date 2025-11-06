@@ -21,7 +21,7 @@ import {
   buildDayGridFromMonthView,
   buildPlaceholderGrid,
 } from "@/lib/slot/buildDayGridFromMonthView";
-import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
+import { groupSelectionsWithPrice } from "@/lib/slot/groupSelections";
 import type { Col, ManagerSelectedSlot, GridCell } from "@/lib/slot/slotGridModel";
 
 const SlotGridManager = dynamic(

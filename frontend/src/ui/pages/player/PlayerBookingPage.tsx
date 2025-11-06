@@ -12,7 +12,7 @@ import FloatingLegend from "@/ui/components/bookingpage/FloatingLegend";
 import { classNames } from "@/lib/booking/datetime";
 
 import type { Col, SelectedSlot } from "@/lib/slot/slotGridModel";
-import { groupSelectionsWithPrice } from "@/lib/booking/groupSelections";
+import { groupSelectionsWithPrice } from "@/lib/slot/groupSelections";
 import {
   buildDayGridFromMonthView,
   buildPlaceholderGrid,

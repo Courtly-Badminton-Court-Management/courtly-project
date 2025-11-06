@@ -3,25 +3,7 @@ import React, { useMemo } from "react";
 import Modal from "@/ui/components/basic/Modal";
 import { CalendarRange, Clock3, Coins, MapPin } from "lucide-react";
 import dayjs from "dayjs";
-
-type SlotItem = {
-  status: string;
-  start_time: string;
-  end_time: string;
-  court: number;
-  court_name: string;
-  price_coin: number;
-};
-
-type BookingRow = {
-  created_date: string;
-  booking_id: string;
-  total_cost: string | number;
-  booking_date: string;
-  booking_status: string;
-  able_to_cancel: boolean;
-  booking_slots: Record<string, SlotItem>;
-};
+import type { SlotItem, BookingRow } from "@/api-client/extras/types";
 
 type Props = {
   open: boolean;

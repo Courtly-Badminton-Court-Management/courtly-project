@@ -4,27 +4,8 @@ import React from "react";
 import { CalendarRange, Clock3, Coins, MapPin } from "lucide-react";
 import dayjs from "dayjs";
 import Button from "@/ui/components/basic/Button";
+import type { SlotItem, BookingRow } from "@/api-client/extras/types";
 
-/* ======================== Types ======================== */
-export type SlotItem = {
-  status: string;
-  start_time: string;
-  end_time: string;
-  court: number;
-  court_name: string;
-  price_coin: number;
-};
-
-export type BookingRow = {
-  created_date?: string;
-  booking_id: string;
-  user: string;
-  total_cost: string | number;
-  booking_date: string;
-  booking_status: string;
-  able_to_cancel?: boolean;
-  booking_slots: Record<string, SlotItem>;
-};
 
 /* ======================== Utils ======================== */
 function formatDuration(mins: number) {
