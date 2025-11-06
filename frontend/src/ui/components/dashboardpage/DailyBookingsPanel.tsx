@@ -3,7 +3,8 @@
 import React from "react";
 import dayjs from "dayjs";
 import { ClipboardList } from "lucide-react";
-import BookingCard, { BookingRow } from "@/ui/components/bookingpage/BookingCard";
+import BookingCard from "@/ui/components/bookingpage/BookingCard";
+import type { BookingRow } from "@/api-client/extras/types";
 
 type DailyBookingPanelProps = {
   selectedDate: string; // YYYY-MM-DD

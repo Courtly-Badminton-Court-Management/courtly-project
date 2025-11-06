@@ -11,7 +11,7 @@ import CalendarModal from "@/ui/components/homepage/CalendarModal";
 import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
-import { BookingRow} from "@/ui/components/bookingpage/BookingCard";
+import type { BookingRow } from "@/api-client/extras/types";
 
 const AvailableSlotPanel = dynamic(
   () => import("@/ui/components/homepage/AvailableSlotPanel"),

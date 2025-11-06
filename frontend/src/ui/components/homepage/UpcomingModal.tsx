@@ -4,7 +4,8 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck } from "lucide-react";
 import Button from "@/ui/components/basic/Button";
-import BookingCard, { BookingRow } from "@/ui/components/bookingpage/BookingCard";
+import type { BookingRow } from "@/api-client/extras/types";
+import BookingCard from "@/ui/components/bookingpage/BookingCard";
 
 export default function UpcomingModal({
   bookings,
