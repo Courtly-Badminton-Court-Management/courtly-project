@@ -42,26 +42,24 @@ export default function ManagerDashboardPage() {
   }, []);
 
   return (
-    <main className="mx-auto my-auto w-full max-w-7xl p-6">
-      <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-pine">Manager Dashboard</h1>
-        <p className="text-neutral-600">
-          View and manage bookings per day.
-        </p>
-      </header>
-
-      <section className="grid items-stretch mb-8 gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
+    <main className="w-full">
+      {/* 🧩 Calendar + Panel */}
+      <section className="grid items-stretch mb-8 gap-6 md:grid-cols-5">
+        {/* Calendar (3/5) */}
+        <div className="md:col-span-3 w-full">
           <CalendarModal onSelectDate={(d) => setSelectedDate(d)} />
         </div>
 
+        {/* Panel (2/5) */}
         {selectedDate && (
-          <DailyBookingPanel
-            selectedDate={selectedDate}
-            groupedBookings={groupedBookings}
-            isLoading={isLoading}
-            isError={isError}
-          />
+          <div className="md:col-span-2 w-full">
+            <DailyBookingPanel
+              selectedDate={selectedDate}
+              groupedBookings={groupedBookings}
+              isLoading={isLoading}
+              isError={isError}
+            />
+          </div>
         )}
       </section>
     </main>

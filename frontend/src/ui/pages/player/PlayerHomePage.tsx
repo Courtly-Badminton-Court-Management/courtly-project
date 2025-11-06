@@ -76,17 +76,20 @@ export default function PlayerHomePage() {
 
       {/* 🧩 Calendar + Slot Panel */}
       <section className="grid items-stretch mb-8 gap-6 md:grid-cols-3">
+        {/* Calendar 3/5 */}
         <div className="md:col-span-2">
           <CalendarModal onSelectDate={(d) => setSelectedDate(d)} />
         </div>
 
+        {/* Panel 2/5 */}
         {selectedDate && (
-          <AvailableSlotPanel selectedDate={selectedDate} />
+          <div className="md:col-span-1">
+            <AvailableSlotPanel selectedDate={selectedDate} />
+          </div>
         )}
       </section>
-
             {/* 📅 Upcoming bookings */}
-      <div className="mb-12 md:col-span-3">
+      <div className="mb-12 w-full">
         <UpcomingModal
           bookings={isLoading || isError ? [] : confirmedList}
           onCancel={onCancelConfirm}
