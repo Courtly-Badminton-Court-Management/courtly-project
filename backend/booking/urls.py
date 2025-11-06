@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     SlotViewSet, BookingViewSet,
     BookingCreateView, BookingHistoryView,
-    BookingCancelView, SlotStatusUpdateView,
+    BookingCancelView, SlotStatusUpdateView, BookingWalkinView,
     BookingAllView
 )
 
@@ -23,6 +23,9 @@ urlpatterns = [
 
     # All bookings list (GET) (ADMIN)
     path("bookings/", BookingAllView.as_view(), name="booking-all"),
+
+    # Walk-in booking (Manager)
+    path("booking/walkin/", BookingWalkinView.as_view(), name="booking-walkin"),
 
     # Get booking detail
     path("bookings/<str:booking_no>/", BookingViewSet.as_view({"get": "retrieve"}), name="booking-detail"),

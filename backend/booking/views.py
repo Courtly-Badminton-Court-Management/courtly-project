@@ -412,6 +412,64 @@ class BookingCreateView(APIView):
 
 # ────────────────────────────── Booking History (User) ──────────────────────────────
 
+# class BookingHistoryView(APIView):
+#     """
+#     List the last 50 bookings of the logged-in user.
+#     Endpoint:
+#         GET /api/my-booking/
+#     """
+#     permission_classes = [permissions.IsAuthenticated]
+#
+#     def get(self, request):
+#         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
+#         data = []
+#
+#         for b in qs:
+#             # Fetch all slots related to this booking
+#             slots = BookingSlot.objects.filter(booking=b).select_related(
+#                 "slot", "slot__court", "slot__slot_status"
+#             )
+#             first_slot = slots.first()
+#
+#             # Determine if this booking can be cancelled (more than 24h before start)
+#             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+#
+#             # Force 'able_to_cancel = False' if booking is cancelled
+#             # or the first slot itself has status 'cancelled'
+#             if b.status == "cancelled" or (
+#                     first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+#             ):
+#                 able_to_cancel = False
+#
+#             # Build slot details
+#             booking_slots = {}
+#             for s in slots:
+#                 slot_obj = s.slot
+#                 status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+#                 booking_slots[str(slot_obj.id)] = {
+#                     "status": status_val,
+#                     "start_time": slot_obj.start_at.strftime("%H:%M"),
+#                     "end_time": slot_obj.end_at.strftime("%H:%M"),
+#                     "court": slot_obj.court_id,
+#                     "court_name": slot_obj.court.name,
+#                     "price_coin": slot_obj.price_coins,
+#                 }
+#
+#             # Append booking data
+#             data.append({
+#                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+#                 "booking_id": b.booking_no,
+#                 "user": request.user.username,
+#                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
+#                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
+#                 "booking_status": b.status,
+#                 "able_to_cancel": able_to_cancel,
+#                 "booking_slots": booking_slots,
+#             })
+#
+#         return Response({"results": data})
+
+# ────────────────────────────── Booking History (User) ──────────────────────────────
 class BookingHistoryView(APIView):
     """
     List the last 50 bookings of the logged-in user.
@@ -421,6 +479,7 @@ class BookingHistoryView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        user_role = getattr(request.user, "role", "student")
         qs = Booking.objects.filter(user=request.user).order_by("-created_at")[:50]
         data = []
 
@@ -434,10 +493,9 @@ class BookingHistoryView(APIView):
             # Determine if this booking can be cancelled (more than 24h before start)
             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
 
-            # Force 'able_to_cancel = False' if booking is cancelled
-            # or the first slot itself has status 'cancelled'
+            # Disable cancel if already cancelled or slot is cancelled
             if b.status == "cancelled" or (
-                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+                first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
             ):
                 able_to_cancel = False
 
@@ -455,21 +513,88 @@ class BookingHistoryView(APIView):
                     "price_coin": slot_obj.price_coins,
                 }
 
-            # Append booking data
-            data.append({
+            # Use customer name if walk-in
+            display_name = b.customer_name or request.user.username
+
+            booking_item = {
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
-                "user": request.user.username,
+                "user": display_name,
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
                 "booking_status": b.status,
                 "able_to_cancel": able_to_cancel,
                 "booking_slots": booking_slots,
-            })
+            }
+
+            # If admin or manager is viewing their own history, show more details
+            if user_role in ["admin", "manager"]:
+                booking_item.update({
+                    "customer_name": b.customer_name,
+                    "contact_method": b.contact_method,
+                    "contact_detail": b.contact_detail,
+                })
+
+            data.append(booking_item)
 
         return Response({"results": data})
 
 
+# ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
+# class BookingAllView(APIView):
+#     """
+#     List all recent bookings (for admin or manager view).
+#     Endpoint:
+#         GET /api/bookings/
+#     """
+#
+#     def get(self, request):
+#         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
+#         data = []
+#
+#         for b in qs:
+#             # Fetch all slots linked to the booking
+#             slots = BookingSlot.objects.filter(booking=b).select_related(
+#                 "slot", "slot__court", "slot__slot_status"
+#             )
+#             first_slot = slots.first()
+#
+#             # Determine if booking can be cancelled (more than 24h before start)
+#             able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+#
+#             # Disable cancellation if booking or slot already cancelled
+#             if b.status == "cancelled" or (
+#                     first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+#             ):
+#                 able_to_cancel = False
+#
+#             # Build slot info dictionary
+#             booking_slots = {}
+#             for s in slots:
+#                 slot_obj = s.slot
+#                 status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+#                 booking_slots[str(slot_obj.id)] = {
+#                     "status": status_val,
+#                     "start_time": slot_obj.start_at.strftime("%H:%M"),
+#                     "end_time": slot_obj.end_at.strftime("%H:%M"),
+#                     "court": slot_obj.court_id,
+#                     "court_name": slot_obj.court.name,
+#                     "price_coin": slot_obj.price_coins,
+#                 }
+#
+#             # Combine booking details
+#             data.append({
+#                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+#                 "booking_id": b.booking_no,
+#                 "user": b.user.username if b.user else None,
+#                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
+#                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
+#                 "booking_status": b.status,
+#                 "able_to_cancel": able_to_cancel,
+#                 "booking_slots": booking_slots,
+#             })
+#
+#         return Response({"results": data})
 # ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
 class BookingAllView(APIView):
     """
@@ -478,7 +603,10 @@ class BookingAllView(APIView):
         GET /api/bookings/
     """
 
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
+        user_role = getattr(request.user, "role", "student")
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
 
@@ -494,7 +622,7 @@ class BookingAllView(APIView):
 
             # Disable cancellation if booking or slot already cancelled
             if b.status == "cancelled" or (
-                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+                first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
             ):
                 able_to_cancel = False
 
@@ -512,22 +640,35 @@ class BookingAllView(APIView):
                     "price_coin": slot_obj.price_coins,
                 }
 
-            # Combine booking details
-            data.append({
+            # Use customer name if available
+            display_name = b.customer_name or (b.user.username if b.user else "Unknown")
+
+            # Base booking info
+            booking_info = {
                 "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
-                "user": b.user.username if b.user else None,
+                "user": display_name,
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
                 "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
                 "booking_status": b.status,
                 "able_to_cancel": able_to_cancel,
                 "booking_slots": booking_slots,
-            })
+            }
+
+            # Show extra info for admin or manager only
+            if user_role in ["admin", "manager"]:
+                booking_info.update({
+                    "customer_name": b.customer_name,
+                    "contact_method": b.contact_method,
+                    "contact_detail": b.contact_detail,
+                    "created_by": b.user.username if b.user else None,
+                })
+
+            data.append(booking_info)
 
         return Response({"results": data})
 
 
-# ────────────────────────────── Cancel Booking ──────────────────────────────
 # ────────────────────────────── Cancel Booking ──────────────────────────────
 class BookingCancelView(APIView):
     """
@@ -697,3 +838,150 @@ class SlotStatusUpdateView(APIView):
             "slot_id": slot_id,
             "new_status": new_status,
         }, status=200)
+
+
+# ────────────────────────────── Walk-in Booking ──────────────────────────────
+class BookingWalkinView(APIView):
+    """
+    Create a walk-in booking (Manager only)
+
+    Endpoint:
+        POST /api/booking/walkin/
+
+    Example:
+        {
+            "club": 1,
+            "items": [
+                {
+                    "court": 4,
+                    "date": "2025-11-07",
+                    "start": "12:00",
+                    "end": "12:30"
+                }
+            ],
+            "customer_name": "Cookie",
+            "contact_method": "Walk-in (no contact)",
+            "contact_detail": "0871854000"
+        }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        # ────────────────────────────── Validate role ──────────────────────────────
+        user_role = getattr(request.user, "role", None)
+        if user_role != "manager":
+            return Response({"detail": "Only manager can create walk-in booking"}, status=403)
+
+        # ────────────────────────────── Validate Input ──────────────────────────────
+        ser = BookingCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        club_id = ser.validated_data["club"]
+        items = ser.validated_data["items"]
+
+        if not items:
+            return Response({"detail": "No slot items provided"}, status=400)
+
+        customer_name = request.data.get("customer_name", "Walk-in Customer")
+        contact_method = request.data.get("contact_method", "Walk-in (no contact)")
+        contact_detail = request.data.get("contact_detail", None)
+
+        # ────────────────────────────── Validate club ──────────────────────────────
+        if not Club.objects.filter(id=club_id).exists():
+            return Response({"detail": "Club not found"}, status=404)
+
+        first_item = items[0]
+        first_date = first_item["date"]
+        first_court_id = first_item["court"]
+        today = timezone.localdate()
+
+        if first_date < today:
+            return Response({"detail": f"Cannot book for a past date: {first_date}"}, status=400)
+
+        # ────────────────────────────── Create Booking ──────────────────────────────
+        booking = Booking.objects.create(
+            booking_no=gen_booking_no(),
+            user=request.user,  # manager who created
+            club_id=club_id,
+            court_id=first_court_id,
+            status="walkin",
+            booking_date=first_date,
+            total_cost=0,
+            customer_name=customer_name,
+            contact_method=contact_method,
+            contact_detail=contact_detail,
+        )
+
+        total_cost = 0
+        created_slots = []
+
+        # ────────────────────────────── Create BookingSlot ──────────────────────────────
+        for it in items:
+            court_id = it["court"]
+            d = it["date"]
+            start_dt = combine_dt(d, it["start"])
+            end_dt = combine_dt(d, it["end"])
+
+            if timezone.is_aware(start_dt):
+                start_dt = timezone.make_naive(start_dt)
+            if timezone.is_aware(end_dt):
+                end_dt = timezone.make_naive(end_dt)
+
+            if start_dt >= end_dt:
+                return Response({"detail": "Invalid time range"}, status=400)
+
+            # Query slots for the selected period
+            slots = Slot.objects.filter(
+                court_id=court_id,
+                service_date=d,
+                start_at__gte=start_dt,
+                end_at__lte=end_dt,
+            ).select_related("slot_status")
+
+            if not slots:
+                return Response({"detail": f"No slots found for court {court_id}"}, status=400)
+
+            for s in slots:
+                # check if slot is available
+                if hasattr(s, "booked_by"):
+                    return Response({"detail": f"Slot {s.id} already booked"}, status=409)
+                if s.slot_status.status != "available":
+                    return Response(
+                        {"detail": f"Slot {s.id} not available", "status": s.slot_status.status},
+                        status=409,
+                    )
+
+                total_cost += s.price_coins
+                BookingSlot.objects.create(booking=booking, slot=s)
+                SlotStatus.objects.update_or_create(slot=s, defaults={"status": "walkin"})
+                created_slots.append(s.id)
+
+        # ────────────────────────────── Save Booking Summary ──────────────────────────────
+        booking.total_cost = total_cost
+        booking.save(update_fields=[
+            "total_cost",
+            "customer_name",
+            "contact_method",
+            "contact_detail"
+        ])
+
+        # ────────────────────────────── Response ──────────────────────────────
+        return Response(
+            {
+                "ok": True,
+                "booking": {
+                    "booking_no": booking.booking_no,
+                    "club": club_id,
+                    "court": first_court_id,
+                    "customer_name": booking.customer_name,
+                    "contact_method": booking.contact_method,
+                    "contact_detail": booking.contact_detail,
+                    "status": "walkin",
+                    "slots": created_slots,
+                    "total_cost": total_cost,
+                }
+            },
+            status=201,
+        )
+

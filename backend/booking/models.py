@@ -87,6 +87,11 @@ class Booking(models.Model):
     total_cost = models.PositiveIntegerField(null=True, blank=True)  # Total cost in coins
     booking_date = models.DateField(null=True, blank=True)           # The actual date of play
 
+    # Manager booking fields
+    customer_name = models.CharField(max_length=100, null=True, blank=True)
+    contact_method = models.CharField(max_length=50, null=True, blank=True)
+    contact_detail = models.CharField(max_length=255, null=True, blank=True)
+
     def __str__(self):
         return self.booking_no
 
