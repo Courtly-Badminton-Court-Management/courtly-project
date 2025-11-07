@@ -52,8 +52,9 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     ViewSet for viewing court slots.
 
     Endpoints:
-      • GET /api/slots/                     — List all slots
+      • GET /api/slots/
       • GET /api/slots/month-view?club=1&month=YYYY-MM
+      • GET /api/slots/available-view?club=1&month=YYYY-MM
     """
     queryset = Slot.objects.all()
     serializer_class = SlotSerializer
@@ -84,22 +85,21 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         last_day = date(y, m, calendar.monthrange(y, m)[1])
         today = timezone.localdate()
 
-        if last_day < today:
-            return Response({"detail": "Cannot view past months."}, status=400)
+        # allow 1 month history
+        one_month_ago = today - timedelta(days=30)
 
-        # Query slots for given month and club
+        # Query slots (allow 1 month backward)
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
             .filter(
                 court__club_id=club_id,
-                service_date__gte=max(first_day, today),
+                service_date__gte=min(first_day, one_month_ago),
                 service_date__lte=last_day,
             )
             .order_by("service_date", "court_id", "start_at")
         )
 
-        # Group slots by date
         tz = timezone.get_current_timezone()
         by_day = {}
 
@@ -128,22 +128,17 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, url_path="available-view", methods=["GET"])
     def available_view(self, request):
         """
-        Simplified calendar vie-endpoint.
+        Simplified calendar view endpoint.
 
         Example:
             GET /api/slots/available-view?club=1&month=YYYY-MM
-            Optional: &date=YYYY-MM-DD  →  filter a specific day
-
-        Returns:
-            - date: string (YYYY-MM-DD)
-            - percent: integer (percentage of available slots for that day)
-            - slots[]: list of available slots with details
+            Optional: &date=YYYY-MM-DD  → filter a specific day
         """
         raw_club = request.query_params.get("club")
         month_str = request.query_params.get("month")
-        date_str = request.query_params.get("date")  # add for optional for query to see each day
+        date_str = request.query_params.get("date")
 
-        # ────────────────────────────── Validate club and month ──────────────────────────────
+        # Validate club and month
         try:
             club_id = int(raw_club)
         except (TypeError, ValueError):
@@ -161,10 +156,13 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         last_day = date(y, m, calendar.monthrange(y, m)[1])
         today = timezone.localdate()
 
-        # ────────────────────────────── Build base filters ──────────────────────────────
+        # allow 1 month history
+        one_month_ago = today - timedelta(days=30)
+
+        # Build base filters (allow 1 month backward)
         filters = dict(
             court__club_id=club_id,
-            service_date__gte=max(first_day, today),
+            service_date__gte=min(first_day, one_month_ago),
             service_date__lte=last_day,
         )
 
@@ -176,14 +174,12 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
             except ValueError:
                 return Response({"detail": "date must be in format YYYY-MM-DD"}, status=400)
 
-        # ────────────────────────────── Query slots ──────────────────────────────
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
             .filter(**filters)
         )
 
-        # ────────────────────────────── Group slots by day ──────────────────────────────
         by_day = {}
         tz = timezone.get_current_timezone()
 
@@ -191,13 +187,11 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
             d = s.service_date
             status_val = getattr(getattr(s, "slot_status", None), "status", "available")
 
-            # Initialize the day's record if not present
             if d not in by_day:
                 by_day[d] = {"total": 0, "available": 0, "slots": []}
 
             by_day[d]["total"] += 1
 
-            # Only count and include available slots
             if status_val == "available":
                 by_day[d]["available"] += 1
                 by_day[d]["slots"].append({
@@ -210,11 +204,9 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                     "status": status_val,
                 })
 
-        # ────────────────────────────── Build full-day list ──────────────────────────────
+        # Build full-day list
         days_payload = []
-
-        # Iterate through every day in the month (so empty days are also returned)
-        day_cursor = max(first_day, today)
+        day_cursor = min(first_day, one_month_ago)  # allow 1 month history
         while day_cursor <= last_day:
             info = by_day.get(day_cursor, {"total": 0, "available": 0, "slots": []})
             total = info["total"]
@@ -224,15 +216,13 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
             days_payload.append({
                 "date": day_cursor.strftime("%Y-%m-%d"),
                 "percent": percent,
-                "slots": info["slots"],  # only available slots
+                "slots": info["slots"],
             })
-            day_cursor += timezone.timedelta(days=1)
+            day_cursor += timedelta(days=1)
 
-        # ────────────────────────────── Apply date filter (if provided) ──────────────────────────────
         if date_str:
             days_payload = [d for d in days_payload if d["date"] == date_str]
 
-        # ────────────────────────────── Return Response ──────────────────────────────
         return Response({
             "month": f"{y}-{str(m).zfill(2)}",
             "days": days_payload
