@@ -68,19 +68,33 @@ class TopupRequestCreateSerializer(serializers.ModelSerializer):
 
 class TopupRequestListSerializer(serializers.ModelSerializer):
     """List/retrieve serializer shown to both players and manager."""
-    username = serializers.CharField(source="user.username", read_only=True)
+    user_display_name = serializers.CharField(source="user.username", read_only=True)
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    slip_path = serializers.SerializerMethodField()
 
     class Meta:
         model = TopupRequest
         fields = [
             "id",
-            "username",
+            "user",
+            "user_display_name",
+            "user_email",
             "amount_thb",
             "coins",
             "transfer_date",
             "transfer_time",
-            "slip_path",   # URL to the stored image will be returned
+            "slip_path",
             "status",
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_slip_path(self, obj):
+        """Return full URL for uploaded slip image."""
+        request = self.context.get("request")
+        if obj.slip_path and hasattr(obj.slip_path, "url"):
+            url = obj.slip_path.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return None

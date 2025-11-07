@@ -1,39 +1,103 @@
 "use client";
 
 import { useState } from "react";
-import TopupApproval, { TopupRow } from "@/ui/components/wallet/TopupApproval";
 import Image from "next/image";
+import TopupApproval, { TopupRow } from "@/ui/components/wallet/TopupApproval";
+import {
+  useWalletTopupsList,
+  useWalletTopupsApproveCreate,
+  useWalletTopupsRejectCreate,
+} from "@/api-client/endpoints/wallet/wallet";
 
+/* ────────────────────────────── */
 export default function ManagerApprovalPage() {
-  const [rows, setRows] = useState<TopupRow[]>([
-    { id: "REQ02419824379", user: "Mata Nakee",      amount: 200, dt: "5 Sep 2025, 12:54 PM", status: "Pending"  },
-    { id: "REQ02419824368", user: "Peony Smith",     amount: 100, dt: "5 Sep 2025, 10:39 AM", status: "Pending"  },
-    { id: "REQ02419824353", user: "Somkid Meetung",  amount: 300, dt: "5 Sep 2025, 09:03 AM", status: "Pending"  },
-    { id: "REQ02419824349", user: "Tanont Meejai",   amount: 200, dt: "4 Sep 2025, 21:48 PM", status: "Approved" },
-    { id: "REQ02419824344", user: "Jane Yeah",       amount: 100, dt: "4 Sep 2025, 21:26 PM", status: "Approved" },
-    { id: "REQ02419824341", user: "Naphat Wainam",   amount: 150, dt: "4 Sep 2025, 20:07 PM", status: "Approved" },
-    { id: "REQ02419824336", user: "Jetaime Sudlhor", amount: 500, dt: "4 Sep 2025, 19:52 PM", status: "Approved" },
-    { id: "REQ02419822432", user: "Thapana Dekdee",  amount: 400, dt: "4 Sep 2025, 17:11 PM", status: "Approved" },
-  ]);
-
+  const { data: topups, isLoading, refetch } = useWalletTopupsList();
   const [open, setOpen] = useState<TopupRow | null>(null);
 
-  const updateStatus = (id: string, status: TopupRow["status"]) => {
-    setRows(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));
+  /* ────────────── Mutations ────────────── */
+  const approveMutation = useWalletTopupsApproveCreate({
+    mutation: {
+      onSuccess: () => {
+        refetch();
+        setOpen(null);
+      },
+    },
+  });
+
+  const rejectMutation = useWalletTopupsRejectCreate({
+    mutation: {
+      onSuccess: () => {
+        refetch();
+        setOpen(null);
+      },
+    },
+  });
+
+  /* ────────────── Helpers ────────────── */
+  const getSlipUrl = (path?: string | null) => {
+    if (!path) return "/brand/mock-slip.png";
+    if (path.startsWith("http")) return path;
+
+    const base =
+      process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
+      "http://localhost:8001";
+
+    // ป้องกันกรณี backend คืน path เช่น `/media/...`
+    if (!path.startsWith("/")) path = "/" + path;
+    return `${base}${path}`;
   };
 
-  const handleApprove = () => {
+  /* ────────────── Data Mapping ────────────── */
+  const rows: TopupRow[] =
+    topups?.map((t) => ({
+      id: String(t.id),
+      user:
+        t.user_display_name?.trim() ||
+        t.user_email?.trim() ||
+        (t.user ? `User #${t.user}` : "Unknown User"),
+      amount: t.amount_thb,
+      dt: new Date(t.created_at).toLocaleString("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      status:
+        t.status === "pending"
+          ? "Pending"
+          : t.status === "approved"
+          ? "Approved"
+          : "Rejected",
+      slip_path: t.slip_path ?? null,
+    })) ?? [];
+
+  /* ────────────── Loading / Empty ────────────── */
+  if (isLoading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center text-gray-500">
+        Loading top-up requests...
+      </div>
+    );
+  }
+
+  if (!rows.length) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center text-gray-500">
+        No top-up requests found.
+      </div>
+    );
+  }
+
+  /* ────────────── Actions ────────────── */
+  const handleApprove = async () => {
     if (!open) return;
-    updateStatus(open.id, "Approved");
-    setOpen(null);
+    await approveMutation.mutateAsync({ id: open.id, data: {} as any });
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!open) return;
-    updateStatus(open.id, "Rejected");
-    setOpen(null);
+    await rejectMutation.mutateAsync({ id: open.id, data: {} as any });
   };
 
+  /* ────────────── UI ────────────── */
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
       <TopupApproval rows={rows} onView={(row) => setOpen(row)} />
@@ -44,13 +108,14 @@ export default function ManagerApprovalPage() {
             {/* Header */}
             <div className="mb-4 flex items-start justify-between">
               <h3 className="text-2xl font-extrabold">
-                {open.status === "Pending" ? "Top-Up Approval" : "Top-Up Detail"}
+                {open.status === "Pending"
+                  ? "Top-Up Approval"
+                  : "Top-Up Detail"}
               </h3>
               <button
                 type="button"
                 onClick={() => setOpen(null)}
-                className="rounded-full p-2 text-2xl leading-none text-neutral-500 hover:bg-neutral-100"
-                aria-label="Close"
+                className="rounded-full p-2 text-2xl text-neutral-500 hover:bg-neutral-100"
               >
                 ×
               </button>
@@ -58,25 +123,37 @@ export default function ManagerApprovalPage() {
 
             {/* Main content */}
             <div className="grid gap-6 md:grid-cols-[320px_1fr]">
-              {/* Slip preview */}
+              {/* Slip Preview */}
               <div className="rounded-xl border p-3">
-                <div className="aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-100">
-                  <Image
-                    src="/brand/mock-slip.png" // put slip preview here
-                    alt="Payment slip"
-                    width={600}
-                    height={800}
-                    className="h-full w-full object-cover"
-                  />
+                <div className="aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-100 flex items-center justify-center">
+                  {open.slip_path ? (
+                    <Image
+                      src={getSlipUrl(open.slip_path)}
+                      alt="Payment slip"
+                      width={600}
+                      height={800}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-gray-400">No slip uploaded</span>
+                  )}
                 </div>
               </div>
 
-              {/* Information section */}
+              {/* Info Section */}
               <div className="space-y-4">
-                <p className="text-lg"><b>Request ID:</b> {open.id}</p>
-                <p className="text-lg"><b>User:</b> {open.user}</p>
-                <p className="text-lg"><b>Amount:</b> {open.amount} Coins</p>
-                <p className="text-lg"><b>Datetime:</b> {open.dt}</p>
+                <p className="text-lg">
+                  <b>Request ID:</b> {open.id}
+                </p>
+                <p className="text-lg">
+                  <b>User:</b> {open.user}
+                </p>
+                <p className="text-lg">
+                  <b>Amount:</b> {open.amount} Coins
+                </p>
+                <p className="text-lg">
+                  <b>Datetime:</b> {open.dt}
+                </p>
                 <p className="text-lg">
                   <b>Status:</b>{" "}
                   <span
@@ -84,8 +161,8 @@ export default function ManagerApprovalPage() {
                       open.status === "Approved"
                         ? "text-emerald-700 font-bold"
                         : open.status === "Pending"
-                        ? "text-walkin font-bold"
-                        : "text-cherry font-bold"
+                        ? "text-amber-600 font-bold"
+                        : "text-rose-700 font-bold"
                     }
                   >
                     {open.status}
@@ -94,23 +171,25 @@ export default function ManagerApprovalPage() {
               </div>
             </div>
 
-            {/* Buttons BELOW popup content */}
+            {/* Footer Buttons */}
             <div className="mt-8 flex justify-end gap-3">
               {open.status === "Pending" ? (
                 <>
                   <button
                     type="button"
                     onClick={handleReject}
-                    className="rounded-xl bg-cherry px-6 py-2 font-semibold text-white hover:opacity-90"
+                    disabled={rejectMutation.isPending}
+                    className="rounded-xl bg-cherry px-6 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
                   >
-                    Reject
+                    {rejectMutation.isPending ? "Rejecting..." : "Reject"}
                   </button>
                   <button
                     type="button"
                     onClick={handleApprove}
-                    className="rounded-xl bg-pine px-6 py-2 font-semibold text-white hover:bg-emerald-800"
+                    disabled={approveMutation.isPending}
+                    className="rounded-xl bg-pine px-6 py-2 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
                   >
-                    Approve
+                    {approveMutation.isPending ? "Approving..." : "Approve"}
                   </button>
                 </>
               ) : (
