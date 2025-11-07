@@ -4,7 +4,7 @@ from .views import (
     SlotViewSet, BookingViewSet,
     BookingCreateView, BookingHistoryView,
     BookingCancelView, SlotStatusUpdateView, BookingWalkinView,
-    BookingAllView
+    BookingAllView, SlotBulkStatusUpdateView
 )
 
 # ────────────── Router setup ──────────────
@@ -36,12 +36,16 @@ urlpatterns = [
     # Booking history
     path("my-booking/", BookingHistoryView.as_view(), name="booking-history"),
 
-    # Update slot status
+    # Update slot status (individuals)
     path("slots/<int:slot_id>/set-status/<str:new_status>/", SlotStatusUpdateView.as_view(), name="set-slot-status"),
 
-    # ────────────── Explicit month-view ──────────────
+    # Call all slot statuses
+    path("slots/update-status/", SlotBulkStatusUpdateView.as_view(), name="slot-bulk-status-update"),
+
+    # Explicit month-view
     path("slots/month-view/", slot_month_view, name="slot-month-view"),
 ]
+
 
 # ────────────── Include router URLs ──────────────
 urlpatterns += router.urls
