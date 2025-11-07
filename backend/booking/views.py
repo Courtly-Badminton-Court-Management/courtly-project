@@ -985,3 +985,85 @@ class BookingWalkinView(APIView):
             status=201,
         )
 
+
+class SlotBulkStatusUpdateView(APIView):
+    """
+    Bulk update slot statuses (manager-only).
+
+    Endpoint:
+      POST /api/slots/update-status/
+    Example:
+      {
+        "items": [
+          {"slot": 5, "status": "checkin"},
+          {"slot": 6, "status": "noshow"}
+        ]
+      }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        user_role = getattr(request.user, "role", None)
+        if user_role != "manager":
+            return Response({"detail": "Only managers can change status."}, status=403)
+
+        items = request.data.get("items", [])
+        if not items or not isinstance(items, list):
+            return Response({"detail": "items must be a list of {slot, status}"}, status=400)
+
+        updated = []
+        errors = []
+        allowed_transitions = {
+            "available": ["maintenance", "walkin", "booked", "expired"],
+            "booked": ["checkin", "noshow"],
+            "walkin": ["checkin", "noshow"],
+            "checkin": ["endgame"],
+            "maintenance": ["available"],
+        }
+
+        for it in items:
+            slot_id = it.get("slot")
+            new_status = it.get("status")
+
+            if not slot_id or not new_status:
+                errors.append({"slot": slot_id, "detail": "Missing slot or status"})
+                continue
+
+            try:
+                slot_status = SlotStatus.objects.select_related("slot").get(slot_id=slot_id)
+            except SlotStatus.DoesNotExist:
+                errors.append({"slot": slot_id, "detail": "Slot not found"})
+                continue
+
+            if new_status not in dict(SlotStatus.STATUS):
+                errors.append({"slot": slot_id, "detail": "Invalid status"})
+                continue
+
+            if new_status not in allowed_transitions.get(slot_status.status, []):
+                errors.append({
+                    "slot": slot_id,
+                    "detail": f"Cannot change from {slot_status.status} → {new_status}"
+                })
+                continue
+
+            # Update slot status
+            slot_status.status = new_status
+            slot_status.save(update_fields=["status", "updated_at"])
+
+            # Update linked booking (if exists)
+            bs = BookingSlot.objects.filter(slot=slot_status.slot).first()
+            if bs:
+                bs.booking.status = new_status
+                bs.booking.save(update_fields=["status"])
+
+            updated.append({
+                "slot_id": slot_id,
+                "new_status": new_status
+            })
+
+        return Response({
+            "detail": "Bulk update complete",
+            "updated": updated,
+            "errors": errors
+        }, status=200)
