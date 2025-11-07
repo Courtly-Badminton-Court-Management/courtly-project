@@ -689,28 +689,16 @@ class BookingCancelView(APIView):
                 "able_to_cancel": False
             }, status=400)
 
-        # Get the first related slot for this booking
-        first_slot = (
-            BookingSlot.objects.filter(booking=booking)
-            .select_related("slot", "slot__slot_status")
-            .order_by("slot__service_date", "slot__start_at")
-            .first()
+        # Get related slots
+        booking_slots = BookingSlot.objects.filter(booking=booking).select_related(
+            "slot", "slot__court", "slot__slot_status"
         )
-
-        if not first_slot:
+        if not booking_slots.exists():
             return Response({"detail": "No slot info found"}, status=400)
 
-        # If the slot itself is already cancelled, disallow cancellation
-        if first_slot.slot.slot_status.status == "cancelled":
-            slot_local = timezone.localtime(first_slot.slot.start_at)
-            return Response({
-                "detail": "Slot already cancelled",
-                "able_to_cancel": False,
-                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
-                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
-            }, status=400)
+        first_slot = booking_slots.first()
 
-        # Check if cancellation is within the allowed time window
+        # Check if within allowed cancellation period
         able_to_cancel = calculate_able_to_cancel(first_slot)
         if not able_to_cancel:
             slot_local = timezone.localtime(first_slot.slot.start_at)
@@ -725,14 +713,10 @@ class BookingCancelView(APIView):
             )
 
         # ───────────────────── Process Refund ─────────────────────
-        booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot", "slot__slot_status")
         total_refund = 0
-        released_slots = []
-
         for bs in booking_slots:
             slot = bs.slot
             total_refund += getattr(slot, "price_coins", 0)
-            released_slots.append(slot.id)
 
             # Mark slot as available again
             if hasattr(slot, "slot_status"):
@@ -741,8 +725,8 @@ class BookingCancelView(APIView):
             else:
                 SlotStatus.objects.create(slot=slot, status="available")
 
-        # Delete BookingSlot links so the slot becomes truly available
-        BookingSlot.objects.filter(booking=booking).delete()
+        # ✅ Do NOT delete BookingSlot — keep slot data for cancelled bookings
+        # BookingSlot.objects.filter(booking=booking).delete()  ← remove this line
 
         # Update booking and refund wallet
         booking.status = "cancelled"
@@ -760,23 +744,36 @@ class BookingCancelView(APIView):
             ref_booking=booking,
         )
 
-        # Prepare response
-        slot_local = timezone.localtime(first_slot.slot.start_at)
+        # ───────────────────── Build Response ─────────────────────
+        tz = timezone.get_current_timezone()
+        slot_data = []
+        for bs in booking_slots:
+            s = bs.slot
+            slot_data.append({
+                "slot_id": s.id,
+                "court": s.court_id,
+                "court_name": s.court.name,
+                "start_time": timezone.localtime(s.start_at, tz).strftime("%H:%M"),
+                "end_time": timezone.localtime(s.end_at, tz).strftime("%H:%M"),
+                "price_coin": s.price_coins,
+                "status": getattr(getattr(s, "slot_status", None), "status", "available"),
+            })
+
         return Response(
             {
                 "detail": "Booking cancelled successfully",
                 "booking_no": booking.booking_no,
                 "refund_amount": total_refund,
-                "released_slots": released_slots,
+                "booking_status": "cancelled",
+                "booking_slots": slot_data,  # ✅ keep slot data for cancelled bookings
                 "new_balance": wallet.balance,
                 "cancelled_by": request.user.email,
                 "role": user_role,
                 "able_to_cancel": False,
-                "start_time": slot_local.strftime("%Y-%m-%d %H:%M"),
-                "current_time": timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M"),
             },
             status=200,
         )
+
 
 
 # ────────────────────────────── Slot Status Update ──────────────────────────────
