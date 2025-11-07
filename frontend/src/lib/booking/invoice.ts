@@ -2,7 +2,7 @@
 import dayjs from "dayjs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { SlotItem, BookingRow } from "@/api-client/extras/types";
+import type { SlotItem, BookingRow, UserProfile } from "@/api-client/extras/types";
 
 /* ========================= Helper ========================= */
 function formatDuration(mins: number) {
@@ -14,12 +14,20 @@ function formatDuration(mins: number) {
 }
 
 /* =============================================================
-   generateBookingInvoicePDF
-   ดึงข้อมูล booking จาก hook เดียวกับ modal แล้วแปลงเป็น PDF
+   generateBookingInvoicePDF — Courtly invoice with customer info
 ============================================================= */
-export async function generateBookingInvoicePDF(booking: BookingRow) {
+export async function generateBookingInvoicePDF(
+  booking: BookingRow,
+  user_profile: UserProfile
+) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
+
+  /* 🧩 Combine user info */
+  const user = user_profile || {};
+  const fullName = `${user.firstname || ""} ${user.lastname || ""}`.trim() || "-";
+  const email = user.email || "-";
+  const username = user.username || booking.user || "-";
 
   /* ========== HEADER ========== */
   try {
@@ -34,9 +42,7 @@ export async function generateBookingInvoicePDF(booking: BookingRow) {
           })
       );
     doc.addImage(logo, "PNG", 40, 30, 60, 60);
-  } catch {
-    // skip ถ้าไม่มีโลโก้
-  }
+  } catch {}
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
@@ -45,29 +51,47 @@ export async function generateBookingInvoicePDF(booking: BookingRow) {
   doc.setFontSize(11);
   doc.text("Badminton Court Management & Booking System", 120, 65);
   doc.text("Email: courtly.project@gmail.com | Tel: +66 81-234-5678", 120, 80);
-  doc.text("Address: 99/9 Kasetsart University, Bangkok 10900, Thailand", 120, 95);
+  doc.text(
+    "Address: 99/9 Kasetsart University, Bangkok 10900, Thailand",
+    120,
+    95
+  );
 
   doc.setDrawColor(42, 117, 106);
   doc.line(40, 110, pageWidth - 40, 110);
 
-  /* ========== BASIC INFO ========== */
+  /* ========== TITLE ========== */
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.text("INVOICE / TAX RECEIPT", 40, 140);
 
+  /* ========== BOOKING INFO ========== */
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.text(`Booking ID: ${booking.booking_id}`, 40, 160);
-  doc.text(`Issued Date: ${dayjs(booking.created_date).format("DD MMM YYYY HH:mm")}`, 40, 175);
-  doc.text(`Booking Date: ${dayjs(booking.booking_date).format("DD MMM YYYY")}`, 40, 190);
+  doc.text(
+    `Issued Date: ${dayjs(booking.created_date).format("DD MMM YYYY HH:mm")}`,
+    40,
+    175
+  );
+  doc.text(
+    `Booking Date: ${dayjs(booking.booking_date).format("DD MMM YYYY")}`,
+    40,
+    190
+  );
 
-  doc.text("Customer:", 300, 160);
-  doc.text(booking.user || "-", 370, 160);
+  /* ========== CUSTOMER INFO ========== */
 
-  /* ========== GROUP SLOT DATA ========== */
+  doc.setFont("helvetica", "bold");
+  doc.text("Customer Information:", 300, 160);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Full name: ${fullName}`, 300, 175);
+  doc.text(`Email: ${email}`, 300, 190);
+  doc.text(`Username: ${username}`, 300, 205);
+
+  /* ========== SLOT DETAILS ========== */
   const slots = Object.values(booking.booking_slots || {});
   const grouped: Record<string, SlotItem[]> = {};
-
   for (const s of slots) {
     grouped[s.court_name] ??= [];
     grouped[s.court_name].push(s);
@@ -121,7 +145,7 @@ export async function generateBookingInvoicePDF(booking: BookingRow) {
   ]);
 
   autoTable(doc, {
-    startY: 210,
+    startY: 240,
     head: [["Court", "Time", "Duration", "Price"]],
     body,
     styles: {
@@ -146,7 +170,7 @@ export async function generateBookingInvoicePDF(booking: BookingRow) {
     theme: "grid",
   });
 
-  const y = (doc as any).lastAutoTable.finalY ?? 210;
+  const y = (doc as any).lastAutoTable.finalY ?? 240;
 
   /* ========== TOTAL ========== */
   const totalPrice =
@@ -157,7 +181,9 @@ export async function generateBookingInvoicePDF(booking: BookingRow) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text("TOTAL", pageWidth - 200, y + 25);
-  doc.text(`${totalPrice.toLocaleString()} coins`, pageWidth - 80, y + 25, { align: "right" });
+  doc.text(`${totalPrice.toLocaleString()} coins`, pageWidth - 80, y + 25, {
+    align: "right",
+  });
 
   doc.setDrawColor(42, 117, 106);
   doc.line(pageWidth - 220, y + 30, pageWidth - 40, y + 30);
@@ -168,7 +194,11 @@ export async function generateBookingInvoicePDF(booking: BookingRow) {
   doc.text("Notes:", 40, y + 60);
   doc.text("- Cancellation is allowed up to 24 hours before booking time.", 50, y + 75);
   doc.text("- CL Coins are non-refundable after the cancellation window closes.", 50, y + 90);
-  doc.text("- This document serves as an official tax receipt issued by Courtly Co., Ltd.", 50, y + 105);
+  doc.text(
+    "- This document serves as an official tax receipt issued by Courtly Co., Ltd.",
+    50,
+    y + 105
+  );
 
   /* ========== FOOTER ========== */
   doc.setFont("helvetica", "italic");

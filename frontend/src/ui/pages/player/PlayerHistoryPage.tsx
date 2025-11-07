@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
 import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
+import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
-import type { SlotItem, BookingRow } from "@/api-client/extras/types";
+import type { BookingRow, UserProfile } from "@/api-client/extras/types";
 
 /* ========================= Utils ========================= */
 const statusLabel = (s?: string) => {
@@ -52,6 +53,8 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 /* ========================= Main Page ========================= */
 export default function PlayerHistoryPage() {
   const { data, isLoading, isError } = useMyBookingRetrieve();
+  const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
+
   const [open, setOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
@@ -105,7 +108,11 @@ export default function PlayerHistoryPage() {
     setOpen(true);
   };
 
-  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b);
+  const onDownload = (b: BookingRow) => {
+    if (!me) return; // ✅ ป้องกันกรณีข้อมูล user ยังไม่โหลด
+    generateBookingInvoicePDF(b, me as UserProfile);
+  };
+
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
 
   const today = formatDate(new Date().toISOString(), {
@@ -265,19 +272,23 @@ export default function PlayerHistoryPage() {
                         <button
                           onClick={() => onDownload(b)}
                           disabled={
+                            isMeLoading ||
+                            !me ||
                             !(
                               b.booking_status.toLowerCase() === "confirmed" &&
                               b.able_to_cancel === false
                             )
                           }
                           className={`rounded-lg border px-4 py-2 ${
-                            b.booking_status.toLowerCase() === "confirmed" &&
-                            b.able_to_cancel === false
+                            !me || isMeLoading
+                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : b.booking_status.toLowerCase() ===
+                                  "confirmed" && !b.able_to_cancel
                               ? "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
                               : "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                           }`}
                         >
-                          Download
+                          {isMeLoading ? "Loading..." : "Download"}
                         </button>
 
                         <button

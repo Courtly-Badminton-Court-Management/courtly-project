@@ -20,3 +20,18 @@ export type BookingRow = {
   able_to_cancel: boolean;
   booking_slots: Record<string, SlotItem>;
 };
+
+
+/* =========================== User =========================== */
+
+export type UserProfile = {
+  id: number;
+  username: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  avatarKey: string | null;
+  role: "player" | "manager";
+  balance: number;
+  lastLogin: string;
+};

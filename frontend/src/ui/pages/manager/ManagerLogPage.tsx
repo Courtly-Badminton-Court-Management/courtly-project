@@ -1,14 +1,14 @@
-// src/ui/pages/manager/ManagerLogPage.tsx
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
+import { Calendar, Loader2, ArrowUpDown, CheckCircle } from "lucide-react";
 import { useBookingsRetrieve } from "@/api-client/endpoints/bookings/bookings";
+import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
-import type { SlotItem, BookingRow } from "@/api-client/extras/types";
+import type { BookingRow, UserProfile } from "@/api-client/extras/types";
 
 /* ========================= Utils ========================= */
 const statusLabel = (s?: string) => {
@@ -53,6 +53,8 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 /* ========================= Main Page ========================= */
 export default function ManagerLogPage() {
   const { data, isLoading, isError } = useBookingsRetrieve();
+  const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
+
   const [open, setOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
@@ -75,7 +77,7 @@ export default function ManagerLogPage() {
     return Array.isArray(arr)
       ? arr.map((b: any) => ({
           ...b,
-          user: b.user ?? "-", // ✅ username
+          user: b.user ?? "-",
           booking_status: b.booking_status ?? b.status ?? "upcoming",
         }))
       : [];
@@ -107,8 +109,17 @@ export default function ManagerLogPage() {
     setOpen(true);
   };
 
-  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b);
+  const onDownload = (b: BookingRow) => {
+    if (!me) return;
+    generateBookingInvoicePDF(b, me as UserProfile);
+  };
+
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
+
+  const onCheckIn = (b: BookingRow) => {
+    // 🔹 Placeholder — integrate check-in endpoint later
+    alert(`✅ Checked in booking ${b.booking_id}`);
+  };
 
   const today = formatDate(new Date().toISOString(), {
     weekday: "short",
@@ -126,7 +137,7 @@ export default function ManagerLogPage() {
             Booking Logs
           </h1>
           <p className="text-s font-semibold tracking-tight text-dimgray">
-            View all player bookings, download receipts, or manage status.
+            View all player bookings, download receipts, check in, or manage status.
           </p>
         </div>
       </div>
@@ -194,7 +205,7 @@ export default function ManagerLogPage() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
-        <table className="min-w-[1100px] w-full border-collapse text-[15px] text-neutral-800">
+        <table className="min-w-[1150px] w-full border-collapse text-[15px] text-neutral-800">
           <thead className="bg-smoke text-pine font-semibold">
             <tr>
               <th className="px-6 py-4 text-left">Created</th>
@@ -227,6 +238,8 @@ export default function ManagerLogPage() {
                   active &&
                   active.booking_id === b.booking_id;
 
+                const canCheckIn = b.booking_status.toLowerCase() === "confirmed";
+
                 return (
                   <tr
                     key={b.booking_id}
@@ -238,9 +251,7 @@ export default function ManagerLogPage() {
                     <td className="px-6 py-4 font-semibold text-walnut">
                       {b.booking_id}
                     </td>
-                    <td className="px-6 py-4 text-neutral-700">
-                      {b.user}
-                    </td>
+                    <td className="px-6 py-4 text-neutral-700">{b.user}</td>
                     <td className="px-6 py-4 text-center whitespace-nowrap">
                       {fmtCoins(b.total_cost)}
                     </td>
@@ -267,9 +278,27 @@ export default function ManagerLogPage() {
 
                         <button
                           onClick={() => onDownload(b)}
-                          className="rounded-lg border border-[#2a756a] text-[#2a756a] px-4 py-2 hover:bg-[#e5f2ef]"
+                          disabled={isMeLoading || !me}
+                          className={`rounded-lg border px-4 py-2 ${
+                            !me || isMeLoading
+                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
+                          }`}
                         >
-                          Download
+                          {isMeLoading ? "Loading..." : "Download"}
+                        </button>
+
+                        <button
+                          onClick={() => onCheckIn(b)}
+                          disabled={!canCheckIn}
+                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
+                            canCheckIn
+                              ? "border-[#31734d] bg-[#31734d] text-white hover:brightness-95"
+                              : "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                          }`}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Check In
                         </button>
 
                         <button
