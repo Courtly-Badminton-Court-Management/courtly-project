@@ -8,7 +8,6 @@ import PlayerTransactionHistory, {
   type LedgerItem,
 } from "@/ui/components/wallet/PlayerTransactionHistory";
 
-// ✅ Orval auto-generated hooks
 import {
   useWalletBalanceRetrieve,
   useWalletTopupsList,
@@ -31,7 +30,6 @@ export default function PlayerWalletPage() {
   /* 🔹 2. Wallet Balance */
   const { data: balanceData, isLoading: balanceLoading } =
     useWalletBalanceRetrieve<{ balance: number }>();
-
   const balanceCoins = balanceData?.balance ?? 0;
 
   /* 🔹 3. Top-up Requests (List) */
@@ -47,7 +45,7 @@ export default function PlayerWalletPage() {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      type: "Topup" as const,
+      type: "Topup",
       amount: Number(item.coins ?? 0),
       status:
         item.status === "pending"
@@ -92,31 +90,39 @@ export default function PlayerWalletPage() {
     });
 
   const submitTopup = () => {
-    if (!topup.amount || !topup.slip || !topup.date || !topup.time) {
-      alert("⚠ Please fill all required fields and upload your slip.");
-      return;
-    }
+  if (!topup.amount || !topup.slip || !topup.date || !topup.time) {
+    alert("⚠ Please fill all required fields and upload your slip.");
+    return;
+  }
 
-    createTopup({
-      data: {
-        amount_thb: Number(topup.amount),
-        transfer_date: topup.date,
-        transfer_time: topup.time,
-        slip_path: topup.slip,
-        note: topup.note || "",
+  createTopup({
+    data: {
+      amount_thb: Number(topup.amount),
+      transfer_date: topup.date,
+      transfer_time: topup.time,
+      // OpenAPI type is string (binary); cast File accordingly
+      slip_path: topup.slip as unknown as string,
+    },
+  });
+};
+
+  /* 🔹 6. Export CSV (manual trigger) */
+  const { refetch: exportCsv, isFetching: csvLoading } =
+    useWalletLedgerExportCsvRetrieve({
+      query: {
+        enabled: false,
       },
     });
-  };
-
-  /* 🔹 6. Export CSV */
-  const { refetch: exportCsv, isFetching: csvLoading } =
-    useWalletLedgerExportCsvRetrieve({ query: { enabled: false } });
 
   const exportCSV = async () => {
     const { data } = await exportCsv();
-    if (!data) return alert("⚠ No transaction data to export.");
+    if (!data) {
+      alert("⚠ No transaction data to export.");
+      return;
+    }
 
-    const blob = new Blob([data as any], {
+    // Treat API response as CSV string/binary
+    const blob = new Blob([data as unknown as string], {
       type: "text/csv;charset=utf-8;",
     });
     const url = window.URL.createObjectURL(blob);
@@ -131,15 +137,13 @@ export default function PlayerWalletPage() {
   const loadingAll = balanceLoading || meLoading;
 
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-8 space-y-8">
-      {/* Balance */}
+    <main className="mx-auto max-w-6xl space-y-8 p-4 md:p-8">
       <PlayerWalletBalance
         balanceCoins={balanceCoins}
         userName={username}
         isLoading={loadingAll}
       />
 
-      {/* Top-up Form */}
       <PlayerTopupForm
         values={topup}
         onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
@@ -148,7 +152,6 @@ export default function PlayerWalletPage() {
         loading={topupLoading}
       />
 
-      {/* Transaction History */}
       <PlayerTransactionHistory
         items={ledger}
         onExport={exportCSV}
