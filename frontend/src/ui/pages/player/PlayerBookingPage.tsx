@@ -22,8 +22,6 @@ import {
 import { useMonthView } from "@/api-client/extras/slots";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
 import { useWalletBalanceRetrieve } from "@/api-client/endpoints/wallet/wallet";
-import dayjs from "dayjs";
-import CourtlyLoading from "@/ui/components/basic/LoadingOverlay";
 
 /* =========================================================================
    Utils (local)
