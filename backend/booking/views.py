@@ -3,7 +3,6 @@ import uuid
 import calendar
 from datetime import date, datetime, timedelta
 
-from django.conf import settings
 from django.db import connection, transaction, DatabaseError
 from django.utils import timezone
 
@@ -47,6 +46,189 @@ def calculate_able_to_cancel(first_slot):
 
 
 # ────────────────────────────── Slot (Read-only) ──────────────────────────────
+# class SlotViewSet(viewsets.ReadOnlyModelViewSet):
+#     """
+#     ViewSet for viewing court slots.
+#
+#     Endpoints:
+#       • GET /api/slots/
+#       • GET /api/slots/month-view?club=1&month=YYYY-MM
+#       • GET /api/slots/available-view?club=1&month=YYYY-MM
+#     """
+#     queryset = Slot.objects.all()
+#     serializer_class = SlotSerializer
+#     permission_classes = [permissions.AllowAny]
+#
+#     @action(detail=False, url_path="month-view", methods=["GET"])
+#     def month_view(self, request):
+#         """
+#         Retrieve all slots for a given club and month.
+#         Example:
+#             GET /api/slots/month-view?club=1&month=2025-09
+#         """
+#         raw_club = request.query_params.get("club")
+#         month_str = request.query_params.get("month")
+#
+#         # Validate club parameter
+#         try:
+#             club_id = int(raw_club)
+#         except (TypeError, ValueError):
+#             return Response({"detail": "club must be an integer id"}, status=400)
+#
+#         # Validate month format
+#         if not month_str or len(month_str) != 7 or "-" not in month_str:
+#             return Response({"detail": "month is required as YYYY-MM"}, status=400)
+#
+#         y, m = map(int, month_str.split("-"))
+#         first_day = date(y, m, 1)
+#         last_day = date(y, m, calendar.monthrange(y, m)[1])
+#         today = timezone.localdate()
+#
+#         # allow 1 month history
+#         one_month_ago = today - timedelta(days=30)
+#
+#         # Query slots (allow 1 month backward)
+#         qs = (
+#             Slot.objects
+#             .select_related("court", "court__club", "slot_status")
+#             .filter(
+#                 court__club_id=club_id,
+#                 service_date__gte=min(first_day, one_month_ago),
+#                 service_date__lte=last_day,
+#             )
+#             .order_by("service_date", "court_id", "start_at")
+#         )
+#
+#         tz = timezone.get_current_timezone()
+#         by_day = {}
+#
+#         for s in qs:
+#             day_key = s.service_date.strftime("%d-%m-%y")
+#             start_local = timezone.localtime(s.start_at, tz)
+#             end_local = timezone.localtime(s.end_at, tz)
+#             status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+#
+#             by_day.setdefault(day_key, {})[str(s.id)] = {
+#                 "status": status_val,
+#                 "start_time": start_local.strftime("%H:%M"),
+#                 "end_time": end_local.strftime("%H:%M"),
+#                 "court": s.court_id,
+#                 "court_name": s.court.name,
+#                 "price_coin": s.price_coins
+#             }
+#
+#         payload = {
+#             "month": first_day.strftime("%m-%y"),
+#             "days": [{"date": d, "booking_slots": slots} for d, slots in by_day.items()],
+#         }
+#         payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
+#         return Response(payload)
+#
+#     @action(detail=False, url_path="available-view", methods=["GET"])
+#     def available_view(self, request):
+#         """
+#         Simplified calendar view endpoint.
+#
+#         Example:
+#             GET /api/slots/available-view?club=1&month=YYYY-MM
+#             Optional: &date=YYYY-MM-DD  → filter a specific day
+#         """
+#         raw_club = request.query_params.get("club")
+#         month_str = request.query_params.get("month")
+#         date_str = request.query_params.get("date")
+#
+#         # Validate club and month
+#         try:
+#             club_id = int(raw_club)
+#         except (TypeError, ValueError):
+#             return Response({"detail": "club must be an integer id"}, status=400)
+#
+#         if not month_str or len(month_str) != 7 or "-" not in month_str:
+#             return Response({"detail": "month is required as YYYY-MM"}, status=400)
+#
+#         try:
+#             y, m = map(int, month_str.split("-"))
+#         except ValueError:
+#             return Response({"detail": "invalid month format, use YYYY-MM"}, status=400)
+#
+#         first_day = date(y, m, 1)
+#         last_day = date(y, m, calendar.monthrange(y, m)[1])
+#         today = timezone.localdate()
+#
+#         # allow 1 month history
+#         one_month_ago = today - timedelta(days=30)
+#
+#         # Build base filters (allow 1 month backward)
+#         filters = dict(
+#             court__club_id=club_id,
+#             service_date__gte=min(first_day, one_month_ago),
+#             service_date__lte=last_day,
+#         )
+#
+#         # Optional filter by a specific date
+#         if date_str:
+#             try:
+#                 specific_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+#                 filters["service_date"] = specific_date
+#             except ValueError:
+#                 return Response({"detail": "date must be in format YYYY-MM-DD"}, status=400)
+#
+#         qs = (
+#             Slot.objects
+#             .select_related("court", "court__club", "slot_status")
+#             .filter(**filters)
+#         )
+#
+#         by_day = {}
+#         tz = timezone.get_current_timezone()
+#
+#         for s in qs:
+#             d = s.service_date
+#             status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+#
+#             if d not in by_day:
+#                 by_day[d] = {"total": 0, "available": 0, "slots": []}
+#
+#             by_day[d]["total"] += 1
+#
+#             if status_val == "available":
+#                 by_day[d]["available"] += 1
+#                 by_day[d]["slots"].append({
+#                     "slot_id": s.id,
+#                     "court": s.court_id,
+#                     "court_name": s.court.name,
+#                     "start_time": timezone.localtime(s.start_at, tz).strftime("%H:%M"),
+#                     "end_time": timezone.localtime(s.end_at, tz).strftime("%H:%M"),
+#                     "price_coin": s.price_coins,
+#                     "status": status_val,
+#                 })
+#
+#         # Build full-day list
+#         days_payload = []
+#         day_cursor = min(first_day, one_month_ago)  # allow 1 month history
+#         while day_cursor <= last_day:
+#             info = by_day.get(day_cursor, {"total": 0, "available": 0, "slots": []})
+#             total = info["total"]
+#             available = info["available"]
+#             percent = round((available / total) * 100) if total > 0 else 0
+#
+#             days_payload.append({
+#                 "date": day_cursor.strftime("%Y-%m-%d"),
+#                 "percent": percent,
+#                 "slots": info["slots"],
+#             })
+#             day_cursor += timedelta(days=1)
+#
+#         if date_str:
+#             days_payload = [d for d in days_payload if d["date"] == date_str]
+#
+#         return Response({
+#             "month": f"{y}-{str(m).zfill(2)}",
+#             "days": days_payload
+#         })
+
+
+# ────────────────────────────── Slot (Read-only) ──────────────────────────────
 class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for viewing court slots.
@@ -55,6 +237,7 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
       • GET /api/slots/
       • GET /api/slots/month-view?club=1&month=YYYY-MM
       • GET /api/slots/available-view?club=1&month=YYYY-MM
+      • POST /api/slots/slots-list/   ← new endpoint
     """
     queryset = Slot.objects.all()
     serializer_class = SlotSerializer
@@ -70,13 +253,11 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         raw_club = request.query_params.get("club")
         month_str = request.query_params.get("month")
 
-        # Validate club parameter
         try:
             club_id = int(raw_club)
         except (TypeError, ValueError):
             return Response({"detail": "club must be an integer id"}, status=400)
 
-        # Validate month format
         if not month_str or len(month_str) != 7 or "-" not in month_str:
             return Response({"detail": "month is required as YYYY-MM"}, status=400)
 
@@ -84,11 +265,8 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         first_day = date(y, m, 1)
         last_day = date(y, m, calendar.monthrange(y, m)[1])
         today = timezone.localdate()
-
-        # allow 1 month history
         one_month_ago = today - timedelta(days=30)
 
-        # Query slots (allow 1 month backward)
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
@@ -138,7 +316,6 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         month_str = request.query_params.get("month")
         date_str = request.query_params.get("date")
 
-        # Validate club and month
         try:
             club_id = int(raw_club)
         except (TypeError, ValueError):
@@ -155,18 +332,14 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         first_day = date(y, m, 1)
         last_day = date(y, m, calendar.monthrange(y, m)[1])
         today = timezone.localdate()
-
-        # allow 1 month history
         one_month_ago = today - timedelta(days=30)
 
-        # Build base filters (allow 1 month backward)
         filters = dict(
             court__club_id=club_id,
             service_date__gte=min(first_day, one_month_ago),
             service_date__lte=last_day,
         )
 
-        # Optional filter by a specific date
         if date_str:
             try:
                 specific_date = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -204,9 +377,8 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                     "status": status_val,
                 })
 
-        # Build full-day list
         days_payload = []
-        day_cursor = min(first_day, one_month_ago)  # allow 1 month history
+        day_cursor = min(first_day, one_month_ago)
         while day_cursor <= last_day:
             info = by_day.get(day_cursor, {"total": 0, "available": 0, "slots": []})
             total = info["total"]
@@ -227,6 +399,88 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
             "month": f"{y}-{str(m).zfill(2)}",
             "days": days_payload
         })
+
+    # ────────────────────────────── NEW: Fetch slot details by IDs ──────────────────────────────
+    @action(detail=False, methods=["POST"], url_path="slots-list")
+    def slots_list(self, request):
+        """
+        Lightweight endpoint to fetch full slot details by a list of slot IDs.
+        Usable by both player and manager interfaces.
+
+        Example Request:
+            POST /api/slots/slots-list/
+            {
+                "slot_list": ["24115", "24116"]
+            }
+
+        Example Response:
+            {
+                "slot_items": [
+                    {
+                        "slot_id": "24115",
+                        "court_name": "Court 2",
+                        "start_time": "10:00",
+                        "end_time": "10:30",
+                        "status": "booked"
+                    },
+                    {
+                        "slot_id": "24116",
+                        "court_name": "Court 2",
+                        "start_time": "10:30",
+                        "end_time": "11:00",
+                        "status": "booked"
+                    }
+                ]
+            }
+        """
+        slot_ids = request.data.get("slot_list", [])
+
+        # ────────────────────────────── Validate input ──────────────────────────────
+        if not slot_ids or not isinstance(slot_ids, list):
+            return Response(
+                {"detail": "slot_list must be a list of slot IDs"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Convert slot IDs to integers safely
+        try:
+            slot_ids = [int(x) for x in slot_ids]
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "All slot IDs must be integers or numeric strings"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ────────────────────────────── Fetch slots ──────────────────────────────
+        qs = (
+            Slot.objects
+            .filter(id__in=slot_ids)
+            .select_related("court", "slot_status")
+            .order_by("start_at")
+        )
+
+        if not qs.exists():
+            return Response({"detail": "No slots found"}, status=status.HTTP_404_NOT_FOUND)
+
+        tz = timezone.get_current_timezone()
+        slot_items = []
+
+        # ────────────────────────────── Build response ──────────────────────────────
+        for s in qs:
+            start_local = timezone.localtime(s.start_at, tz).strftime("%H:%M")
+            end_local = timezone.localtime(s.end_at, tz).strftime("%H:%M")
+            status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+
+            slot_items.append({
+                "slot_id": str(s.id),
+                "court_name": s.court.name,
+                "start_time": start_local,
+                "end_time": end_local,
+                "status": status_val,
+            })
+
+        # ────────────────────────────── Return ──────────────────────────────
+        return Response({"slot_items": slot_items}, status=status.HTTP_200_OK)
 
 
 # ────────────────────────────── Booking CRUD ──────────────────────────────
@@ -256,6 +510,15 @@ class BookingCreateView(APIView):
 
     Endpoint:
       POST /api/booking/
+    Example:
+      {
+        "club": 1,
+        "booking_method": "Courtly Website",
+        "owner_username": "test2",
+        "owner_contact": "test2@example.com",
+        "payment_method": "coin",
+        "slots": ["24115", "24116"]
+      }
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -263,100 +526,75 @@ class BookingCreateView(APIView):
     def post(self, request):
         try:
             # -------------------- Validate Input --------------------
-            ser = BookingCreateSerializer(data=request.data)
-            ser.is_valid(raise_exception=True)
-            club_id = ser.validated_data["club"]
-            items = ser.validated_data["items"]
+            club_id = request.data.get("club")
+            slots = request.data.get("slots", [])
+            booking_method = request.data.get("booking_method", "Courtly Website")
+            owner_username = request.data.get("owner_username", request.user.username)
+            owner_contact = request.data.get("owner_contact", request.user.email)
+            payment_method = request.data.get("payment_method", "coin")
 
-            if not items:
-                return Response({"detail": "No items to book"}, status=400)
+            if not club_id:
+                return Response({"detail": "club is required"}, status=400)
+            if not slots or not isinstance(slots, list):
+                return Response({"detail": "slots must be a list of slot IDs"}, status=400)
 
-            # -------------------- Check Club --------------------
+            # -------------------- Validate Club --------------------
             if not Club.objects.filter(id=club_id).exists():
                 return Response({"detail": "Club not found"}, status=404)
 
-            first_court_id = items[0]["court"]
-            first_date = items[0]["date"]
-            today = timezone.localdate()
-
-            if first_date < today:
-                return Response({"detail": f"Cannot book for a past date: {first_date}"}, status=400)
+            # -------------------- Fetch Slots --------------------
+            qs = (
+                Slot.objects
+                .filter(id__in=slots)
+                .select_related("court", "slot_status")
+                .order_by("start_at")
+            )
+            if not qs.exists():
+                return Response({"detail": "No valid slots found"}, status=404)
 
             # -------------------- Create Booking --------------------
+            first_slot = qs.first()
+            booking_date = first_slot.service_date
             booking = Booking.objects.create(
                 booking_no=gen_booking_no(),
                 user=request.user,
                 club_id=club_id,
-                court_id=first_court_id,
+                court_id=first_slot.court_id,
+                booking_date=booking_date,
                 status="confirmed",
-                booking_date=first_date,
+                booking_method=booking_method,
+                customer_name=owner_username,
+                contact_method="Courtly Website",
+                contact_detail=owner_contact,
+                payment_method=payment_method,
             )
 
             total_cost = 0
             created_slots = []
 
-            # -------------------- Loop through booking items --------------------
-            for it in items:
-                court_id = it["court"]
-                d = it["date"]
-
-                if d < today:
-                    return Response({"detail": f"Cannot book for a past date: {d}"}, status=400)
-
-                start_dt = combine_dt(d, it["start"])
-                end_dt = combine_dt(d, it["end"])
-
-                # 🔧 Fix timezone-aware vs naive datetime
-                if timezone.is_aware(start_dt):
-                    start_dt = timezone.make_naive(start_dt)
-                if timezone.is_aware(end_dt):
-                    end_dt = timezone.make_naive(end_dt)
-
-                if start_dt >= end_dt:
-                    return Response({"detail": "Invalid time range"}, status=400)
-
-                # -------------------- Find slots --------------------
-                base_qs = Slot.objects.filter(
-                    court_id=court_id,
-                    service_date=d,
-                    start_at__gte=start_dt,
-                    end_at__lte=end_dt,
-                ).order_by("start_at")
-
-                # Use row-level lock if available
-                if connection.vendor == "postgresql" and connection.features.has_select_for_update:
-                    locked_ids = list(base_qs.select_for_update(of=("self",)).values_list("id", flat=True))
-                else:
-                    locked_ids = list(base_qs.values_list("id", flat=True))
-
-                slots = list(Slot.objects.filter(id__in=locked_ids).select_related("slot_status"))
-                if not slots:
-                    return Response({"detail": f"No slots found for court {court_id}"}, status=400)
-
-                # -------------------- Check slot availability --------------------
-                for s in slots:
-                    if hasattr(s, "booked_by"):
-                        return Response({"detail": f"Slot {s.id} already booked"}, status=409)
-                    if hasattr(s, "slot_status") and s.slot_status.status != "available":
-                        return Response(
-                            {"detail": f"Slot {s.id} not available", "status": s.slot_status.status},
-                            status=409,
-                        )
-
-                # -------------------- Create booking-slot relation --------------------
-                for s in slots:
-                    total_cost += s.price_coins
-                    BookingSlot.objects.create(booking=booking, slot=s)
-                    SlotStatus.objects.update_or_create(
-                        slot=s, defaults={"status": "booked"}
+            # -------------------- Process Slots --------------------
+            for s in qs:
+                status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+                if status_val != "available":
+                    return Response(
+                        {"detail": f"Slot {s.id} not available", "status": status_val},
+                        status=409,
                     )
-                    created_slots.append(s.id)
+
+                BookingSlot.objects.create(booking=booking, slot=s)
+                SlotStatus.objects.update_or_create(slot=s, defaults={"status": "booked"})
+                total_cost += s.price_coins
+                created_slots.append(s.id)
 
             # -------------------- Wallet & Coin deduction --------------------
             wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 1000})
             if wallet.balance < total_cost:
                 return Response(
-                    {"detail": "Not enough coins", "required": total_cost, "balance": wallet.balance},
+                    {
+                        "detail": "Not enough coins",
+                        "required": total_cost,
+                        "balance": wallet.balance,
+                    },
                     status=402,
                 )
 
@@ -372,18 +610,18 @@ class BookingCreateView(APIView):
             booking.total_cost = total_cost
             booking.save(update_fields=["total_cost"])
 
-            # -------------------- Success --------------------
+            # -------------------- Response --------------------
             return Response(
                 {
                     "ok": True,
                     "booking": {
-                        "id": booking.id,
                         "booking_no": booking.booking_no,
                         "club": club_id,
-                        "court": first_court_id,
                         "slots": created_slots,
+                        "total_cost": total_cost,
+                        "status": "confirmed",
+                        "payment_method": payment_method,
                     },
-                    "total_cost": total_cost,
                     "new_balance": wallet.balance,
                 },
                 status=201,
@@ -398,6 +636,7 @@ class BookingCreateView(APIView):
         except Exception as e:
             traceback.print_exc()
             return Response({"detail": str(e)}, status=400)
+
 
 
 # ────────────────────────────── Booking History (User) ──────────────────────────────
@@ -773,7 +1012,6 @@ class BookingCancelView(APIView):
             },
             status=200,
         )
-
 
 
 # ────────────────────────────── Slot Status Update ──────────────────────────────
