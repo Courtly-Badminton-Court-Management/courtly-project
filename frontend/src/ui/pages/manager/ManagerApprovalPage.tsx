@@ -9,10 +9,15 @@ import {
   useWalletTopupsRejectCreate,
 } from "@/api-client/endpoints/wallet/wallet";
 
+// Extend TopupRow locally to include slip URL used in modal
+type ModalTopupRow = TopupRow & {
+  slipUrl?: string | null;
+};
+
 export default function ManagerApprovalPage() {
   /* ────────────── Queries ────────────── */
   const { data: topups, isLoading, refetch } = useWalletTopupsList();
-  const [open, setOpen] = useState<TopupRow | null>(null);
+  const [open, setOpen] = useState<ModalTopupRow | null>(null);
 
   /* ────────────── Mutations ────────────── */
   const approveMutation = useWalletTopupsApproveCreate({
@@ -34,26 +39,30 @@ export default function ManagerApprovalPage() {
   });
 
   /* ────────────── Data Mapping ────────────── */
-  const rows: TopupRow[] =
-    topups?.map((t) => ({
-      id: String(t.id),
-      user:
-        t.user_display_name?.trim() ||
-        t.user_email?.trim() ||
-        (t.user ? `User #${t.user}` : "Unknown User"),
-      amount: t.amount_thb,
-      dt: new Date(t.created_at).toLocaleString("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }),
-      status:
-        t.status === "pending"
-          ? "Pending"
-          : t.status === "approved"
-          ? "Approved"
-          : "Rejected",
-      slip_path: t.slip_path ?? null,
-    })) ?? [];
+  const rows: ModalTopupRow[] =
+    topups?.map((t: any) => {
+      const displayUser =
+        t.user_display_name?.trim?.() ||
+        t.user_email?.trim?.() ||
+        (t.user ? `User #${t.user}` : "Unknown User");
+
+      return {
+        id: String(t.id),
+        user: displayUser,
+        amount: t.amount_thb,
+        dt: new Date(t.created_at).toLocaleString("en-GB", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+        status:
+          t.status === "pending"
+            ? "Pending"
+            : t.status === "approved"
+            ? "Approved"
+            : "Rejected",
+        slipUrl: t.slip_path || null,
+      };
+    }) ?? [];
 
   /* ────────────── Loading / Empty ────────────── */
   if (isLoading) {
@@ -87,7 +96,14 @@ export default function ManagerApprovalPage() {
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
       {/* Table Section */}
-      <TopupApproval rows={rows} onView={(row) => setOpen(row)} />
+      <TopupApproval
+        rows={rows}
+        onView={(row) => {
+          // row is TopupRow (no slipUrl), so find its extended data from rows[]
+          const full = rows.find((r) => r.id === row.id) ?? row;
+          setOpen(full as ModalTopupRow);
+        }}
+      />
 
       {/* Modal Section */}
       {open && (
@@ -113,15 +129,15 @@ export default function ManagerApprovalPage() {
             <div className="grid gap-6 md:grid-cols-[320px_1fr]">
               {/* Slip Preview */}
               <div className="rounded-xl border p-3">
-                <div className="aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-100 flex items-center justify-center">
-                  {open.slip_path ? (
+                <div className="flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-lg bg-neutral-100">
+                  {open.slipUrl ? (
                     <Image
-                      src={open.slip_path}
+                      src={open.slipUrl}
                       alt="Payment slip"
                       width={600}
                       height={800}
                       unoptimized
-                      className="h-full w-full object-contain bg-white"
+                      className="h-full w-full bg-white object-contain"
                     />
                   ) : (
                     <span className="text-gray-400">No slip uploaded</span>
@@ -148,10 +164,10 @@ export default function ManagerApprovalPage() {
                   <span
                     className={
                       open.status === "Approved"
-                        ? "text-emerald-700 font-bold"
+                        ? "font-bold text-emerald-700"
                         : open.status === "Pending"
-                        ? "text-amber-600 font-bold"
-                        : "text-rose-700 font-bold"
+                        ? "font-bold text-amber-600"
+                        : "font-bold text-rose-700"
                     }
                   >
                     {open.status}
