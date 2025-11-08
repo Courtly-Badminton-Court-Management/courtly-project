@@ -123,13 +123,6 @@ export default function PlayerTopupForm({
           key={values.slip ? values.slip.name : "file-input"}
           onChange={(e) => onChange({ slip: e.target.files?.[0] ?? null })}
         />
-
-        <Field
-          label="Note (optional)"
-          placeholder="reference, bank name, etc."
-          value={values.note ?? ""}
-          onChange={(e) => onChange({ note: e.target.value })}
-        />
       </div>
 
       {/* ───────────────────────────── Buttons ───────────────────────────── */}
