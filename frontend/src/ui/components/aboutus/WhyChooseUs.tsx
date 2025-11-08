@@ -77,7 +77,7 @@ function Stat({
   return (
     <div
       className="
-        group flex items-center gap-5 rounded-2xl bg-white p-6
+        group flex items-center gap-5 rounded-2xl p-6
         transition-shadow duration-300 ease-out
         focus-within:shadow-lg focus-within:shadow-gray-200"
       tabIndex={0} // keyboard focus

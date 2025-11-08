@@ -4,7 +4,7 @@ export default function GetToKnowUs() {
   return (
     <section aria-labelledby="about-title" className="grid gap-8 md:grid-cols-[1.1fr_1fr]">
       {/* Left: photo collage */}
-      <div className="relative">
+      <div className="relative mx-auto w-full max-w-sm md:max-w-full">
         {/* Big image */}
         <img
           src="/images/badminton-6.jpg"
@@ -38,7 +38,7 @@ export default function GetToKnowUs() {
         </p>
 
         {/* contact chips */}
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 bg-white">
           <ContactChip icon="/icons/phone-call.png" title="Phone" value="0998888777" />
           <ContactChip icon="/icons/facebook.png" title="Facebook" value="Courtly" />
           <ContactChip
