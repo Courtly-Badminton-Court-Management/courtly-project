@@ -56,7 +56,7 @@ export default function PlayerTopupForm({
                 priority
               />
               <span className="mt-2 text-base text-neutral-500">
-                PromptPayQR
+                PromptPay QR
               </span>
             </div>
 
@@ -79,9 +79,7 @@ export default function PlayerTopupForm({
         <div className="rounded-3xl border p-6 shadow-sm h-full">
           <div className="mb-4 text-2xl font-bold">Top-Up Guidelines</div>
           <ul className="space-y-3 text-lg leading-relaxed text-neutral-800 md:text-xl">
-            <li>
-              • Minimum top-up: <b>100 THB</b>.
-            </li>
+            <li>• Minimum top-up: <b>100 THB</b>.</li>
             <li>• Upload a clear transfer slip image (JPG/PNG).</li>
             <li>• Coins are credited after admin verification.</li>
           </ul>
@@ -90,6 +88,7 @@ export default function PlayerTopupForm({
 
       {/* ──────────────────────────── Form Section ──────────────────────────── */}
       <div className="grid gap-4 md:grid-cols-2">
+        {/* Amount */}
         <Field
           label="Payment amount (THB)"
           type="number"
@@ -103,6 +102,7 @@ export default function PlayerTopupForm({
           }
         />
 
+        {/* Date */}
         <Field
           label="Date of payment"
           type="date"
@@ -110,6 +110,7 @@ export default function PlayerTopupForm({
           onChange={(e) => onChange({ date: e.target.value })}
         />
 
+        {/* Time */}
         <Field
           label="Time of payment"
           type="time"
@@ -117,12 +118,33 @@ export default function PlayerTopupForm({
           onChange={(e) => onChange({ time: e.target.value })}
         />
 
-        <Field
-          label="Upload your payment slip"
-          type="file"
-          key={values.slip ? values.slip.name : "file-input"}
-          onChange={(e) => onChange({ slip: e.target.files?.[0] ?? null })}
-        />
+        {/* Upload Slip */}
+        <div>
+          <label className="mb-1 block font-medium text-gray-700">
+            Upload your payment slip
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            className="file-input file-input-bordered w-full"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              onChange({ slip: file });
+            }}
+          />
+          {values.slip && (
+            <div className="mt-3">
+              <p className="text-sm text-gray-500 mb-1">Preview:</p>
+              <Image
+                src={URL.createObjectURL(values.slip)}
+                alt="Slip Preview"
+                width={200}
+                height={200}
+                className="rounded-lg border shadow-sm object-contain"
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ───────────────────────────── Buttons ───────────────────────────── */}

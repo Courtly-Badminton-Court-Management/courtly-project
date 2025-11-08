@@ -47,7 +47,7 @@ export default function PlayerWalletPage() {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      type: "Topup" as const, // ✅ must match LedgerItem union
+      type: "Topup" as const,
       amount: Number(item.coins ?? 0),
       status:
         item.status === "pending"
@@ -57,7 +57,7 @@ export default function PlayerWalletPage() {
           : "Rejected",
     })) ?? [];
 
-  /* 🔹 4. Top-up Form */
+  /* 🔹 4. Top-up Form State */
   const [topup, setTopup] = useState({
     amount: "" as number | "",
     date: "",
@@ -70,6 +70,7 @@ export default function PlayerWalletPage() {
     setTopup({ amount: "", date: "", time: "", slip: null, note: "" });
   };
 
+  /* 🔹 5. Mutation - Create Top-up */
   const { mutate: createTopup, isPending: topupLoading } =
     useWalletTopupsCreate({
       mutation: {
@@ -101,12 +102,13 @@ export default function PlayerWalletPage() {
         amount_thb: Number(topup.amount),
         transfer_date: topup.date,
         transfer_time: topup.time,
-        slip_path: topup.slip as any, // Backend expects FormData file
+        slip_path: topup.slip,
+        note: topup.note || "",
       },
     });
   };
 
-  /* 🔹 5. Export CSV */
+  /* 🔹 6. Export CSV */
   const { refetch: exportCsv, isFetching: csvLoading } =
     useWalletLedgerExportCsvRetrieve({ query: { enabled: false } });
 
@@ -125,17 +127,19 @@ export default function PlayerWalletPage() {
     link.remove();
   };
 
-  /* 🔹 6. Render */
+  /* 🔹 7. Render */
   const loadingAll = balanceLoading || meLoading;
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8 space-y-8">
+      {/* Balance */}
       <PlayerWalletBalance
         balanceCoins={balanceCoins}
         userName={username}
         isLoading={loadingAll}
       />
 
+      {/* Top-up Form */}
       <PlayerTopupForm
         values={topup}
         onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
@@ -144,6 +148,7 @@ export default function PlayerWalletPage() {
         loading={topupLoading}
       />
 
+      {/* Transaction History */}
       <PlayerTransactionHistory
         items={ledger}
         onExport={exportCSV}

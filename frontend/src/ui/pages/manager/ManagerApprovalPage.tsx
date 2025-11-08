@@ -9,8 +9,8 @@ import {
   useWalletTopupsRejectCreate,
 } from "@/api-client/endpoints/wallet/wallet";
 
-/* ────────────────────────────── */
 export default function ManagerApprovalPage() {
+  /* ────────────── Queries ────────────── */
   const { data: topups, isLoading, refetch } = useWalletTopupsList();
   const [open, setOpen] = useState<TopupRow | null>(null);
 
@@ -32,20 +32,6 @@ export default function ManagerApprovalPage() {
       },
     },
   });
-
-  /* ────────────── Helpers ────────────── */
-  const getSlipUrl = (path?: string | null) => {
-    if (!path) return "/brand/mock-slip.png";
-    if (path.startsWith("http")) return path;
-
-    const base =
-      process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-      "http://localhost:8001";
-
-    // ป้องกันกรณี backend คืน path เช่น `/media/...`
-    if (!path.startsWith("/")) path = "/" + path;
-    return `${base}${path}`;
-  };
 
   /* ────────────── Data Mapping ────────────── */
   const rows: TopupRow[] =
@@ -100,8 +86,10 @@ export default function ManagerApprovalPage() {
   /* ────────────── UI ────────────── */
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-8">
+      {/* Table Section */}
       <TopupApproval rows={rows} onView={(row) => setOpen(row)} />
 
+      {/* Modal Section */}
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
           <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
@@ -121,18 +109,19 @@ export default function ManagerApprovalPage() {
               </button>
             </div>
 
-            {/* Main content */}
+            {/* Main Content */}
             <div className="grid gap-6 md:grid-cols-[320px_1fr]">
               {/* Slip Preview */}
               <div className="rounded-xl border p-3">
                 <div className="aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-100 flex items-center justify-center">
                   {open.slip_path ? (
                     <Image
-                      src={getSlipUrl(open.slip_path)}
+                      src={open.slip_path}
                       alt="Payment slip"
                       width={600}
                       height={800}
-                      className="h-full w-full object-cover"
+                      unoptimized
+                      className="h-full w-full object-contain bg-white"
                     />
                   ) : (
                     <span className="text-gray-400">No slip uploaded</span>
@@ -179,7 +168,7 @@ export default function ManagerApprovalPage() {
                     type="button"
                     onClick={handleReject}
                     disabled={rejectMutation.isPending}
-                    className="rounded-xl bg-cherry px-6 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                    className="rounded-xl bg-rose-600 px-6 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-60"
                   >
                     {rejectMutation.isPending ? "Rejecting..." : "Reject"}
                   </button>
@@ -187,7 +176,7 @@ export default function ManagerApprovalPage() {
                     type="button"
                     onClick={handleApprove}
                     disabled={approveMutation.isPending}
-                    className="rounded-xl bg-pine px-6 py-2 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                    className="rounded-xl bg-emerald-700 px-6 py-2 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
                   >
                     {approveMutation.isPending ? "Approving..." : "Approve"}
                   </button>
