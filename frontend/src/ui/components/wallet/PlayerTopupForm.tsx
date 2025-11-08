@@ -123,29 +123,74 @@ export default function PlayerTopupForm({
           <label className="mb-1 block font-medium text-gray-700">
             Upload your payment slip
           </label>
-          <input
-            type="file"
-            accept="image/*"
-            className="file-input file-input-bordered w-full"
-            onChange={(e) => {
-              const file = e.target.files?.[0] ?? null;
-              onChange({ slip: file });
-            }}
-          />
+
+          <div className="relative">
+            {/* Hidden file input overlay */}
+            <input
+              type="file"
+              accept="image/*"
+              id="slipUpload"
+              className="absolute inset-0 z-10 cursor-pointer opacity-0"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                onChange({ slip: file });
+              }}
+            />
+
+            {/* Visible styled input box */}
+            <div
+              className={`
+                flex items-center justify-between
+                w-full rounded-xl border px-3 py-2.5 outline-none 
+                shadow-[0_2px_0_rgba(0,0,0,.12)] border-platinum
+                focus-within:shadow-none focus-within:ring-2 focus-within:ring-cambridge
+                transition hover:border-cambridge hover:bg-emerald-50/20
+              `}
+            >
+              <span className="text-sm font-medium text-onyx truncate">
+                {values.slip ? values.slip.name : "Choose payment slip file"}
+              </span>
+
+              {/* Right icon */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 flex-shrink-0 text-black opacity-70"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+            </div>
+          </div>
+
+          <p className="mt-1 text-xs text-neutral-500">
+            JPG or PNG only • Max 5 MB
+          </p>
+
           {values.slip && (
-            <div className="mt-3">
-              <p className="text-sm text-gray-500 mb-1">Preview:</p>
-              <Image
-                src={URL.createObjectURL(values.slip)}
-                alt="Slip Preview"
-                width={200}
-                height={200}
-                className="rounded-lg border shadow-sm object-contain"
-              />
+            <div className="mt-3 flex items-center gap-3">
+              <div className="relative h-20 w-20 overflow-hidden rounded-xl border bg-neutral-50">
+                <Image
+                  src={URL.createObjectURL(values.slip)}
+                  alt="Slip Preview"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+              <div className="text-sm text-neutral-600">
+                <b>Preview:</b> {values.slip.name}
+              </div>
             </div>
           )}
         </div>
-      </div>
+
+
 
       {/* ───────────────────────────── Buttons ───────────────────────────── */}
       <div className="mt-6 flex gap-2">
@@ -162,6 +207,7 @@ export default function PlayerTopupForm({
           disabled={loading}
         />
       </div>
+    </div>  
     </section>
   );
 }
