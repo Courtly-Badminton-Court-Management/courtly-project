@@ -638,7 +638,6 @@ class BookingCreateView(APIView):
             return Response({"detail": str(e)}, status=400)
 
 
-
 # ────────────────────────────── Booking History (User) ──────────────────────────────
 
 # class BookingHistoryView(APIView):
@@ -724,19 +723,25 @@ class BookingHistoryView(APIView):
 
             # Disable cancel if already cancelled or slot is cancelled
             if b.status == "cancelled" or (
-                first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
+                    first_slot and getattr(first_slot.slot.slot_status, "status", "") == "cancelled"
             ):
                 able_to_cancel = False
 
-            # Build slot details
+            tz = timezone.get_current_timezone()
             booking_slots = {}
+
+            # Build slot details (convert to local time)
             for s in slots:
                 slot_obj = s.slot
                 status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+
+                start_local = timezone.localtime(slot_obj.start_at, tz)
+                end_local = timezone.localtime(slot_obj.end_at, tz)
+
                 booking_slots[str(slot_obj.id)] = {
                     "status": status_val,
-                    "start_time": slot_obj.start_at.strftime("%H:%M"),
-                    "end_time": slot_obj.end_at.strftime("%H:%M"),
+                    "start_time": start_local.strftime("%H:%M"),
+                    "end_time": end_local.strftime("%H:%M"),
                     "court": slot_obj.court_id,
                     "court_name": slot_obj.court.name,
                     "price_coin": slot_obj.price_coins,
@@ -745,8 +750,10 @@ class BookingHistoryView(APIView):
             # Use customer name if walk-in
             display_name = b.customer_name or request.user.username
 
+            created_local = timezone.localtime(b.created_at, tz)
+
             booking_item = {
-                "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "created_date": created_local.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
                 "user": display_name,
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
@@ -824,20 +831,19 @@ class BookingHistoryView(APIView):
 #             })
 #
 #         return Response({"results": data})
-# ────────────────────────────── All Bookings (Admin/Manager) ──────────────────────────────
 class BookingAllView(APIView):
     """
     List all recent bookings (for admin or manager view).
     Endpoint:
         GET /api/bookings/
     """
-
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user_role = getattr(request.user, "role", "student")
         qs = Booking.objects.all().select_related("user").order_by("-created_at")[:200]
         data = []
+        tz = timezone.get_current_timezone()
 
         for b in qs:
             # Fetch all slots linked to the booking
@@ -855,15 +861,18 @@ class BookingAllView(APIView):
             ):
                 able_to_cancel = False
 
-            # Build slot info dictionary
             booking_slots = {}
             for s in slots:
                 slot_obj = s.slot
                 status_val = getattr(getattr(slot_obj, "slot_status", None), "status", "available")
+
+                start_local = timezone.localtime(slot_obj.start_at, tz)
+                end_local = timezone.localtime(slot_obj.end_at, tz)
+
                 booking_slots[str(slot_obj.id)] = {
                     "status": status_val,
-                    "start_time": slot_obj.start_at.strftime("%H:%M"),
-                    "end_time": slot_obj.end_at.strftime("%H:%M"),
+                    "start_time": start_local.strftime("%H:%M"),
+                    "end_time": end_local.strftime("%H:%M"),
                     "court": slot_obj.court_id,
                     "court_name": slot_obj.court.name,
                     "price_coin": slot_obj.price_coins,
@@ -871,10 +880,10 @@ class BookingAllView(APIView):
 
             # Use customer name if available
             display_name = b.customer_name or (b.user.username if b.user else "Unknown")
+            created_local = timezone.localtime(b.created_at, tz)
 
-            # Base booking info
             booking_info = {
-                "created_date": b.created_at.strftime("%Y-%m-%d %H:%M"),
+                "created_date": created_local.strftime("%Y-%m-%d %H:%M"),
                 "booking_id": b.booking_no,
                 "user": display_name,
                 "total_cost": f"{b.total_cost} coins" if b.total_cost else None,
@@ -896,6 +905,7 @@ class BookingAllView(APIView):
             data.append(booking_info)
 
         return Response({"results": data})
+
 
 
 # ────────────────────────────── Cancel Booking ──────────────────────────────
