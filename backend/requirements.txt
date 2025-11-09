@@ -8,3 +8,6 @@ gunicorn>=22
 django-environ>=0.11
 drf-spectacular
 Pillow
+django-storages>=1.14
+boto3>=1.34
+pytz

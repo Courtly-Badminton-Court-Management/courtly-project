@@ -12,6 +12,6 @@ class CoinLedgerAdmin(admin.ModelAdmin):
 
 @admin.register(TopupRequest)
 class TopupRequestAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "amount_thb", "coins", "status", "created_at")
+    list_display = ("id", "user", "amount_thb", "coins", "status", "created_at", "slip_path")
     list_filter = ("status", "created_at")
     search_fields = ("user__username",)
