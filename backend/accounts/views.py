@@ -27,13 +27,13 @@ class RegisterView(generics.CreateAPIView):
 
 
 # --- LOGIN (JWT) ---
-
 class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Accepts either {"username","password"} or {"email","password"}.
     Makes 'username' optional so posting only email works.
     Also updates last_login and returns { firstLogin, user }.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # add email as optional input field
@@ -65,7 +65,12 @@ class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
 
-        # Optional: include convenient user payload (small)
+        # ✅ Localize and format time
+        bangkok_tz = pytz.timezone("Asia/Bangkok")
+        local_time = timezone.localtime(user.last_login, bangkok_tz)
+        formatted_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Include user info with formatted time
         data["firstLogin"] = first_login
         data["user"] = {
             "id": user.id,
@@ -76,7 +81,7 @@ class CourtlyTokenObtainPairSerializer(TokenObtainPairSerializer):
             "role": getattr(user, "role", "player"),
             "coinBalance": getattr(user, "coin_balance", 0),
             "avatarKey": getattr(user, "avatar_key", None),
-            "lastLogin": user.last_login.isoformat() if user.last_login else None,
+            "lastLogin": formatted_time,
         }
         return data
 
@@ -107,32 +112,29 @@ class TokenRefreshView(DRFTokenRefresh):
 
 
 # --- ME ---
-from django.utils import timezone
-import pytz
-
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        # Ensure wallet exists; leave existing logic
+        # Ensure wallet exists
         wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"balance": 1000})
 
         data = MeSerializer(user).data
         data["role"] = getattr(user, "role", "player")
         data["balance"] = wallet.balance
 
-        # ✅ Fix timezone to Asia/Bangkok and output ISO format
+        # ✅ Format lastLogin in Asia/Bangkok time (human-friendly)
         if user.last_login:
             bangkok_tz = pytz.timezone("Asia/Bangkok")
             local_time = timezone.localtime(user.last_login, bangkok_tz)
-            data["lastLogin"] = local_time.isoformat()
+            data["lastLogin"] = local_time.strftime("%Y-%m-%d %H:%M:%S")
         else:
             data["lastLogin"] = None
 
         return Response(data, status=status.HTTP_200_OK)
 
-    # ✅ allow updating minimal fields (avatarKey, names if needed)
+    # ✅ Allow updating minimal fields (avatarKey, names if needed)
     def patch(self, request):
         ser = MeSerializer(instance=request.user, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
@@ -165,7 +167,7 @@ class UserDetailView(APIView):
         data["role"] = getattr(user, "role", "player")
         data["balance"] = wallet.balance
 
-        # localtime
+        # ✅ Localized formatted time
         if user.last_login:
             bangkok_tz = pytz.timezone("Asia/Bangkok")
             local_time = timezone.localtime(user.last_login, bangkok_tz)
