@@ -5,13 +5,12 @@ Django settings for courtly project (Courtly MVP).
 from pathlib import Path
 import os
 import environ
-# ===== Database =====
-import dj_database_url
+import dj_database_url  # ===== Database =====
 
 # ===== Paths =====
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env
+# ===== Load environment variables =====
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -22,7 +21,9 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED", default=[])
 
-# ===== Installed apps =====
+# ============================================================
+# 🧩 Installed Apps
+# ============================================================
 INSTALLED_APPS = [
     # Django
     "django.contrib.admin",
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     # 3rd-party
     "rest_framework",
     "corsheaders",
+    "storages",  # ✅ ต้องอยู่ตรงนี้ (ก่อน Local apps)
 
     # Local apps
     "accounts",   # Custom User
@@ -44,13 +46,15 @@ INSTALLED_APPS = [
     "wallet",     # CoinLedger, TopupRequest
 
     # OPENAPI DOCS
-    'drf_spectacular',
+    "drf_spectacular",
 ]
 
-# Custom User
+# ===== Custom User =====
 AUTH_USER_MODEL = "accounts.User"
 
-# ===== Middleware =====
+# ============================================================
+# 🧩 Middleware
+# ============================================================
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -64,6 +68,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "courtly.urls"
 
+# ============================================================
+# 🧩 Templates
+# ============================================================
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -81,7 +88,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "courtly.wsgi.application"
 
-
+# ============================================================
+# 🧩 Database
+# ============================================================
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -90,14 +99,14 @@ DATABASES = {
         "PASSWORD": env("POSTGRES_PASSWORD"),
         "HOST": env("POSTGRES_HOST"),
         "PORT": env("POSTGRES_PORT", default="5432"),
-        'OPTIONS': {
-            'sslmode': env("POSTGRES_SSL_MODE", default='require')
-        },
+        "OPTIONS": {"sslmode": env("POSTGRES_SSL_MODE", default="require")},
         "CONN_MAX_AGE": 60,
     }
 }
 
-# ===== Password validation =====
+# ============================================================
+# 🧩 Password validation
+# ============================================================
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -105,13 +114,17 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# ===== Internationalization =====
+# ============================================================
+# 🕒 Internationalization
+# ============================================================
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Bangkok"
 USE_TZ = True
 USE_I18N = True
 
-# ===== Static / Media =====
+# ============================================================
+# 🧩 Static & Media
+# ============================================================
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
@@ -121,20 +134,23 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ===== DRF =====
+# ============================================================
+# 🧩 REST Framework
+# ============================================================
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-# ===== CORS =====
+# ============================================================
+# 🧩 CORS
+# ============================================================
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -151,10 +167,43 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3001",
 ] + env.list("DJANGO_CSRF_TRUSTED", default=[])
 
+# ============================================================
+# 🧩 OpenAPI Docs (DRF Spectacular)
+# ============================================================
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Your Project API',
-    'DESCRIPTION': 'Your project description',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    # OTHER SETTINGS
+    "TITLE": "Courtly API",
+    "DESCRIPTION": "Badminton Court Management & Booking System",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
+
+# ============================================================
+# 🌩️ DigitalOcean Spaces Storage (S3-compatible)
+# ============================================================
+AWS_ACCESS_KEY_ID = env("SPACES_KEY", default=None)
+AWS_SECRET_ACCESS_KEY = env("SPACES_SECRET", default=None)
+AWS_STORAGE_BUCKET_NAME = env("SPACES_BUCKET", default="courtly-bucket")
+AWS_S3_REGION_NAME = env("SPACES_REGION", default="sgp1")
+AWS_S3_ENDPOINT_URL = env("SPACES_ENDPOINT", default="https://sgp1.digitaloceanspaces.com")
+
+# ✅ ใช้ DigitalOcean Spaces เป็น media storage หลัก
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+AWS_DEFAULT_ACL = "public-read"
+
+# ✅ ใช้ URL ของ Spaces แทน /media/
+MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
+MEDIA_ROOT = BASE_DIR / "media"  # สำหรับ fallback เฉพาะ dev
+
+print(f"[Storage] Using DigitalOcean Spaces bucket: {AWS_STORAGE_BUCKET_NAME}")
+
+
+# ============================================================
+# ✅ Force import S3Boto3Storage for Django 5.2+
+# ============================================================
+try:
+    from storages.backends.s3boto3 import S3Boto3Storage
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    print("[Storage] ✅ Using S3Boto3Storage (DigitalOcean Spaces active)")
+except Exception as e:
+    print(f"[Storage] ⚠️ Fallback to local FileSystemStorage: {e}")
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
