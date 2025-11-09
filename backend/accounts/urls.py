@@ -5,7 +5,7 @@ from .views import (
     TokenRefreshView,
     MeView,
     AddCoinView,
-    UserDetailView,  # ✅ เพิ่มสำหรับ Manager
+    UserDetailView,
 )
 
 urlpatterns = [
