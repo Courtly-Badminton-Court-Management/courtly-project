@@ -1,51 +1,38 @@
+# booking/urls.py
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from django.urls import path
-from .views import (
-    SlotViewSet, BookingViewSet,
-    BookingCreateView, BookingHistoryView,
-    BookingCancelView, SlotStatusUpdateView, BookingWalkinView,
-    BookingAllView, SlotBulkStatusUpdateView
+
+from .views.slot_views import SlotViewSet, available_slots_month_view
+from .views.booking_views import (
+    booking_create_view,
+    bookings_all_view,
+    bookings_my_view,
+    booking_detail_view,
+    booking_cancel_view,
+)
+from .views.manager_views import (
+    booking_walkin_view,
+    slot_bulk_status_update_view,
 )
 
-# ────────────── Router setup ──────────────
 router = DefaultRouter()
 router.register(r"slots", SlotViewSet, basename="slot")
-router.register(r"bookings-admin", BookingViewSet, basename="booking-admin")
 
-# ────────────── Explicit SlotViewSet actions ──────────────
-slot_list = SlotViewSet.as_view({"get": "list"})
-slot_month_view = SlotViewSet.as_view({"get": "month_view"})
-
-# ────────────── URL patterns ──────────────
 urlpatterns = [
-    # Create a new booking (POST)
-    path("booking/", BookingCreateView.as_view(), name="booking-create"),
+    # ── Public ──
+    path("available-slots/", available_slots_month_view, name="available-slots"),
 
-    # All bookings list (GET) (ADMIN)
-    path("bookings/", BookingAllView.as_view(), name="booking-all"),
+    # ── SlotViewSet ──
+    path("", include(router.urls)),
 
-    # Walk-in booking (Manager)
-    path("booking/walkin/", BookingWalkinView.as_view(), name="booking-walkin"),
+    # ── Booking ──
+    path("booking/", booking_create_view, name="booking-create"),
+    path("booking/<str:booking_no>/", booking_detail_view, name="booking-detail"),
+    path("bookings/", bookings_all_view, name="bookings-all"),
+    path("my-bookings/", bookings_my_view, name="bookings-my"),
+    path("bookings/<str:booking_no>/cancel/", booking_cancel_view, name="booking-cancel"),
 
-    # Get booking detail
-    path("bookings/<str:booking_no>/", BookingViewSet.as_view({"get": "retrieve"}), name="booking-detail"),
-
-    # Cancel booking
-    path("bookings/<str:booking_no>/cancel/", BookingCancelView.as_view(), name="booking-cancel"),
-
-    # Booking history
-    path("my-booking/", BookingHistoryView.as_view(), name="booking-history"),
-
-    # Update slot status (individuals)
-    path("slots/<int:slot_id>/set-status/<str:new_status>/", SlotStatusUpdateView.as_view(), name="set-slot-status"),
-
-    # Call all slot statuses
-    path("slots/update-status/", SlotBulkStatusUpdateView.as_view(), name="slot-bulk-status-update"),
-
-    # Explicit month-view
-    path("slots/month-view/", slot_month_view, name="slot-month-view"),
+    # ── Manager-only ──
+    path("booking/walkin/", booking_walkin_view, name="booking-walkin"),
+    path("slots/update-status/", slot_bulk_status_update_view, name="slots-bulk-status"),
 ]
-
-
-# ────────────── Include router URLs ──────────────
-urlpatterns += router.urls
