@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
-import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
+import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
@@ -71,7 +71,7 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 
 /* ========================= Main Page ========================= */
 export default function PlayerHistoryPage() {
-  const { data, isLoading, isError } = useMyBookingRetrieve();
+  const { data, isLoading, isError } = useMyBookingsRetrieve();
   const [open, setOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);

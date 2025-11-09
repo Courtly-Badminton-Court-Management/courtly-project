@@ -43,7 +43,7 @@ export const monthViewKey = (month: string) =>
   ["slots/month-view", { month }] as const;
 
 export const availableViewKey = (club: number, month: string) =>
-  ["slots/available-view", { club, month }] as const;
+  ["slots/available-slots", { club, month }] as const;
 
 /* =========================================================================
    Hook: useMonthView
@@ -84,7 +84,7 @@ export function useAvailableView(monthParam?: string, clubParam?: number) {
     queryKey: availableViewKey(CLUB_ID, MONTH),
     queryFn: ({ signal }) =>
       customRequest<AvailableViewResponse>({
-        url: "/api/slots/available-view/",
+        url: "/api/slots/available-slots/",
         method: "GET",
         signal,
         params: { club: CLUB_ID, month: MONTH },

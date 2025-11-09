@@ -38,17 +38,25 @@ export default function ManagerApprovalPage() {
     },
   });
 
+  /* ────────────── Helper ────────────── */
+  const resolveSlipUrl = (path?: string | null): string | null => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path; // ✅ already full URL
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/api", "");
+    return `${base}/${path.replace(/^\/+/, "")}`; // ✅ fallback for relative path
+  };
+
   /* ────────────── Data Mapping ────────────── */
   const rows: ModalTopupRow[] =
     topups?.map((t: any) => {
       const displayUser =
         t.user_display_name?.trim?.() ||
         t.user_email?.trim?.() ||
-        (t.user ? `User #${t.user}` : "Unknown User");
+        (t.username ? `User #${t.username}` : "Unknown User");
 
       return {
         id: String(t.id),
-        user: displayUser,
+        username: displayUser,
         amount: t.amount_thb,
         dt: new Date(t.created_at).toLocaleString("en-GB", {
           dateStyle: "medium",
@@ -60,7 +68,7 @@ export default function ManagerApprovalPage() {
             : t.status === "approved"
             ? "Approved"
             : "Rejected",
-        slipUrl: t.slip_path || null,
+        slipUrl: resolveSlipUrl(t.slip_url),
       };
     }) ?? [];
 
@@ -138,6 +146,9 @@ export default function ManagerApprovalPage() {
                       height={800}
                       unoptimized
                       className="h-full w-full bg-white object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
                     />
                   ) : (
                     <span className="text-gray-400">No slip uploaded</span>
@@ -151,7 +162,7 @@ export default function ManagerApprovalPage() {
                   <b>Request ID:</b> {open.id}
                 </p>
                 <p className="text-lg">
-                  <b>User:</b> {open.user}
+                  <b>User:</b> {open.username}
                 </p>
                 <p className="text-lg">
                   <b>Amount:</b> {open.amount} Coins

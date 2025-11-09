@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 
 export type TopupRow = {
   id: string;
-  user: string;
+  username: string;
   amount: number;
   dt: string; // e.g. "5 Sep 2025, 12:54 PM"
   status: "Pending" | "Approved" | "Rejected";
@@ -75,7 +75,7 @@ export default function TopupApproval({ rows, onView }: Props) {
                 {sorted.map((r) => (
                   <tr key={r.id} className="border-b border-neutral-300 last:border-0">
                     <Td>{r.id}</Td>
-                    <Td className="font-medium">{r.user}</Td>
+                    <Td className="font-medium">{r.username}</Td>
                     <Td>
                       <span className="font-bold text-emerald-700">
                         +{r.amount}
