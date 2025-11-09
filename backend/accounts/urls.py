@@ -5,6 +5,7 @@ from .views import (
     TokenRefreshView,
     MeView,
     AddCoinView,
+    UserDetailView,  # ✅ เพิ่มสำหรับ Manager
 )
 
 urlpatterns = [
@@ -13,9 +14,12 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="accounts-login"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
 
-    # Me
-    path("me", MeView.as_view(), name="accounts-me"),
+    # ✅ Player (current user)
+    path("auth/me/", MeView.as_view(), name="accounts-me"),
 
-    # Coins (legacy)
-    path("coins/add", AddCoinView.as_view(), name="accounts-add-coin"),
+    # ✅ Manager (view another user's profile)
+    path("<int:user_id>/", UserDetailView.as_view(), name="accounts-user-detail"),
+
+    # Coins
+    path("auth/coins/add/", AddCoinView.as_view(), name="accounts-add-coin"),
 ]

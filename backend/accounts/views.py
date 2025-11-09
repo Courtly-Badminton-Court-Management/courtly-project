@@ -1,3 +1,4 @@
+import pytz
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import generics, permissions, serializers, status
@@ -106,6 +107,9 @@ class TokenRefreshView(DRFTokenRefresh):
 
 
 # --- ME ---
+from django.utils import timezone
+import pytz
+
 class MeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -117,8 +121,16 @@ class MeView(APIView):
         data = MeSerializer(user).data
         data["role"] = getattr(user, "role", "player")
         data["balance"] = wallet.balance
-        data["lastLogin"] = user.last_login.isoformat() if user.last_login else None
-        return Response(data)
+
+        # ✅ Fix timezone to Asia/Bangkok and output ISO format
+        if user.last_login:
+            bangkok_tz = pytz.timezone("Asia/Bangkok")
+            local_time = timezone.localtime(user.last_login, bangkok_tz)
+            data["lastLogin"] = local_time.isoformat()
+        else:
+            data["lastLogin"] = None
+
+        return Response(data, status=status.HTTP_200_OK)
 
     # ✅ allow updating minimal fields (avatarKey, names if needed)
     def patch(self, request):
@@ -136,3 +148,29 @@ class AddCoinView(APIView):
         ser.is_valid(raise_exception=True)
         user = ser.save()
         return Response({"ok": True, "new_balance": user.coin_balance}, status=status.HTTP_200_OK)
+
+
+# ────────────────────────────── USER DETAIL ──────────────────────────────
+class UserDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        wallet, _ = Wallet.objects.get_or_create(user=user, defaults={"balance": 1000})
+        data = MeSerializer(user).data
+        data["role"] = getattr(user, "role", "player")
+        data["balance"] = wallet.balance
+
+        # localtime
+        if user.last_login:
+            bangkok_tz = pytz.timezone("Asia/Bangkok")
+            local_time = timezone.localtime(user.last_login, bangkok_tz)
+            data["lastLogin"] = local_time.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            data["lastLogin"] = None
+
+        return Response(data, status=status.HTTP_200_OK)
