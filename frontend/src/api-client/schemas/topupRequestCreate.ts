@@ -5,7 +5,7 @@
  * Badminton Court Management & Booking System
  * OpenAPI spec version: 1.0.0
  */
-import type { StatusE94Enum } from "./statusE94Enum";
+import type { StatusEnum } from "./statusEnum";
 
 export interface TopupRequestCreate {
   readonly id: number;
@@ -21,6 +21,6 @@ export interface TopupRequestCreate {
   transfer_time?: string | null;
   slip_path: string;
   readonly slip_url: string;
-  readonly status: StatusE94Enum;
+  readonly status: StatusEnum;
   readonly created_at: string;
 }

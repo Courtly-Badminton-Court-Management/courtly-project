@@ -11,10 +11,10 @@
  * `approved` - Approved
  * `rejected` - Rejected
  */
-export type StatusE94Enum = (typeof StatusE94Enum)[keyof typeof StatusE94Enum];
+export type StatusEnum = (typeof StatusEnum)[keyof typeof StatusEnum];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const StatusE94Enum = {
+export const StatusEnum = {
   pending: "pending",
   approved: "approved",
   rejected: "rejected",

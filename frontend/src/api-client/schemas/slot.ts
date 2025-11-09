@@ -5,23 +5,20 @@
  * Badminton Court Management & Booking System
  * OpenAPI spec version: 1.0.0
  */
-import type { SlotStatus } from "./slotStatus";
 
 /**
- * Serializer for the Slot model.
-- Converts start_at and end_at to local time (HH:MM format).
-- Includes the related SlotStatus.
+ * Serializer for Slot model.
+Converts start_at and end_at to local time (HH:MM format).
+Includes slot_status, court name, and price_coin.
  */
 export interface Slot {
   readonly id: number;
-  court: number;
+  readonly slot_status: string;
   service_date: string;
   readonly start_time: string;
   readonly end_time: string;
-  /**
-   * @minimum 0
-   * @maximum 2147483647
-   */
-  price_coins?: number;
-  readonly slot_status: SlotStatus;
+  court: number;
+  court_name: string;
+  price_coin: number;
+  readonly booking_id: string;
 }

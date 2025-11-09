@@ -25,12 +25,37 @@ import type { Slot } from "../../schemas";
 
 import { customRequest } from "../../custom-client";
 
-/**
- * ViewSet for viewing court slots.
+// https://stackoverflow.com/questions/49579094/typescript-conditional-types-filter-out-readonly-properties-pick-only-requir/49579497#49579497
+type IfEquals<X, Y, A = X, B = never> =
+  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? A : B;
 
-Endpoints:
-  • GET /api/slots/                     — List all slots
-  • GET /api/slots/month-view?club=1&month=YYYY-MM
+type WritableKeys<T> = {
+  [P in keyof T]-?: IfEquals<
+    { [Q in P]: T[P] },
+    { -readonly [Q in P]: T[P] },
+    P
+  >;
+}[keyof T];
+
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
+  k: infer I,
+) => void
+  ? I
+  : never;
+type DistributeReadOnlyOverUnions<T> = T extends any ? NonReadonly<T> : never;
+
+type Writable<T> = Pick<T, WritableKeys<T>>;
+type NonReadonly<T> = [T] extends [UnionToIntersection<T>]
+  ? {
+      [P in keyof Writable<T>]: T[P] extends object
+        ? NonReadonly<NonNullable<T[P]>>
+        : T[P];
+    }
+  : DistributeReadOnlyOverUnions<T>;
+
+/**
+ * /api/slots/<pk>/ : detail
+/api/slots/slots-list/ : POST { "slot_list": ["25188","25189"] }
  */
 export const slotsList = (signal?: AbortSignal) => {
   return customRequest<Slot[]>({ url: `/api/slots/`, method: "GET", signal });
@@ -150,11 +175,8 @@ export function useSlotsList<
 }
 
 /**
- * ViewSet for viewing court slots.
-
-Endpoints:
-  • GET /api/slots/                     — List all slots
-  • GET /api/slots/month-view?club=1&month=YYYY-MM
+ * /api/slots/<pk>/ : detail
+/api/slots/slots-list/ : POST { "slot_list": ["25188","25189"] }
  */
 export const slotsRetrieve = (id: number, signal?: AbortSignal) => {
   return customRequest<Slot>({
@@ -290,40 +312,39 @@ export function useSlotsRetrieve<
 }
 
 /**
- * Manually change a slot’s status (manager-only).
-
-Endpoint:
-  POST /api/slots/<slot_id>/set-status/<new_status>/
+ * POST /api/slots/slots-list/
+Body: { "slot_list": ["25188", "25189"] }
  */
-export const slotsSetStatusCreate = (
-  slotId: number,
-  newStatus: string,
+export const slotsSlotsListCreate = (
+  slot: NonReadonly<Slot>,
   signal?: AbortSignal,
 ) => {
-  return customRequest<void>({
-    url: `/api/slots/${slotId}/set-status/${newStatus}/`,
+  return customRequest<Slot>({
+    url: `/api/slots/slots-list/`,
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    data: slot,
     signal,
   });
 };
 
-export const getSlotsSetStatusCreateMutationOptions = <
+export const getSlotsSlotsListCreateMutationOptions = <
   TError = unknown,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+    Awaited<ReturnType<typeof slotsSlotsListCreate>>,
     TError,
-    { slotId: number; newStatus: string },
+    { data: NonReadonly<Slot> },
     TContext
   >;
 }): UseMutationOptions<
-  Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+  Awaited<ReturnType<typeof slotsSlotsListCreate>>,
   TError,
-  { slotId: number; newStatus: string },
+  { data: NonReadonly<Slot> },
   TContext
 > => {
-  const mutationKey = ["slotsSetStatusCreate"];
+  const mutationKey = ["slotsSlotsListCreate"];
   const { mutation: mutationOptions } = options
     ? options.mutation &&
       "mutationKey" in options.mutation &&
@@ -333,340 +354,112 @@ export const getSlotsSetStatusCreateMutationOptions = <
     : { mutation: { mutationKey } };
 
   const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof slotsSetStatusCreate>>,
-    { slotId: number; newStatus: string }
+    Awaited<ReturnType<typeof slotsSlotsListCreate>>,
+    { data: NonReadonly<Slot> }
   > = (props) => {
-    const { slotId, newStatus } = props ?? {};
+    const { data } = props ?? {};
 
-    return slotsSetStatusCreate(slotId, newStatus);
+    return slotsSlotsListCreate(data);
   };
 
   return { mutationFn, ...mutationOptions };
 };
 
-export type SlotsSetStatusCreateMutationResult = NonNullable<
-  Awaited<ReturnType<typeof slotsSetStatusCreate>>
+export type SlotsSlotsListCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof slotsSlotsListCreate>>
 >;
+export type SlotsSlotsListCreateMutationBody = NonReadonly<Slot>;
+export type SlotsSlotsListCreateMutationError = unknown;
 
-export type SlotsSetStatusCreateMutationError = unknown;
-
-export const useSlotsSetStatusCreate = <TError = unknown, TContext = unknown>(
+export const useSlotsSlotsListCreate = <TError = unknown, TContext = unknown>(
   options?: {
     mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+      Awaited<ReturnType<typeof slotsSlotsListCreate>>,
       TError,
-      { slotId: number; newStatus: string },
+      { data: NonReadonly<Slot> },
       TContext
     >;
   },
   queryClient?: QueryClient,
 ): UseMutationResult<
-  Awaited<ReturnType<typeof slotsSetStatusCreate>>,
+  Awaited<ReturnType<typeof slotsSlotsListCreate>>,
   TError,
-  { slotId: number; newStatus: string },
+  { data: NonReadonly<Slot> },
   TContext
 > => {
-  const mutationOptions = getSlotsSetStatusCreateMutationOptions(options);
+  const mutationOptions = getSlotsSlotsListCreateMutationOptions(options);
 
   return useMutation(mutationOptions, queryClient);
 };
-/**
- * Simplified calendar vie-endpoint.
-
-Example:
-    GET /api/slots/available-view?club=1&month=YYYY-MM
-    Optional: &date=YYYY-MM-DD  →  filter a specific day
-
-Returns:
-    - date: string (YYYY-MM-DD)
-    - percent: integer (percentage of available slots for that day)
-    - slots[]: list of available slots with details
- */
-export const slotsAvailableViewRetrieve = (signal?: AbortSignal) => {
-  return customRequest<Slot>({
-    url: `/api/slots/available-view/`,
-    method: "GET",
+export const slotsUpdateStatusCreate = (signal?: AbortSignal) => {
+  return customRequest<void>({
+    url: `/api/slots/update-status/`,
+    method: "POST",
     signal,
   });
 };
 
-export const getSlotsAvailableViewRetrieveQueryKey = () => {
-  return [`/api/slots/available-view/`] as const;
-};
-
-export const getSlotsAvailableViewRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+export const getSlotsUpdateStatusCreateMutationOptions = <
   TError = unknown,
+  TContext = unknown,
 >(options?: {
-  query?: Partial<
-    UseQueryOptions<
-      Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-      TError,
-      TData
-    >
-  >;
-}) => {
-  const { query: queryOptions } = options ?? {};
-
-  const queryKey =
-    queryOptions?.queryKey ?? getSlotsAvailableViewRetrieveQueryKey();
-
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
-  > = ({ signal }) => slotsAvailableViewRetrieve(signal);
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof slotsUpdateStatusCreate>>,
     TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-};
-
-export type SlotsAvailableViewRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
->;
-export type SlotsAvailableViewRetrieveQueryError = unknown;
-
-export function useSlotsAvailableViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-  TError = unknown,
->(
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-          TError,
-          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
-        >,
-        "initialData"
-      >;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useSlotsAvailableViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-          TError,
-          Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>
-        >,
-        "initialData"
-      >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useSlotsAvailableViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-        TError,
-        TData
-      >
-    >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-
-export function useSlotsAvailableViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsAvailableViewRetrieve>>,
-        TError,
-        TData
-      >
-    >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-} {
-  const queryOptions = getSlotsAvailableViewRetrieveQueryOptions(options);
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  query.queryKey = queryOptions.queryKey;
-
-  return query;
-}
-
-/**
- * Retrieve all slots for a given club and month.
-Example:
-    GET /api/slots/month-view?club=1&month=2025-09
- */
-export const slotsMonthViewRetrieve = (signal?: AbortSignal) => {
-  return customRequest<Slot>({
-    url: `/api/slots/month-view/`,
-    method: "GET",
-    signal,
-  });
-};
-
-export const getSlotsMonthViewRetrieveQueryKey = () => {
-  return [`/api/slots/month-view/`] as const;
-};
-
-export const getSlotsMonthViewRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-  TError = unknown,
->(options?: {
-  query?: Partial<
-    UseQueryOptions<
-      Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-      TError,
-      TData
-    >
+    void,
+    TContext
   >;
-}) => {
-  const { query: queryOptions } = options ?? {};
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof slotsUpdateStatusCreate>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["slotsUpdateStatusCreate"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
 
-  const queryKey =
-    queryOptions?.queryKey ?? getSlotsMonthViewRetrieveQueryKey();
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof slotsUpdateStatusCreate>>,
+    void
+  > = () => {
+    return slotsUpdateStatusCreate();
+  };
 
-  const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof slotsMonthViewRetrieve>>
-  > = ({ signal }) => slotsMonthViewRetrieve(signal);
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-    TError,
-    TData
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
+  return { mutationFn, ...mutationOptions };
 };
 
-export type SlotsMonthViewRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof slotsMonthViewRetrieve>>
+export type SlotsUpdateStatusCreateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof slotsUpdateStatusCreate>>
 >;
-export type SlotsMonthViewRetrieveQueryError = unknown;
 
-export function useSlotsMonthViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
+export type SlotsUpdateStatusCreateMutationError = unknown;
+
+export const useSlotsUpdateStatusCreate = <
   TError = unknown,
->(
-  options: {
-    query: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-          TError,
-          Awaited<ReturnType<typeof slotsMonthViewRetrieve>>
-        >,
-        "initialData"
-      >;
-  },
-  queryClient?: QueryClient,
-): DefinedUseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useSlotsMonthViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-  TError = unknown,
+  TContext = unknown,
 >(
   options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-        TError,
-        TData
-      >
-    > &
-      Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-          TError,
-          Awaited<ReturnType<typeof slotsMonthViewRetrieve>>
-        >,
-        "initialData"
-      >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-};
-export function useSlotsMonthViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-        TError,
-        TData
-      >
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof slotsUpdateStatusCreate>>,
+      TError,
+      void,
+      TContext
     >;
   },
   queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
+): UseMutationResult<
+  Awaited<ReturnType<typeof slotsUpdateStatusCreate>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationOptions = getSlotsUpdateStatusCreateMutationOptions(options);
+
+  return useMutation(mutationOptions, queryClient);
 };
-
-export function useSlotsMonthViewRetrieve<
-  TData = Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-  TError = unknown,
->(
-  options?: {
-    query?: Partial<
-      UseQueryOptions<
-        Awaited<ReturnType<typeof slotsMonthViewRetrieve>>,
-        TError,
-        TData
-      >
-    >;
-  },
-  queryClient?: QueryClient,
-): UseQueryResult<TData, TError> & {
-  queryKey: DataTag<QueryKey, TData, TError>;
-} {
-  const queryOptions = getSlotsMonthViewRetrieveQueryOptions(options);
-
-  const query = useQuery(queryOptions, queryClient) as UseQueryResult<
-    TData,
-    TError
-  > & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  query.queryKey = queryOptions.queryKey;
-
-  return query;
-}
