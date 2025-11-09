@@ -1,0 +1,181 @@
+# booking/views/manager_views.py
+from django.db import transaction
+from django.utils import timezone
+from rest_framework import permissions, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+
+from ..models import Slot, SlotStatus, Booking, BookingSlot, Club
+from ..serializers import BookingCreateSerializer
+from .utils import gen_booking_no, combine_dt
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Walk-in (Manager only): POST /api/booking/walkin/
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@transaction.atomic
+def booking_walkin_view(request):
+    role = getattr(request.user, "role", None)
+    if role != "manager":
+        return Response({"detail": "Only manager can create walk-in booking"}, status=403)
+
+    ser = BookingCreateSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+
+    club_id = ser.validated_data.get("club")
+    items = ser.validated_data.get("items", [])
+
+    if not club_id:
+        return Response({"detail": "club is required"}, status=400)
+    if not Club.objects.filter(id=club_id).exists():
+        return Response({"detail": "Club not found"}, status=404)
+    if not items:
+        return Response({"detail": "No slot items provided"}, status=400)
+
+    customer_name = request.data.get("customer_name", "Walk-in Customer")
+    contact_method = request.data.get("contact_method", "Walk-in (no contact)")
+    contact_detail = request.data.get("contact_detail", None)
+
+    first_item = items[0]
+    first_date = first_item.get("date")
+    first_court = first_item.get("court")
+    if not first_date or not first_court:
+        return Response({"detail": "items[].date and items[].court are required"}, status=400)
+    if first_date < timezone.localdate():
+        return Response({"detail": f"Cannot book for a past date: {first_date}"}, status=400)
+
+    booking = Booking.objects.create(
+        booking_no=gen_booking_no(),
+        user=request.user,         # created by manager
+        club_id=club_id,
+        court_id=first_court,
+        status="walkin",
+        booking_date=first_date,
+        total_cost=0,
+        customer_name=customer_name,
+        contact_method=contact_method,
+        contact_detail=contact_detail,
+    )
+
+    total_cost = 0
+    created_slots = []
+
+    for it in items:
+        court_id = it["court"]
+        d = it["date"]
+        start_dt = combine_dt(d, it["start"])
+        end_dt = combine_dt(d, it["end"])
+
+        # query matching slots in that range
+        slots = (
+            Slot.objects
+            .select_related("slot_status")
+            .filter(
+                court_id=court_id,
+                service_date=d,
+                start_at__gte=timezone.make_naive(start_dt),
+                end_at__lte=timezone.make_naive(end_dt),
+            )
+            .order_by("start_at")
+        )
+
+        if not slots:
+            return Response({"detail": f"No slots found for court {court_id} @ {d}"}, status=400)
+
+        for s in slots:
+            if not hasattr(s, "slot_status"):
+                SlotStatus.objects.create(slot=s, status="available")
+                s.refresh_from_db()
+
+            if s.slot_status.status != "available":
+                return Response(
+                    {"detail": f"Slot {s.id} not available", "status": s.slot_status.status},
+                    status=409,
+                )
+
+            BookingSlot.objects.create(booking=booking, slot=s)
+            SlotStatus.objects.update_or_create(slot=s, defaults={"status": "walkin"})
+            total_cost += s.price_coins
+            created_slots.append(s.id)
+
+    booking.total_cost = total_cost
+    booking.save(update_fields=["total_cost", "customer_name", "contact_method", "contact_detail"])
+
+    return Response(
+        {
+            "ok": True,
+            "booking": {
+                "booking_no": booking.booking_no,
+                "club": club_id,
+                "court": first_court,
+                "customer_name": booking.customer_name,
+                "contact_method": booking.contact_method,
+                "contact_detail": booking.contact_detail,
+                "status": "walkin",
+                "slots": created_slots,
+                "total_cost": total_cost,
+            },
+        },
+        status=201,
+    )
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Bulk status update (Manager only): POST /api/slots/update-status/
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@transaction.atomic
+def slot_bulk_status_update_view(request):
+    role = getattr(request.user, "role", None)
+    if role != "manager":
+        return Response({"detail": "Only managers can change status."}, status=403)
+
+    items = request.data.get("items", [])
+    if not items or not isinstance(items, list):
+        return Response({"detail": "items must be a list of {slot, status}"}, status=400)
+
+    allowed_transitions = {
+        "available": ["maintenance", "walkin", "booked", "expired"],
+        "booked": ["checkin", "noshow"],
+        "walkin": ["checkin", "noshow"],
+        "checkin": ["endgame"],
+        "maintenance": ["available"],
+    }
+
+    updated, errors = [], []
+
+    for it in items:
+        slot_id = it.get("slot")
+        new_status = it.get("status")
+
+        if not slot_id or not new_status:
+            errors.append({"slot": slot_id, "detail": "Missing slot or status"})
+            continue
+
+        try:
+            ss = SlotStatus.objects.select_related("slot").get(slot_id=slot_id)
+        except SlotStatus.DoesNotExist:
+            errors.append({"slot": slot_id, "detail": "Slot not found"})
+            continue
+
+        if new_status not in dict(SlotStatus.STATUS):
+            errors.append({"slot": slot_id, "detail": "Invalid status"})
+            continue
+
+        if new_status not in allowed_transitions.get(ss.status, []):
+            errors.append({"slot": slot_id, "detail": f"Cannot change from {ss.status} → {new_status}"})
+            continue
+
+        ss.status = new_status
+        ss.save(update_fields=["status", "updated_at"])
+
+        # Update linked booking status, if exists
+        bs = BookingSlot.objects.filter(slot=ss.slot).select_related("booking").first()
+        if bs and bs.booking:
+            bs.booking.status = new_status
+            bs.booking.save(update_fields=["status"])
+
+        updated.append({"slot_id": slot_id, "new_status": new_status})
+
+    return Response({"detail": "Bulk update complete", "updated": updated, "errors": errors}, status=200)

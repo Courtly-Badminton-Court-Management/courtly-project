@@ -87,6 +87,15 @@ class Booking(models.Model):
     total_cost = models.PositiveIntegerField(null=True, blank=True)  # Total cost in coins
     booking_date = models.DateField(null=True, blank=True)           # The actual date of play
 
+    # Booking meta info
+    booking_method = models.CharField(max_length=100, null=True, blank=True)   # e.g. "Courtly Website", "Walk-in"
+    payment_method = models.CharField(max_length=50, null=True, blank=True)    # e.g. "coin", "cash"
+
+    # Manager booking fields
+    customer_name = models.CharField(max_length=100, null=True, blank=True)
+    contact_method = models.CharField(max_length=50, null=True, blank=True)
+    contact_detail = models.CharField(max_length=255, null=True, blank=True)
+
     def __str__(self):
         return self.booking_no
 
@@ -105,4 +114,3 @@ class BookingSlot(models.Model):
 
     def __str__(self):
         return f"{self.booking.booking_no} → slot {self.slot_id}"
-
