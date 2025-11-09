@@ -8,7 +8,7 @@ import dayjs from "dayjs";
 import ImageSlider from "@/ui/components/homepage/ImageSlider";
 import UpcomingModal from "@/ui/components/homepage/UpcomingModal";
 import CalendarModal from "@/ui/components/homepage/CalendarModal";
-import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
+import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
 import { BookingRow} from "@/ui/components/bookingpage/BookingCard";
@@ -23,7 +23,7 @@ export default function PlayerHomePage() {
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
 
   /* ------------------------------ Booking Data ------------------------------ */
-  const { data, isLoading, isError } = useMyBookingRetrieve();
+  const { data, isLoading, isError } = useMyBookingsRetrieve();
   const { cancelMut, handleCancel } = useCancelBooking({
     onSuccess: () => setConfirmModal(null),
   });

@@ -11,8 +11,8 @@ import {
   getBookingsRetrieveQueryKey,
 } from "@/api-client/endpoints/bookings/bookings";
 import {
-  getMyBookingRetrieveQueryKey,
-} from "@/api-client/endpoints/my-booking/my-booking";
+  getMyBookingsRetrieveQueryKey,
+} from "@/api-client/endpoints/my-bookings/my-bookings";
 
 /* =========================================================================
    Types
@@ -47,7 +47,7 @@ export function useBookingCreateWithBody(month: string) {
       // ✅ invalidate ทุก cache ที่เกี่ยวข้อง
       qc.invalidateQueries({ queryKey: monthViewKey(month) });
       qc.invalidateQueries({ queryKey: getWalletBalanceRetrieveQueryKey() });
-      qc.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() });
+      qc.invalidateQueries({ queryKey: getMyBookingsRetrieveQueryKey() });
       qc.invalidateQueries({ queryKey: getBookingsRetrieveQueryKey() });
       return response;
     },
