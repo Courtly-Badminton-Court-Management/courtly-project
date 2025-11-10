@@ -8,28 +8,57 @@ import dayjs from "dayjs";
 import ImageSlider from "@/ui/components/homepage/ImageSlider";
 import UpcomingModal from "@/ui/components/homepage/UpcomingModal";
 import CalendarModal from "@/ui/components/homepage/CalendarModal";
-import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
-import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
-import type { BookingRow } from "@/api-client/extras/types";
 
-const AvailableSlotPanel = dynamic(
-  () => import("@/ui/components/homepage/AvailableSlotPanel"),
-  { ssr: false }
-);
+import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
+import { useAvailableSlotsRetrieve } from "@/api-client/endpoints/available-slots/available-slots";
+import type { AvailableSlotsResponse } from "@/api-client/extras/types";
+import { useCancelBooking } from "@/api-client/extras/cancel_booking";
+
+import type { BookingRow } from "@/api-client/extras/types";
+import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
 
 export default function PlayerHomePage() {
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
 
-  /* ------------------------------ Booking Data ------------------------------ */
-  const { data, isLoading, isError } = useMyBookingsRetrieve();
+
+  /* --------------------------------------------------------------------------
+   * 2. Fetch monthly available slots for current club (club = 1)
+   * -------------------------------------------------------------------------- */
+  const currentMonth = dayjs().format("YYYY-MM");
+  const {
+    data: availableData,
+    isLoading: isAvailLoading,
+    isError: isAvailError,
+  } = useAvailableSlotsRetrieve<AvailableSlotsResponse>({
+    query: {
+      queryKey: ["available-slots", currentMonth],
+      queryFn: async ({ signal }) => {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/available-slots/?club=${process.env.NEXT_PUBLIC_CLUB_ID}&month=${currentMonth}`,
+          { signal, credentials: "include" }
+        );
+        return res.json();
+      },
+    },
+  });
+
+  /* --------------------------------------------------------------------------
+   * 3. Fetch user bookings (for upcoming section)
+   * -------------------------------------------------------------------------- */
+  const {
+    data: bookingData,
+    isLoading: isBookingLoading,
+    isError: isBookingError,
+  } = useMyBookingsRetrieve();
+
   const { cancelMut, handleCancel } = useCancelBooking({
     onSuccess: () => setConfirmModal(null),
   });
 
   const confirmedList: BookingRow[] = useMemo(() => {
-    const raw = data as any;
+    const raw = bookingData as any;
     const arr: BookingRow[] = Array.isArray(raw?.data)
       ? raw.data
       : Array.isArray(raw?.results)
@@ -41,27 +70,24 @@ export default function PlayerHomePage() {
       .filter((b) => b.booking_status?.toLowerCase() === "confirmed")
       .sort(
         (a, b) =>
-          new Date(a.booking_date).getTime() - new Date(b.booking_date).getTime()
+          new Date(a.booking_date).getTime() -
+          new Date(b.booking_date).getTime()
       );
-  }, [data]);
+  }, [bookingData]);
 
   const onCancelConfirm = useCallback((b: BookingRow) => {
     setConfirmModal(b);
   }, []);
 
-  /* --------------------------- Default selected date ------------------------ */
-  useEffect(() => {
-    setSelectedDate(dayjs().format("YYYY-MM-DD"));
-  }, []);
-
-  /* ------------------------------ Render layout ----------------------------- */
+  /* --------------------------------------------------------------------------
+   * 4. Render Layout
+   * -------------------------------------------------------------------------- */
   return (
     <main className="mx-auto my-auto">
       {/* 🖼 Hero slider */}
       <div className="mb-12 w-full">
         <ImageSlider />
       </div>
-
 
       {/* Header */}
       <header className="mb-8 flex items-center justify-between">
@@ -78,20 +104,31 @@ export default function PlayerHomePage() {
       <section className="grid items-stretch mb-8 gap-6 md:grid-cols-3">
         {/* Calendar 3/5 */}
         <div className="md:col-span-2">
-          <CalendarModal onSelectDate={(d) => setSelectedDate(d)} />
+          <CalendarModal
+            data={availableData}
+            isLoading={isAvailLoading}
+            isError={isAvailError}
+            onSelectDate={(d) => setSelectedDate(d)}
+          />
         </div>
 
         {/* Panel 2/5 */}
         {selectedDate && (
           <div className="md:col-span-1">
-            <AvailableSlotPanel selectedDate={selectedDate} />
+            <AvailableSlotPanel
+              selectedDate={selectedDate}
+              data={availableData}
+              isLoading={isAvailLoading}
+              isError={isAvailError}
+            />
           </div>
         )}
       </section>
-            {/* 📅 Upcoming bookings */}
+
+      {/* 📅 Upcoming bookings */}
       <div className="mb-12 w-full">
         <UpcomingModal
-          bookings={isLoading || isError ? [] : confirmedList}
+          bookings={isBookingLoading || isBookingError ? [] : confirmedList}
           onCancel={onCancelConfirm}
         />
       </div>

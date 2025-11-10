@@ -35,3 +35,16 @@ export type UserProfile = {
   balance: number;
   lastLogin: string;
 };
+
+
+/* ==================== Available Slots ==================== */
+export type AvailableDay = {
+  date: string; // e.g. "01-11-25"
+  available_percent: number;
+  available_slots: SlotItem[];
+};
+
+export type AvailableSlotsResponse = {
+  month: string; // e.g. "11-25"
+  days: AvailableDay[];
+};

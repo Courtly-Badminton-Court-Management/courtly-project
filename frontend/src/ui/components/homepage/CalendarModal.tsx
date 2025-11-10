@@ -6,7 +6,6 @@ import weekday from "dayjs/plugin/weekday";
 import isoWeek from "dayjs/plugin/isoWeek";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
-import { useAvailableView } from "@/api-client/extras/slots";
 
 dayjs.extend(weekday);
 dayjs.extend(isoWeek);
@@ -16,8 +15,10 @@ dayjs.extend(customParseFormat);
    Props
    ========================================================================= */
 type CalendarModalProps = {
+  data?: any;
+  isLoading?: boolean;
+  isError?: boolean;
   onSelectDate?: (date: string) => void;
-  clubId?: number;
 };
 
 /* =========================================================================
@@ -34,17 +35,13 @@ const getColorByPercent = (p: number) => {
    Component
    ========================================================================= */
 export default function CalendarModal({
+  data,
+  isLoading,
+  isError,
   onSelectDate,
-  clubId = 1,
 }: CalendarModalProps) {
   const [month, setMonth] = useState(dayjs().startOf("month"));
   const [selected, setSelected] = useState<string | null>(null);
-
-  /* ✅ ใช้ endpoint จริง /api/slots/available-view?club=1&month=YYYY-MM */
-  const { data, isLoading, isError } = useAvailableView(
-    month.format("YYYY-MM"),
-    clubId
-  );
 
   const handleSelect = (date: string) => {
     setSelected(date);
@@ -58,24 +55,23 @@ export default function CalendarModal({
      Build calendar grid
      ========================================================================= */
   const firstDay = month.startOf("month");
-  const startOffset = (firstDay.isoWeekday() + 6) % 7; // ให้จันทร์เป็น column แรก
+  const startOffset = (firstDay.isoWeekday() + 6) % 7; // จันทร์เป็น column แรก
   const daysInMonth = month.daysInMonth();
 
-  // ✅ map backend data: { date: YYYY-MM-DD, percent }
   const dayMap = useMemo(() => {
     if (!data?.days) return new Map();
-    return new Map(data.days.map((d) => [d.date, d]));
+    return new Map(data.days.map((d: any) => [d.date, d]));
   }, [data]);
 
   const cells = useMemo(() => {
     return Array.from({ length: startOffset + daysInMonth }, (_, i) => {
       if (i < startOffset) return null;
       const date = firstDay.add(i - startOffset, "day");
-      const formatted = date.format("YYYY-MM-DD");
-      const backend = dayMap.get(formatted);
+      const key = dayjs(date).format("DD-MM-YY");
+      const backend = dayMap.get(key);
       return {
         date,
-        percent: backend?.percent ?? 0,
+        percent: backend?.available_percent ? backend.available_percent * 100 : 0,
       };
     });
   }, [month, data]);
@@ -88,7 +84,6 @@ export default function CalendarModal({
       {/* Header */}
       <div className="mb-5 border-b-4 border-pine/80 pb-2 flex items-center justify-between">
         <div className="flex items-center">
-          {/* Left section */}
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-pine/10 p-2 text-pine">
               <CalendarDays size={18} strokeWidth={2.2} />
@@ -165,19 +160,16 @@ export default function CalendarModal({
                 <button
                   key={cell.date.format("YYYY-MM-DD")}
                   onClick={() => handleSelect(cell.date.format("YYYY-MM-DD"))}
-                  className={`relative flex flex-col items-center justify-center rounded-lg border border-platinum bg-white transition-all overflow-hidden h-[70px] w-full
+                  className={`relative flex flex-col items-center justify-center rounded-lg border border-platinum bg-white transition-all overflow-hidden h-[70px]
                     ${
                       selected === cell.date.format("YYYY-MM-DD")
                         ? "ring-2 ring-cambridge shadow-sm"
                         : "hover:bg-cambridge/10 hover:ring-1 ring-cambridge"
                     }`}
                 >
-                  {/* วันที่ */}
                   <span className="font-semibold text-neutral-700 z-10 mb-5">
                     {cell.date.date()}
                   </span>
-
-                  {/* แถบเปอร์เซ็นต์ */}
                   <div className="absolute bottom-0 left-0 w-full h-[16px] bg-neutral-200 overflow-hidden flex justify-left">
                     <div
                       className={`${getColorByPercent(cell.percent)} h-full transition-all duration-300`}
