@@ -82,6 +82,71 @@ def available_slots_month_view(request):
         "days": days_payload,
     })
 
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW: /month-view/?club=&month=YYYY-MM  (AllowAny)
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def month_view(request):
+    """
+    Monthly slot overview for a given club.
+    GET /month-view/?club=1&month=2025-10
+    """
+    raw_club = request.query_params.get("club")
+    month_str = request.query_params.get("month")
+
+    # Validate club
+    try:
+        club_id = int(raw_club)
+    except (TypeError, ValueError):
+        return Response({"detail": "club must be an integer id"}, status=400)
+
+    # Validate month
+    if not month_str or len(month_str) != 7 or "-" not in month_str:
+        return Response({"detail": "month is required as YYYY-MM"}, status=400)
+
+    try:
+        y, m = map(int, month_str.split("-"))
+    except ValueError:
+        return Response({"detail": "invalid month format, use YYYY-MM"}, status=400)
+
+    first_day = date(y, m, 1)
+    last_day = date(y, m, calendar.monthrange(y, m)[1])
+
+    qs = (
+        Slot.objects
+        .select_related("court", "slot_status")
+        .filter(
+            court__club_id=club_id,
+            service_date__gte=first_day,
+            service_date__lte=last_day,
+        )
+        .order_by("service_date", "court_id", "start_at")
+    )
+
+    tz = timezone.get_current_timezone()
+    by_day = {}
+
+    for s in qs:
+        day_key = s.service_date.strftime("%d-%m-%y")
+        status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+        by_day.setdefault(day_key, {})[str(s.id)] = {
+            "status": status_val,
+            "start_time": timezone.localtime(s.start_at, tz).strftime("%H:%M"),
+            "end_time": timezone.localtime(s.end_at, tz).strftime("%H:%M"),
+            "court": s.court_id,
+            "court_name": s.court.name,
+            "price_coin": s.price_coins,
+        }
+
+    payload = {
+        "month": first_day.strftime("%m-%y"),
+        "days": [{"date": d, "slot_list": slots} for d, slots in by_day.items()],
+    }
+
+    payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
+    return Response(payload)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2) /api/slots/<slot_id>/ (Authenticated)  + 3) /api/slots/slots-list/ (POST)
@@ -146,3 +211,5 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                 "price_coin": s.price_coins,
             })
         return Response({"slot_items": slot_items}, status=200)
+    
+
