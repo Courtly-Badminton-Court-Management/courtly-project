@@ -48,3 +48,26 @@ export type AvailableSlotsResponse = {
   month: string; // e.g. "11-25"
   days: AvailableDay[];
 };
+
+
+
+// 💥 Temporary types for month-view and booking POST
+
+export type RawSlot = {
+  status: string;
+  start_time: string;
+  end_time: string;
+  court: number;
+  court_name: string;
+  price_coin: number;
+};
+
+export type MonthViewDay = {
+  date: string;
+  slot_list: Record<string, RawSlot>; // slot_id เป็น key
+};
+
+export type MonthViewResponse = {
+  month: string;
+  days: MonthViewDay[];
+};

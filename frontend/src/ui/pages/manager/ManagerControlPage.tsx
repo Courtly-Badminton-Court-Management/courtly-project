@@ -14,7 +14,6 @@ import BookingErrorModal from "@/ui/components/bookingpage/BookingErrorModal";
 
 import { useMonthView } from "@/api-client/extras/slots";
 import { useUpdateSlotStatus } from "@/api-client/extras/update_slots";
-import { useBookingsAdminCreate } from "@/api-client/endpoints/bookings-admin/bookings-admin";
 import { useBookingCreateWithBody } from "@/api-client/extras/booking";
 
 import {
@@ -93,7 +92,7 @@ export default function ManagerControlPage() {
   // ======= Hooks =======
   const mv = useMonthView(CURRENT_MONTH);
   const updateStatusMut = useUpdateSlotStatus();
-  const bookingAdminMut = useBookingsAdminCreate();
+  const bookingAdminMut = useBookingCreateWithBody(CURRENT_MONTH);
   const bookingMut = useBookingCreateWithBody(CURRENT_MONTH);
 
   const base = useMemo(() => buildDayGridFromMonthView(mv.data, ymd), [mv.data, ymd]);

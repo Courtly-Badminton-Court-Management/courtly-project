@@ -98,7 +98,7 @@ export default function BookingConfirmedModalStandalone({
                 className="mb-5 flex flex-col items-center gap-2"
               >
                 <p className="text-sm font-semibold text-onyx">
-                  Booking ID:  <CopyToClipboard text={bookingNos.length > 1 ? bookingNos : ""}/> 
+                  Booking ID:  <CopyToClipboard text={bookingNos}/> 
                 </p>
                 
               </motion.div>

@@ -1,4 +1,3 @@
-import type { SlotStatusStatusEnum } from "@/api-client/schemas/slotStatusStatusEnum";
 
 
 // View-model สำหรับ UI
@@ -6,14 +5,18 @@ export type Col = { start: string; end: string; label: string };
 
 // เพิ่ม priceCoins เพื่อไว้แสดง/ตรวจสอบใน UI ถ้าจำเป็น
 export type GridCell = {
-  status: SlotStatusStatusEnum;
+  status: string;
   priceCoins?: number;
   /** ✅ เพิ่ม id ของ slot แต่ละช่อง */
   id?: string;
 };
 
 // สำหรับการเลือกในกริด
-export type SelectedSlot = { courtRow: number; colIdx: number };
+export type SelectedSlot = {
+  courtRow: number;
+  colIdx: number;
+  slotId?: string; // ✅ เพิ่ม field นี้
+};
 
 // กลุ่ม selection (ช่วงเวลาต่อเนื่องในแถวเดียวกัน)
 export type GroupedSelection = {

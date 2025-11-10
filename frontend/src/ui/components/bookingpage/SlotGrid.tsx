@@ -1,4 +1,3 @@
-// src/ui/components/bookingpage/SlotGrid.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -37,10 +36,10 @@ function normalizeForPlayer(statusRaw: string): PlayerGroup {
    ========================================================================= */
 type Props = {
   cols: Col[];
-  grid: GridCell[][];
+  grid: (GridCell & { slot_id?: string })[][];
   courtNames: string[];
   selected: SelectedSlot[];
-  onToggle: (courtRow: number, colIdx: number) => void;
+  onToggle: (courtRow: number, colIdx: number, slotId?: string) => void;
   currentDate: string; // YYYY-MM-DD
 };
 
@@ -182,7 +181,7 @@ export default function SlotGrid({
                       )}
                       onClick={() => {
                         if (disabled || isPast) return;
-                        onToggle(rIdx + 1, cIdx);
+                        onToggle(rIdx + 1, cIdx, cell.slot_id);
                       }}
                       disabled={disabled || isPast}
                       aria-disabled={disabled || isPast}
