@@ -11,8 +11,6 @@
 ### 1. Register
 **POST** `/api/auth/register/`  
 **Auth:** ❌ None
-
-**Request Body**
 ```json
 {
   "username": "cream",
@@ -24,7 +22,6 @@
   "accept": true
 }
 ```
-
 **Response (201)**
 ```json
 {
@@ -33,45 +30,35 @@
   "email": "cream@example.com"
 }
 ```
-
 ---
 
 ### 2. Login
 **POST** `/api/auth/login/`  
 **Auth:** ❌ None  
-Accepts either `{username,password}` or `{email,password}`  
-
-**Response**
+Accepts either `{username,password}` or `{email,password}`
 ```json
 {
   "access": "<jwt_token>",
   "refresh": "<refresh_token>"
 }
 ```
-
 ---
 
 ### 3. Refresh Token
 **POST** `/api/auth/token/refresh/`  
-**Auth:** ❌ None  
-
-**Body**
+**Auth:** ❌ None
 ```json
 { "refresh": "<refresh_token>" }
 ```
-
 **Response**
 ```json
 { "access": "<new_access_token>" }
 ```
-
 ---
 
 ### 4. Get My Profile
 **GET** `/api/auth/me/`  
 **Auth:** ✅ Required
-
-**Response**
 ```json
 {
   "id": 1,
@@ -81,32 +68,69 @@ Accepts either `{username,password}` or `{email,password}`
   "balance": 1000
 }
 ```
-
 ---
 
-### 5. Add Coins
+### 5. Get User Profile by ID
+**GET** `/api/auth/me/<user_id>/`  
+**Auth:** ✅ Required
+```json
+{
+  "id": 38,
+  "username": "sprint4Tester",
+  "email": "sprint4Tester@example.com",
+  "firstname": "sprint4",
+  "lastname": "Tester",
+  "avatarKey": null,
+  "role": "player",
+  "balance": 6800,
+  "lastLogin": "2025-11-08T18:57:32.647424+00:00"
+}
+```
+---
+
+### 6. Add Coins
 **POST** `/api/auth/add-coins/`  
 **Auth:** ✅ Required
-
-**Body**
 ```json
 { "amount": 200 }
 ```
-
 **Response**
 ```json
 { "ok": true, "new_balance": 1200 }
 ```
-
 ---
 
-## 🎾 Booking & Slots
+## 🎾 Booking & Slots (`/api/slots/` and `/api/bookings/`)
 
-### 1. Get Monthly Slots
-**GET** `/api/slots/month-view?club=1&month=2025-09`  
+### 1. Get Monthly Available Slots
+**GET** `/api/available-slots/?club=<club_id>&month=<YYYY-MM>`  
 **Auth:** ❌ None
+```json
+{
+  "month": "11-25",
+  "days": [
+    {
+      "date": "01-11-25",
+      "available_percent": 0.97,
+      "available_slots": [
+        {
+          "slot_status": "available",
+          "service_date": "2025-11-01",
+          "start_time": "10:30",
+          "end_time": "11:00",
+          "court": 1,
+          "court_name": "Court 1",
+          "price_coin": 100
+        }
+      ]
+    }
+  ]
+}
+```
+---
 
-**Response**
+### 2. Get Monthly Slots (Alternative)
+**GET** `/api/slots/month-view?club=1&month=2025-09`
 ```json
 {
   "month": "09-25",
@@ -126,77 +150,163 @@ Accepts either `{username,password}` or `{email,password}`
   ]
 }
 ```
-
 ---
 
-### 2. Create Booking
-**POST** `/api/bookings/`  
-**Auth:** ✅ Required
-
-**Body**
+### 3. Get Slot Detail
+**GET** `/api/slots/<slot_id>/`
 ```json
 {
-  "club": 1,
-  "items": [
-    { "court": 4, "date": "2025-09-05", "start": "10:00", "end": "12:00" },
-    { "court": 5, "date": "2025-09-05", "start": "14:00", "end": "15:00" }
-  ]
+  "slot_status": "booked",
+  "service_date": "2025-10-25",
+  "start_time": "17:00",
+  "end_time": "17:30",
+  "court": 3,
+  "court_name": "Court 3",
+  "price_coin": 100,
+  "booking_id": "BK-01D82793F7"
 }
 ```
-
-**Response (201)**
-```json
-{
-  "ok": true,
-  "booking": {
-    "id": 12,
-    "booking_no": "BK-9F2C7A8D11",
-    "club": 1,
-    "court": 4,
-    "slots": [101, 102, 103]
-  },
-  "total_slots": 3,
-  "total_cost": 60,
-  "new_balance": 940
-}
-```
-
 ---
 
-### 3. View Booking History
-**GET** `/api/history/`  
-**Auth:** ✅ Required
-
+### 4. Get Multiple Slot Details
+**POST** `/api/slots/slots-list/`
+```json
+{
+  "slot_list": ["25188", "25189"]
+}
+```
 **Response**
 ```json
 {
-  "results": [
+  "slot_items": [
     {
-      "id": 12,
-      "booking_no": "BK-9F2C7A8D11",
-      "status": "confirmed",
-      "created_at": "2025-09-05 10:15",
-      "slots": [
-        {
-          "slot": 101,
-          "slot__court": 4,
-          "slot__service_date": "2025-09-05",
-          "slot__start_at": "10:00",
-          "slot__end_at": "10:30"
-        }
-      ]
+      "slot_status": "available",
+      "service_date": "2025-12-03",
+      "start_time": "18:30",
+      "end_time": "19:00",
+      "court": 1,
+      "court_name": "Court 1",
+      "price_coin": 100
+    },
+    {
+      "slot_status": "available",
+      "service_date": "2025-12-03",
+      "start_time": "19:00",
+      "end_time": "19:30",
+      "court": 1,
+      "court_name": "Court 1",
+      "price_coin": 100
     }
   ]
 }
 ```
-
 ---
 
-### 4. Cancel Booking (Refund)
-**POST** `/api/bookings/<booking_id>/cancel/`  
+### 5. Create Booking
+**POST** `/api/booking/`  
 **Auth:** ✅ Required
 
+#### Player Example
+```json
+{
+  "club": 1,
+  "booking_method": "Courtly Website",
+  "owner_username": "test2",
+  "owner_contact": "test2@example.com",
+  "payment_method": "coin",
+  "slots": ["24115", "24116"]
+}
+```
+#### Manager Example
+```json
+{
+  "club": 1,
+  "booking_method": "Phone Call",
+  "owner_username": "Proud",
+  "owner_contact": "0936888850",
+  "payment_method": "mobile-banking",
+  "booking_slots": ["25188", "25189"]
+}
+```
 **Response**
+```json
+{
+  "booking_id": "BK-01D82793F7",
+  "message": "Booking created successfully",
+  "total_cost": 300,
+  "status": "confirmed"
+}
+```
+---
+
+### 6. Get Booking Detail
+**GET** `/api/booking/<booking_id>/`
+```json
+{
+  "created_date": "2025-11-09 11:58",
+  "booking_id": "BK-53DBD0E748",
+  "owner_id": 20,
+  "owner_username": "test2",
+  "booking_method": "Courtly Website",
+  "owner_contact": "test2@example.com",
+  "total_cost": 200,
+  "payment_method": "coin",
+  "booking_date": "2025-10-20",
+  "booking_status": "confirmed",
+  "able_to_cancel": false,
+  "booking_slots": {
+    "24115": {
+      "slot_status": "booked",
+      "service_date": "2025-10-20",
+      "start_time": "10:00",
+      "end_time": "10:30",
+      "court": 1,
+      "court_name": "Court 1",
+      "price_coin": 100
+    },
+    "24116": {
+      "slot_status": "booked",
+      "service_date": "2025-10-20",
+      "start_time": "10:30",
+      "end_time": "11:00",
+      "court": 1,
+      "court_name": "Court 1",
+      "price_coin": 100
+    }
+  }
+}
+```
+---
+
+### 7. Booking Lists
+#### GET `/api/bookings/` (All Bookings)
+#### GET `/api/my-bookings/` (Player History)
+```json
+[
+  {
+    "booking_id": "BK-41488D12A3",
+    "created_date": "2025-11-08 22:22",
+    "total_cost": 200,
+    "booking_date": "2025-11-09",
+    "booking_status": "confirmed",
+    "able_to_cancel": false,
+    "owner_id": 38
+  },
+  {
+    "booking_id": "BK-1F473400EB",
+    "created_date": "2025-11-08 20:43",
+    "total_cost": 200,
+    "booking_date": "2025-11-10",
+    "booking_status": "cancelled",
+    "able_to_cancel": false,
+    "owner_id": 42
+  }
+]
+```
+---
+
+### 8. Cancel Booking (Refund)
+**POST** `/api/bookings/<booking_id>/cancel/`
 ```json
 {
   "detail": "Booking cancelled successfully, refund issued",
@@ -206,28 +316,12 @@ Accepts either `{username,password}` or `{email,password}`
   "role": "player"
 }
 ```
-
 ---
 
-### 5. Admin Booking View
-**GET** `/api/bookings-admin/`  
-**Auth:** ✅ (Admin/Manager)
+## 💰 Wallet (`/api/wallet/`)
 
----
-
-### 6. All Bookings Summary
-**GET** `/api/bookings/all/`  
-**Auth:** ✅ Required
-
----
-
-## 💰 Wallet
-
-### 1. Wallet Summary
-**GET** `/api/wallet/balance/`  
-**Auth:** ✅ Required (Player or Manager)
-
-**Response**
+### 1. Get Wallet Balance
+**GET** `/api/wallet/balance/`
 ```json
 {
   "balance_thb": "500.00",
@@ -235,21 +329,10 @@ Accepts either `{username,password}` or `{email,password}`
   "entries": 12
 }
 ```
-
 ---
 
 ### 2. Transaction History (Ledger)
-**GET** `/api/wallet/ledger/`  
-**Auth:** ✅ Required
-
-**Query Parameters**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| limit | integer | Optional pagination limit |
-| offset | integer | Optional pagination offset |
-
-**Response**
+**GET** `/api/wallet/ledger/`
 ```json
 {
   "count": 2,
@@ -271,35 +354,18 @@ Accepts either `{username,password}` or `{email,password}`
   ]
 }
 ```
-
 ---
 
-### 3. Export Transaction History (CSV)
+### 3. Export Ledger (CSV)
 **GET** `/api/wallet/ledger/export-csv/`  
-**Auth:** ✅ Required  
-**Response:**  
 `Content-Disposition: attachment; filename="wallet_transactions.csv"`
-
 ---
 
 ### 4. Create Top-Up (Player)
-**POST** `/api/wallet/topups/`  
-**Auth:** ✅ Required (Player only)
-
-**Body (multipart/form-data)**
-
-| Field | Type | Required | Description |
-|--------|------|-----------|-------------|
-| amount_thb | decimal | ✅ | Amount in THB |
-| transfer_date | string (YYYY-MM-DD) | ✅ | Bank transfer date |
-| transfer_time | string (HH:MM:SS) | ✅ | Bank transfer time |
-| slip_path | file (image/png or image/jpeg) | ✅ | Image of payment slip |
-
-**Example**
+**POST** `/api/wallet/topups/`
 ```bash
-curl -X POST "http://127.0.0.1:8001/api/wallet/topups/"   -H "Authorization: Bearer $PLAYER_TOKEN"   -F "amount_thb=200"   -F "transfer_date=2025-10-26"   -F "transfer_time=14:45:00"   -F "slip_path=@slip.png;type=image/png"
+curl -X POST "http://127.0.0.1:8001/api/wallet/topups/" -H "Authorization: Bearer $PLAYER_TOKEN" -F "amount_thb=200" -F "transfer_date=2025-10-26" -F "transfer_time=14:45:00" -F "slip_path=@slip.png;type=image/png"
 ```
-
 **Response**
 ```json
 {
@@ -310,14 +376,10 @@ curl -X POST "http://127.0.0.1:8001/api/wallet/topups/"   -H "Authorization: Bea
   "created_at": "2025-10-26T07:45:00Z"
 }
 ```
-
 ---
 
 ### 5. List Top-Ups
-**GET** `/api/wallet/topups/`  
-**Auth:** ✅ Required
-
-**Response**
+**GET** `/api/wallet/topups/`
 ```json
 [
   {
@@ -330,29 +392,17 @@ curl -X POST "http://127.0.0.1:8001/api/wallet/topups/"   -H "Authorization: Bea
   }
 ]
 ```
-
 ---
 
-### 6. Approve Top-Up (Manager)
-**POST** `/api/wallet/topups/{id}/approve/`  
-**Auth:** ✅ Required (Manager only)
-
-**Response**
+### 6. Approve or Reject Top-Up (Manager)
+**POST** `/api/wallet/topups/{id}/approve/`
 ```json
 { "detail": "Top-up approved." }
 ```
-
----
-
-### 7. Reject Top-Up (Manager)
-**POST** `/api/wallet/topups/{id}/reject/`  
-**Auth:** ✅ Required (Manager only)
-
-**Response**
+**POST** `/api/wallet/topups/{id}/reject/`
 ```json
 { "detail": "Top-up rejected." }
 ```
-
 ---
 
 ## 🧪 Testing Flow
@@ -360,15 +410,14 @@ curl -X POST "http://127.0.0.1:8001/api/wallet/topups/"   -H "Authorization: Bea
 | Step | Action | Endpoint |
 |------|---------|-----------|
 | 1 | Player login | `/api/auth/login/` |
-| 2 | POST top-up | `/api/wallet/topups/` |
+| 2 | Create top-up | `/api/wallet/topups/` |
 | 3 | Manager login | `/api/auth/login/` |
 | 4 | Approve top-up | `/api/wallet/topups/{id}/approve/` |
 | 5 | Check balance | `/api/wallet/balance/` |
 | 6 | Verify ledger | `/api/wallet/ledger/` |
-
 ---
 
-## ⚙️ API Schema Endpoints
+## ⚙️ Schema & Developer Info
 
 | Endpoint | Description |
 |-----------|-------------|
@@ -376,7 +425,6 @@ curl -X POST "http://127.0.0.1:8001/api/wallet/topups/"   -H "Authorization: Bea
 | `/api/schema.json` | OpenAPI JSON |
 | `/api/schema/swagger-ui/` | Swagger UI |
 | `/api/schema/redoc/` | Redoc UI |
-
 ---
 
 ## ⚠️ Error Codes
@@ -390,55 +438,32 @@ curl -X POST "http://127.0.0.1:8001/api/wallet/topups/"   -H "Authorization: Bea
 | 404 | Resource not found |
 | 409 | Slot not available |
 | 500 | Server / DB error |
-
 ---
 
 ## 🔐 Auth Header Format
 
-All protected routes require a Bearer token:
-
 ```
 Authorization: Bearer <access_token>
 ```
-
 ---
 
 ## 🧠 Coin Logic Summary
 
-- New wallet auto-created with **1000 coins**  
-- Booking deducts coin amount  
-- Cancelling booking refunds the full amount  
-- All transactions logged in **CoinLedger**
-
----
-
-## 🪄 Developer Notes
-
-| Key | Value |
-|-----|-------|
-| Framework | Django REST Framework |
-| Auth | JWT (SimpleJWT) |
-| Database | PostgreSQL |
-| Timezone | Asia/Bangkok |
-| Media root | `/media/slips/` |
-| Default coin rate | 1 coin = 1 THB |
-| Access token expiry | 5 minutes |
-| Refresh token expiry | 1 day |
-| Rate limit | 100 req/min |
-
+- New wallet auto-created with **1000 coins**
+- Booking deducts coins automatically
+- Cancelling booking refunds coins
+- All actions recorded in **CoinLedger**
 ---
 
 ## 🧾 Changelog
 
 | Version | Date | Notes |
 |----------|------|-------|
-| v1.0 | 2025-09 | Initial endpoints (Auth, Wallet, Booking) |
-| v1.1 | 2025-10 | Added CSV Export, Booking Refund |
-| v1.2 | 2025-11 | Added Manager Maintenance, Admin Stats, Health Check |
-
+| v1.0 | 2025-09 | Initial Auth, Wallet, Booking |
+| v1.1 | 2025-10 | Added CSV Export, Refund |
+| v1.2 | 2025-11 | Added Manager endpoints, Slot queries, Health check |
 ---
 
 ### 🧱 Maintainers
-Courtly Backend Team — `Django + DRF + PostgreSQL`  
-
-> For bug reports or feature suggestions, open an issue on [**Courtly-Badminton-Court-Management**](https://github.com/Courtly-Badminton-Court-Management)
+**Courtly Backend Team** — `Django + DRF + PostgreSQL`  
+> Report issues on [Courtly-Badminton-Court-Management](https://github.com/Courtly-Badminton-Court-Management)
