@@ -152,7 +152,7 @@ def booking_create_view(request):
             "booking_id": booking.booking_no,
             "message": "Booking created successfully",
             "total_cost": total_cost,
-            "status": "confirmed",
+            "status": "booked",
         },
         status=201,
     )

@@ -13,7 +13,12 @@ from .views.booking_views import (
 from .views.manager_views import (
     booking_walkin_view,
     slot_bulk_status_update_view,
+    booking_checkin_view
 )
+
+# ────────────── Explicit SlotViewSet actions ──────────────
+slot_list = SlotViewSet.as_view({"get": "list"})
+slot_month_view = SlotViewSet.as_view({"get": "month_view"})
 
 router = DefaultRouter()
 router.register(r"slots", SlotViewSet, basename="slot")
@@ -21,6 +26,7 @@ router.register(r"slots", SlotViewSet, basename="slot")
 urlpatterns = [
     # ── Public ──
     path("available-slots/", available_slots_month_view, name="available-slots"),
+    path("slots/month-view/", slot_month_view, name="slot-month-view"),
 
     # ── SlotViewSet ──
     path("", include(router.urls)),
@@ -35,4 +41,5 @@ urlpatterns = [
     # ── Manager-only ──
     path("booking/walkin/", booking_walkin_view, name="booking-walkin"),
     path("slots/update-status/", slot_bulk_status_update_view, name="slots-bulk-status"),
+    path("booking/<str:booking_no>/checkin/", booking_checkin_view, name="booking-checkin"),
 ]

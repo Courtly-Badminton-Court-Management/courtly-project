@@ -179,3 +179,69 @@ def slot_bulk_status_update_view(request):
         updated.append({"slot_id": slot_id, "new_status": new_status})
 
     return Response({"detail": "Bulk update complete", "updated": updated, "errors": errors}, status=200)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Check-in Booking (Manager only): POST /api/booking/<booking_no>/checkin/
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@transaction.atomic
+def booking_checkin_view(request, booking_no):
+    """
+    Allows a manager to perform a 'check-in' operation for a specific booking.
+    When a booking is checked in:
+      1. The booking.status is changed to "checkin"
+      2. All slots within that booking have their SlotStatus updated to "checkin"
+    """
+
+    role = getattr(request.user, "role", None)
+    if role != "manager":
+        return Response({"detail": "Only managers can perform check-in."}, status=403)
+
+    # Step 1: Retrieve booking
+    try:
+        booking = Booking.objects.get(booking_no=booking_no)
+    except Booking.DoesNotExist:
+        return Response({"detail": "Booking not found."}, status=404)
+
+    # Step 2: Validate allowed states
+    if booking.status in ["cancelled", "endgame"]:
+        return Response(
+            {"detail": f"Cannot check-in a booking that is already '{booking.status}'."},
+            status=400,
+        )
+
+    if booking.status not in ["booked", "walkin"]:
+        return Response(
+            {"detail": f"Cannot check-in from status '{booking.status}'."},
+            status=400,
+        )
+
+    # Step 3: Update booking status
+    booking.status = "checkin"
+    booking.save(update_fields=["status"])
+
+    # Step 4: Update all related slot statuses
+    booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot")
+    updated_slots = []
+
+    for bs in booking_slots:
+        try:
+            ss = SlotStatus.objects.get(slot=bs.slot)
+            ss.status = "checkin"
+            ss.save(update_fields=["status", "updated_at"])
+            updated_slots.append(ss.slot.id)
+        except SlotStatus.DoesNotExist:
+            continue
+
+    # Step 5: Response summary
+    return Response(
+        {
+            "detail": f"Booking {booking_no} checked-in successfully.",
+            "booking_status": booking.status,
+            "updated_slots": updated_slots,
+        },
+        status=200,
+    )
+

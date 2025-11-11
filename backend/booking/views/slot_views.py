@@ -93,7 +93,7 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Slot.objects.all().select_related("court", "slot_status")
     serializer_class = SlotSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def retrieve(self, request, pk=None):
         try:
@@ -146,3 +146,71 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                 "price_coin": s.price_coins,
             })
         return Response({"slot_items": slot_items}, status=200)
+
+    @action(detail=False, url_path="month-view", methods=["GET"])
+    def month_view(self, request):
+        """
+        Retrieve all slots for a given club and month.
+        Example:
+            GET /api/slots/month-view?club=1&month=2025-09
+        """
+        raw_club = request.query_params.get("club")
+        month_str = request.query_params.get("month")
+
+        # Validate club parameter
+        try:
+            club_id = int(raw_club)
+        except (TypeError, ValueError):
+            return Response({"detail": "club must be an integer id"}, status=400)
+
+        # Validate month format
+        if not month_str or len(month_str) != 7 or "-" not in month_str:
+            return Response({"detail": "month is required as YYYY-MM"}, status=400)
+
+        y, m = map(int, month_str.split("-"))
+        first_day = date(y, m, 1)
+        last_day = date(y, m, calendar.monthrange(y, m)[1])
+        today = timezone.localdate()
+
+        if last_day < today:
+            return Response({"detail": "Cannot view past months."}, status=400)
+
+        # Query slots for given month and club
+        qs = (
+            Slot.objects
+            .select_related("court", "court__club", "slot_status")
+            .filter(
+                court__club_id=club_id,
+                service_date__gte=max(first_day, today),
+                service_date__lte=last_day,
+            )
+            .order_by("service_date", "court_id", "start_at")
+        )
+
+        # Group slots by date
+        tz = timezone.get_current_timezone()
+        by_day = {}
+
+        for s in qs:
+            day_key = s.service_date.strftime("%d-%m-%y")
+            start_local = timezone.localtime(s.start_at, tz)
+            end_local = timezone.localtime(s.end_at, tz)
+            status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+
+            by_day.setdefault(day_key, {})[str(s.id)] = {
+                "status": status_val,
+                "start_time": start_local.strftime("%H:%M"),
+                "end_time": end_local.strftime("%H:%M"),
+                "court": s.court_id,
+                "court_name": s.court.name,
+                "price_coin": s.price_coins
+            }
+
+        payload = {
+            "month": first_day.strftime("%m-%y"),
+            "days": [{"date": d, "booking_slots": slots} for d, slots in by_day.items()],
+        }
+        payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
+        return Response(payload)
+
+
