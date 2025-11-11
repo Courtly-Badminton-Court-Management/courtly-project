@@ -16,26 +16,33 @@ export default function PlayerWalletBalance({
   isLoading = false,
 }: WalletBalanceProps) {
   return (
-    <section className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+    <section
+      className="
+        flex flex-col md:flex-row items-start md:items-center justify-between
+        gap-4 rounded-2xl border border-white/40 bg-white/40 backdrop-blur-md
+        shadow-sm px-5 py-3 md:px-6 md:py-3
+        transition-all duration-300 hover:shadow-md
+      "
+    >
       {/* LEFT: Avatar + Name */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {avatarUrl ? (
           <Image
             src={avatarUrl}
             alt={userName}
-            width={150}
-            height={150}
-            className="h-16 w-16 rounded-full object-cover"
+            width={56}
+            height={56}
+            className="h-12 w-12 rounded-full object-cover ring-1 ring-white/60 shadow-sm"
           />
         ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-200 ring-1 ring-cambridge">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/60 ring-1 ring-emerald-200/60 backdrop-blur-sm">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
-              width="32"
-              height="32"
+              width="24"
+              height="24"
               fill="currentColor"
-              className="text-neutral-500"
+              className="text-emerald-700/70"
             >
               <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z" />
             </svg>
@@ -43,49 +50,52 @@ export default function PlayerWalletBalance({
         )}
 
         <div>
-          <div className="text-xl text-neutral-500">My Wallet</div>
-          <h2 className="truncate text-2xl font-semibold md:text-3xl">
+          <p className="text-xs font-medium text-emerald-900/70 tracking-wide">
+            My Wallet
+          </p>
+          <h2 className="truncate text-xl md:text-2xl font-bold text-pine">
             {userName}
           </h2>
         </div>
       </div>
 
-      {/* RIGHT: Wallet Balance Card */}
-      <div className="relative w-full max-w-md">
-        <div className="rounded-2xl border bg-white px-5 py-3 shadow-sm min-h-[88px] flex flex-col justify-center">
-          {isLoading ? (
-            <div className="animate-pulse space-y-2">
-              <div className="h-4 w-28 bg-neutral-200 rounded"></div>
-              <div className="h-6 w-20 bg-neutral-200 rounded"></div>
+      {/* RIGHT: Wallet Balance */}
+      <div
+        className="
+          relative flex items-center justify-between gap-3
+          rounded-xl border border-white/50 bg-white/60 backdrop-blur-md
+          px-4 py-2 min-w-[220px]
+        "
+      >
+        {isLoading ? (
+          <div className="animate-pulse flex flex-col gap-1 w-full">
+            <div className="h-3 w-24 bg-white/60 rounded"></div>
+            <div className="h-4 w-20 bg-white/70 rounded"></div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <Image
+                src="/brand/cl-coin.png"
+                alt="CL Coin"
+                width={28}
+                height={28}
+                className="h-6 w-6 drop-shadow-sm"
+              />
+              <div className="flex flex-col leading-tight">
+                <span className="text-lg font-bold text-pine">
+                  {balanceCoins.toLocaleString()}
+                </span>
+                <span className="text-xs font-medium text-neutral-600/80">
+                  Coins
+                </span>
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-neutral-700">
-                  Wallet Balance
-                </span>
-                <span className="text-xs text-neutral-500">
-                  1 Coin = 1 THB
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Image
-                  src="/brand/cl-coin.png"
-                  alt="CL Coin"
-                  width={40}
-                  height={40}
-                  className="h-9 w-9"
-                />
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-extrabold tracking-tight">
-                    {balanceCoins.toLocaleString()}
-                  </span>
-                  <span className="text-lg font-semibold">Coins</span>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            <span className="absolute bottom-1 right-3 text-[10px] text-neutral-500/80">
+              1 Coin = 1 THB
+            </span>
+          </>
+        )}
       </div>
     </section>
   );
