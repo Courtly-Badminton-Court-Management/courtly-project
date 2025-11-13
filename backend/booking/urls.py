@@ -13,33 +13,45 @@ from .views.booking_views import (
 from .views.manager_views import (
     booking_walkin_view,
     slot_bulk_status_update_view,
-    booking_checkin_view
+    booking_checkin_view,
+    slot_simple_status_update_view,
 )
 
-# ────────────── Explicit SlotViewSet actions ──────────────
-slot_list = SlotViewSet.as_view({"get": "list"})
-slot_month_view = SlotViewSet.as_view({"get": "month_view"})
-
+# ────────────── SlotViewSet (Router) ──────────────
 router = DefaultRouter()
 router.register(r"slots", SlotViewSet, basename="slot")
 
 urlpatterns = [
-    # ── Public ──
+    # ────────────────────────────────
+    # Public
+    # ────────────────────────────────
     path("available-slots/", available_slots_month_view, name="available-slots"),
-    path("slots/month-view/", slot_month_view, name="slot-month-view"),
+    path("slots/month-view/", SlotViewSet.as_view({"get": "month_view"}), name="slot-month-view"),
 
-    # ── SlotViewSet ──
-    path("", include(router.urls)),
+    # ────────────────────────────────
+    # Manager-only (Custom Slot Endpoints)
+    # MUST BE BEFORE ROUTER to avoid override
+    # ────────────────────────────────
+    path("slots/status/", slot_simple_status_update_view, name="slot-simple-status-update"),
+    path("slots/update-status/", slot_bulk_status_update_view, name="slots-bulk-status"),
 
-    # ── Booking ──
+    # ────────────────────────────────
+    # Manager-only Booking Endpoints
+    # ────────────────────────────────
+    path("booking/walkin/", booking_walkin_view, name="booking-walkin"),
+    path("booking/<str:booking_no>/checkin/", booking_checkin_view, name="booking-checkin"),
+
+    # ────────────────────────────────
+    # Player + Manager Booking Endpoints
+    # ────────────────────────────────
     path("booking/", booking_create_view, name="booking-create"),
     path("booking/<str:booking_no>/", booking_detail_view, name="booking-detail"),
     path("bookings/", bookings_all_view, name="bookings-all"),
     path("my-bookings/", bookings_my_view, name="bookings-my"),
     path("bookings/<str:booking_no>/cancel/", booking_cancel_view, name="booking-cancel"),
 
-    # ── Manager-only ──
-    path("booking/walkin/", booking_walkin_view, name="booking-walkin"),
-    path("slots/update-status/", slot_bulk_status_update_view, name="slots-bulk-status"),
-    path("booking/<str:booking_no>/checkin/", booking_checkin_view, name="booking-checkin"),
+    # ────────────────────────────────
+    # SlotViewSet Router
+    # ────────────────────────────────
+    path("", include(router.urls)),
 ]

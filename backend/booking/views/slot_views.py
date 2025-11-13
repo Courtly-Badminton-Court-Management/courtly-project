@@ -151,11 +151,15 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
     def month_view(self, request):
         """
         Retrieve all slots for a given club and month.
+        Optionally filter by day within that month.
+
         Example:
             GET /api/slots/month-view?club=1&month=2025-09
+            GET /api/slots/month-view?club=1&month=2025-09&day=25
         """
         raw_club = request.query_params.get("club")
         month_str = request.query_params.get("month")
+        raw_day = request.query_params.get("day")  # optional filter
 
         # Validate club parameter
         try:
@@ -175,7 +179,17 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         if last_day < today:
             return Response({"detail": "Cannot view past months."}, status=400)
 
-        # Query slots for given month and club
+        # Validate optional day filter
+        day_filter = None
+        if raw_day:
+            try:
+                day_filter = int(raw_day)
+                if not (1 <= day_filter <= last_day.day):
+                    raise ValueError
+            except ValueError:
+                return Response({"detail": "day must be a valid day number within the month"}, status=400)
+
+        # Base queryset
         qs = (
             Slot.objects
             .select_related("court", "court__club", "slot_status")
@@ -186,6 +200,10 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
             )
             .order_by("service_date", "court_id", "start_at")
         )
+
+        # Apply day filter if provided
+        if day_filter:
+            qs = qs.filter(service_date__day=day_filter)
 
         # Group slots by date
         tz = timezone.get_current_timezone()
@@ -203,7 +221,7 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                 "end_time": end_local.strftime("%H:%M"),
                 "court": s.court_id,
                 "court_name": s.court.name,
-                "price_coin": s.price_coins
+                "price_coin": s.price_coins,
             }
 
         payload = {
@@ -212,5 +230,6 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         }
         payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
         return Response(payload)
+
 
 
