@@ -9,6 +9,7 @@ from ..models import Slot, SlotStatus, Booking, BookingSlot, Club
 from ..serializers import BookingCreateSerializer
 from .utils import gen_booking_no, combine_dt
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Walk-in (Manager only): POST /api/booking/walkin/
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ def booking_walkin_view(request):
 
     booking = Booking.objects.create(
         booking_no=gen_booking_no(),
-        user=request.user,         # created by manager
+        user=request.user,  # created by manager
         club_id=club_id,
         court_id=first_court,
         status="walkin",
@@ -119,6 +120,7 @@ def booking_walkin_view(request):
         },
         status=201,
     )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Bulk status update (Manager only): POST /api/slots/update-status/
@@ -241,6 +243,76 @@ def booking_checkin_view(request, booking_no):
             "detail": f"Booking {booking_no} checked-in successfully.",
             "booking_status": booking.status,
             "updated_slots": updated_slots,
+        },
+        status=200,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Simple Bulk Status Update (Manager only): POST /api/slots/status/
+# ─────────────────────────────────────────────────────────────────────────────
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+@transaction.atomic
+def slot_simple_status_update_view(request):
+    """
+    Allows manager to change status of multiple slots at once.
+    Allowed transitions:
+      - available -> maintenance
+      - maintenance -> available
+    Payload:
+    {
+        "slots": ["25188", "25189"],
+        "changed_to": "maintenance"
+    }
+    """
+
+    role = getattr(request.user, "role", None)
+    if role != "manager":
+        return Response({"detail": "Only managers can change slot status."}, status=403)
+
+    slots = request.data.get("slots")
+    changed_to = request.data.get("changed_to")
+
+    # Validate payload
+    if not slots or not isinstance(slots, list):
+        return Response({"detail": "slots must be a list of slot IDs."}, status=400)
+
+    if changed_to not in ["maintenance", "available"]:
+        return Response({"detail": "changed_to must be 'maintenance' or 'available'."}, status=400)
+
+    allowed_map = {
+        "maintenance": ["available"],
+        "available": ["maintenance"],
+    }
+
+    updated, errors = [], []
+
+    for slot_id in slots:
+        try:
+            ss = SlotStatus.objects.select_related("slot").get(slot_id=slot_id)
+        except SlotStatus.DoesNotExist:
+            errors.append({"slot": slot_id, "detail": "Slot not found"})
+            continue
+
+        # Validate transition
+        if changed_to not in allowed_map.get(changed_to, []) and ss.status not in allowed_map[changed_to]:
+            errors.append({
+                "slot": slot_id,
+                "detail": f"Cannot change from {ss.status} → {changed_to}"
+            })
+            continue
+
+        # Update slot status
+        ss.status = changed_to
+        ss.save(update_fields=["status", "updated_at"])
+        updated.append({"slot_id": slot_id, "new_status": changed_to})
+
+    return Response(
+        {
+            "detail": "Simple bulk update complete",
+            "updated": updated,
+            "errors": errors,
         },
         status=200,
     )
