@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
 import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
+import { useBookingRetrieve } from "@/api-client/endpoints/booking/booking";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
@@ -56,8 +57,19 @@ export default function PlayerHistoryPage() {
   const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
 
   const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
+
+  // ✅ ดึงข้อมูล booking detail เมื่อเลือก id
+  const {
+    data: bookingDetail,
+    isLoading: isBookingLoading,
+  } = useBookingRetrieve(selectedId || "", {
+    query: {
+      enabled: !!selectedId,
+    },
+  });
 
   // 🧭 Filters + Sort
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -104,12 +116,12 @@ export default function PlayerHistoryPage() {
   }, [rows, filterStatus, sortBy, sortDesc]);
 
   const onView = (b: BookingRow) => {
-    setActive(b);
+    setSelectedId(b.booking_id);
     setOpen(true);
   };
 
   const onDownload = (b: BookingRow) => {
-    if (!me) return; // ✅ ป้องกันกรณีข้อมูล user ยังไม่โหลด
+    if (!me) return;
     generateBookingInvoicePDF(b, me as UserProfile);
   };
 
@@ -138,7 +150,6 @@ export default function PlayerHistoryPage() {
 
       {/* Top Control Bar */}
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        {/* Left: Today */}
         <div className="flex items-center text-dimgray text-sm">
           <Calendar size={18} className="mr-2 text-dimgray" />
           <span className="font-medium text-dimgray">
@@ -146,9 +157,8 @@ export default function PlayerHistoryPage() {
           </span>
         </div>
 
-        {/* Right: Filter + Sort Controls */}
+        {/* Filter + Sort */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-3">
-          {/* Filter */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-semibold text-pine">Filter:</label>
             <select
@@ -164,7 +174,6 @@ export default function PlayerHistoryPage() {
             </select>
           </div>
 
-          {/* Sort */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-semibold text-pine">Sort by:</label>
             <select
@@ -213,7 +222,6 @@ export default function PlayerHistoryPage() {
               <th className="px-6 py-4 text-center">Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {isLoading &&
               Array.from({ length: 6 }).map((_, i) => (
@@ -331,11 +339,15 @@ export default function PlayerHistoryPage() {
         onClose={() => setConfirmModal(null)}
       />
 
-      {/* Receipt Modal */}
+      {/* Booking Detail Modal */}
       <BookingReceiptModal
         open={open}
-        onClose={() => setOpen(false)}
-        booking={active as any}
+        onClose={() => {
+          setOpen(false);
+          setSelectedId(null);
+        }}
+        booking={bookingDetail || null}
+        isLoading={isBookingLoading}
       />
     </div>
   );
