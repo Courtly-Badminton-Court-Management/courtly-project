@@ -1,34 +1,369 @@
-# **Courtly API Documentation**
+
+# Courtly API Documentation
 
 ### Badminton Court Management and Booking System
 
 **Base URL:**
 
-```
+```text
 https://backend.courtlyeasy.app/
 ```
 
+---
+
+## 0. API Overview & Master Summary
+
+### 0.1 Endpoint Summary Table
+
+| #  | Method | Endpoint                            | Short Description                                            | Auth Required | Roles that can call it              |
+| -- | ------ | ----------------------------------- | ------------------------------------------------------------ | ------------- | ----------------------------------- |
+| 1  | POST   | `/api/auth/register`                | Register a new user account                                  | No            | Guest                               |
+| 2  | POST   | `/api/auth/login`                   | Log in with email & password, get JWT tokens + profile       | No            | Guest                               |
+| 3  | POST   | `/api/auth/token/refresh`           | Refresh access token using a refresh token                   | No*           | Logged-in user (Player/Manager)     |
+| 4  | GET    | `/api/auth/me`                      | Get current authenticated user profile                       | Yes           | Player, Manager                     |
+| 5  | GET    | `/api/auth/{user_id}`               | Get profile of a specific user                               | Yes           | Manager                             |
+| 6  | POST   | `/api/auth/me`                      | Update current user profile                                  | Yes           | Player, Manager                     |
+| 7  | GET    | `/api/month-view`                   | Get monthly slot overview with full slot map & statuses      | No            | Guest, Player, Manager              |
+| 8  | GET    | `/api/available-slots`              | Get monthly availability summary (percentage + sample slots) | No            | Guest, Player, Manager              |
+| 9  | GET    | `/api/slots/{slot_id}`              | Get details of a single slot                                 | Yes           | Player, Manager                     |
+| 10 | POST   | `/api/slots/slots-list`             | Get details of multiple slots by ID                          | Yes           | Player, Manager                     |
+| 11 | POST   | `/api/slots/status`                 | Bulk update slot status (available / maintenance, etc.)      | Yes           | Manager                             |
+| 12 | POST   | `/api/booking`                      | Create a booking (player online booking or manager walk-in)  | Yes           | Player, Manager                     |
+| 13 | GET    | `/api/booking/{booking_id}`         | Get full booking details (including all booked slots)        | Yes           | Booking owner, Manager              |
+| 14 | POST   | `/api/booking/{booking_id}/cancel`  | Cancel a booking and trigger refund logic                    | Yes           | Booking owner, Manager              |
+| 15 | POST   | `/api/booking/{booking_id}/checkin` | Mark a booking as checked-in                                 | Yes           | Manager                             |
+| 16 | GET    | `/api/bookings/`                    | Get a lightweight list of all bookings                       | Yes           | Manager                             |
+| 17 | GET    | `/api/my-booking/`                  | Get the current player’s own booking history                 | Yes           | Player                              |
+| 18 | GET    | `/api/bookings/upcoming`            | Get all upcoming confirmed bookings in the system            | Yes           | Manager                             |
+|    | GET    | `/api/my-booking/upcoming`          | Get upcoming confirmed bookings for the current player       | Yes           | Player                              |
+| 19 | GET    | `/api/wallet/balance`               | Get wallet balance (coins, THB, and ledger count)            | Yes           | Player                              |
+| 20 | GET    | `/api/wallet/ledger`                | Get wallet ledger (coin transaction history)                 | Yes           | Player                              |
+| 21 | GET    | `/api/wallet/ledger/export-csv`     | Export wallet ledger as CSV                                  | Yes           | Player                              |
+| 22 | POST   | `/api/wallet/topups`                | Create a coin top-up request (with transfer slip)            | Yes           | Player                              |
+| 23 | GET    | `/api/wallet/topups`                | List top-up requests                                         | Yes           | Player (own), Manager (pending/all) |
+| 24 | POST   | `/api/wallet/topups/{id}/approve`   | Approve a top-up request and credit coins                    | Yes           | Manager                             |
+| 25 | POST   | `/api/wallet/topups/{id}/reject`    | Reject a top-up request                                      | Yes           | Manager                             |
+
+> * `token/refresh` itself does not require an access token, but it does require a valid **refresh token** in the request body.
 
 ---
 
-## **1. POST /api/auth/register**
+### 0.2 Access Matrix by Role
 
-**Authentication Requirement:**
-Not required
+| Endpoint / Behaviour                                          | Guest |  Player |     Manager     |
+| ------------------------------------------------------------- | :---: | :-----: | :-------------: |
+| Register / Login (`/api/auth/register`, `/login`)             |   ✓   |    ✓    |        ✓        |
+| Token refresh                                                 |       |    ✓    |        ✓        |
+| Get / update own profile                                      |       |    ✓    |        ✓        |
+| Get other user’s profile                                      |       |         |        ✓        |
+| Month view / availability (`/month-view`, `/available-slots`) |   ✓   |    ✓    |        ✓        |
+| Slot details / slots-list                                     |       |    ✓    |        ✓        |
+| Change slot status (`/slots/status`)                          |       |         |        ✓        |
+| Create booking                                                |       |    ✓    |        ✓        |
+| View booking detail                                           |       |    ✓*   |        ✓        |
+| Cancel booking                                                |       |    ✓*   |        ✓        |
+| Check-in booking                                              |       |         |        ✓        |
+| Get all bookings / upcoming system-wide                       |       |         |        ✓        |
+| Get own bookings / own upcoming                               |       |    ✓    |                 |
+| Wallet balance / ledger / export                              |       |    ✓    |                 |
+| Create top-up                                                 |       |    ✓    |                 |
+| List top-ups                                                  |       | ✓ (own) | ✓ (pending/all) |
+| Approve / reject top-up                                       |       |         |        ✓        |
+
+* Player can only access or cancel **their own** bookings.
+
+---
+
+### 0.3 Slot Status Reference
+
+#### 0.3.1 Quick Summary
+
+| Slot Status   | High-level meaning                                                           |
+| ------------- | ---------------------------------------------------------------------------- |
+| `available`   | Free and open for booking.                                                   |
+| `booked`      | Booked by a player through the system.                                       |
+| `walkin`      | Booked manually on-site by a manager (walk-in customer).                     |
+| `playing`     | Player or walk-in customer has checked in and is currently playing.          |
+| `maintenance` | Court is under maintenance; slot cannot be booked.                           |
+| `ended`       | Checked-in booking for this slot has finished.                               |
+| `expired`     | Slot time has passed without any booking.                                    |
+| `noshow`      | Slot was booked (player or walk-in) but no one checked in before start time. |
+
+#### 0.3.2 Detailed Behaviour by Role
+
+**`available`**
+
+* **Meaning**: The slot is currently free and open for booking.
+* **Player**:
+
+  * Can click this slot to create a booking.
+* **Manager**:
+
+  * Can mark slot as **Maintenance**.
+  * Can mark slot as **Walk-in** (creates on-site booking).
+  * Can mark as **Walk-in + Check-in** directly (walk-in customer already on court).
+* **System**:
+
+  * No automatic transitions.
+
+---
+
+**`booked`**
+
+* **Meaning**: A player has booked this slot through the online system.
+* **Player**:
+
+  * Cannot click or modify this slot on the grid.
+* **Manager**:
+
+  * Can mark this slot as **Check-in** when the player arrives.
+  * Can cancel the booking via the booking endpoints (not from the slot grid directly).
+* **System**:
+
+  * If the slot’s start/end time passes and there is **no Check-in**, the slot automatically becomes **`noshow`**.
+
+---
+
+**`walkin`**
+
+* **Meaning**: The slot has been manually booked by the manager for an on-site customer.
+* **Player**:
+
+  * Sees this as a **booked (red)** slot and cannot click it.
+* **Manager**:
+
+  * Must record customer name and phone number in the walk-in booking (for internal tracking).
+  * Can later mark this booking as **Check-in** (which moves the slot to `playing`).
+* **System**:
+
+  * If the time passes and no Check-in is recorded, slot automatically becomes **`noshow`**.
+
+---
+
+**`playing`**
+
+* **Meaning**: The player (or walk-in customer) has arrived and started playing on this slot.
+* **Player**:
+
+  * Cannot click or modify this slot.
+* **Manager**:
+
+  * Can only set this status **manually** by checking in from an existing `booked` or `walkin` booking.
+  * Cannot freely set `playing` from other statuses.
+* **System**:
+
+  * When playtime ends, slot automatically changes to **`ended`**.
+
+---
+
+**`maintenance`**
+
+* **Meaning**: The court is under maintenance and temporarily not bookable.
+* **Player**:
+
+  * Cannot click or book this slot.
+* **Manager**:
+
+  * Can toggle this slot back to **`available`** when maintenance is completed.
+* **System**:
+
+  * No automatic transitions.
+
+---
+
+**`ended`**
+
+* **Meaning**: The playtime has finished for a previously checked-in booking.
+* **Player**:
+
+  * Cannot click or modify this slot.
+* **Manager**:
+
+  * Cannot change this status directly (read-only, for history).
+* **System**:
+
+  * Automatically set when a **checked-in** booking reaches the end time of this slot.
+
+---
+
+**`expired`**
+
+* **Meaning**: The slot has passed its time without being booked at all.
+* **Player**:
+
+  * Cannot click or book this slot (out of date).
+* **Manager**:
+
+  * Cannot change this status (read-only history).
+* **System**:
+
+  * Automatically set when the current time passes a slot that was **never booked**.
+
+---
+
+**`noshow`**
+
+* **Meaning**: A player or walk-in had an upcoming booking for this slot but did not check in.
+* **Player**:
+
+  * Cannot click or modify this slot.
+* **Manager**:
+
+  * Cannot modify this status, but can view it for record-keeping and reports.
+* **System**:
+
+  * Automatically set when a `booked` or `walkin` slot reaches the start time + play window without a Check-in.
+
+---
+
+### 0.4 Booking Status Flow
+
+#### 0.4.1 Booking Status Summary
+
+Booking status is tracked at **booking level**, while each booking also controls a set of **slot statuses**.
+
+| Booking Status | When it is used                                                            | Relationship to slot statuses                                     |
+| -------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `Upcoming`     | Immediately after a player or manager creates a booking.                   | Slots become `booked` (player) or `walkin` (manager).             |
+| `Cancelled`    | Player or manager cancels the booking (respecting policy, e.g. ≥24h).      | Slots are released back to `available`; refund logic is executed. |
+| `Check-in`     | Manager confirms that the customer has arrived for an upcoming booking.    | Slots in this booking move from `booked`/`walkin` to `playing`.   |
+| `Endgame`      | A checked-in booking has fully finished playing (all slots finished).      | All slots in this booking move to `ended`.                        |
+| `No-Show`      | An upcoming booking reaches the end of its slot time without any Check-in. | All slots in this booking move to `noshow`.                       |
+
+#### 0.4.2 Flow and Related Endpoints
+
+* **Upcoming**
+
+  * Trigger: A new booking is created.
+  * Slots:
+
+    * Player booking → slots set to `booked`.
+    * Manager walk-in booking → slots set to `walkin`.
+  * Endpoint:
+
+    * `POST /api/booking`
+
+* **Cancelled**
+
+  * Trigger: Player or manager cancels an upcoming booking (subject to policy).
+  * Slots:
+
+    * All slots in the booking are returned to `available`.
+    * Booking record still remembers which slots were previously booked.
+  * Endpoint:
+
+    * `POST /api/booking/{booking_id}/cancel`
+
+* **Check-in**
+
+  * Trigger: Manager marks that the player (or walk-in customer) has arrived at the venue.
+  * Slots:
+
+    * All slots in this booking change to `playing`.
+  * Endpoint:
+
+    * `POST /api/booking/{booking_id}/checkin`
+
+* **Endgame**
+
+  * Trigger: A checked-in booking reaches the end time of its **last slot**.
+  * Slots:
+
+    * All slots in the booking automatically change from `playing` to `ended`.
+  * Endpoint:
+
+    * System-driven (no explicit API call from frontend).
+
+* **No-Show**
+
+  * Trigger: An upcoming booking reaches the end time of its **last slot** without any Check-in.
+  * Slots:
+
+    * All slots in the booking automatically change to `noshow`.
+  * Endpoint:
+
+    * System-driven (no explicit API call from frontend).
+
+---
+
+### 0.5 Wallet Transaction Types
+
+Coin transactions in the wallet ledger:
+
+| Field `type` | Meaning                            | Typical source                                          |
+| ------------ | ---------------------------------- | ------------------------------------------------------- |
+| `topup`      | Coins added to the player’s wallet | Manager approves a top-up request                       |
+| `capture`    | Coins deducted from the wallet     | Player confirms a booking paid with coins               |
+| `refund`     | Coins returned back to the wallet  | Booking is cancelled within policy and refund is issued |
+
+Top-up request statuses (for `/api/wallet/topups`):
+
+| Status     | Meaning                                         |
+| ---------- | ----------------------------------------------- |
+| `pending`  | Waiting for manager review / approval           |
+| `approved` | Coins have been credited to the player’s wallet |
+| `rejected` | Request was rejected; no coins are added        |
+
+---
+
+### 0.6 Error Response Format (Global)
+
+Common response shapes used across endpoints:
+
+1. **Validation / business errors**
+
+   ```json
+   {
+     "error": "Email is already taken."
+   }
+   ```
+
+   * Used for form-like errors (registration, booking rules, etc.).
+   * Usually returned with HTTP status `400`.
+
+2. **Generic success / info messages**
+
+   ```json
+   {
+     "detail": "Top-up approved."
+   }
+   ```
+
+   * Used for simple confirmations or failure messages, often with `200`, `201`, `4xx` depending on context.
+
+Recommended HTTP codes (for documentation & implementation):
+
+| Code | Typical meaning                           |
+| ---- | ----------------------------------------- |
+| 200  | Successful request                        |
+| 201  | Resource created (e.g. booking, top-up)   |
+| 400  | Bad request / validation error            |
+| 401  | Not authenticated (missing/invalid token) |
+| 403  | Forbidden (role does not have permission) |
+| 404  | Resource not found                        |
+| 500  | Unexpected server error                   |
+
+---
+
+## 1. Auth & User APIs
+
+### 1. POST /api/auth/register
+
+### Description
+
+Creates a new user account.
+The backend validates matching passwords, unique email/username, and acceptance of terms.
+
+**Authentication Requirement:** Not required
 
 **Related Frontend:**
 
 * Player Registration Page
 
-**Description:**
-Creates a new user account.
-The backend validates matching passwords, unique email/username, and acceptance of terms.
-
 **Query Parameters:**
 None
 
-
-### **Request Payload Example**
+### Request Payload Example
 
 ```json
 {
@@ -42,21 +377,25 @@ None
 }
 ```
 
-### **Response Example**
+### Response Example
 
-**Success:**
-
-```json
-{ "status": "ok" }
-```
-
-**Failure Example:**
+**Success**
 
 ```json
-{ "error": "Email is already taken." }
+{
+  "status": "ok"
+}
 ```
 
-### **Field Descriptions**
+**Failure (example)**
+
+```json
+{
+  "error": "Email is already taken."
+}
+```
+
+### Field Descriptions
 
 | Field       | Type    | Description                                  |
 | ----------- | ------- | -------------------------------------------- |
@@ -70,24 +409,22 @@ None
 
 ---
 
-## **2. POST /api/auth/login**
+### 2. POST /api/auth/login
 
-**Authentication Requirement:**
-Not required
+### Description
+
+Authenticates the user using email and password and returns JWT access & refresh tokens, plus user profile and wallet balance.
+
+**Authentication Requirement:** Not required
 
 **Related Frontend:**
 
 * Login Page
 
-**Description:**
-Authenticates the user using email and password and returns JWT access and refresh tokens.
-Also returns the user’s profile and wallet balance.
-
 **Query Parameters:**
 None
 
-
-### **Request Payload Example**
+### Request Payload Example
 
 ```json
 {
@@ -96,28 +433,28 @@ None
 }
 ```
 
-### **Response Example**
+### Response Example
 
 ```json
 {
-    "refresh": "eyJh...GjAs",
-    "access": "eyJh...APDI",
-    "firstLogin": false,
-    "user": {
-        "id": 38,
-        "username": "sprint4Tester",
-        "email": "sprint4Tester@example.com",
-        "firstname": "sprint4",
-        "lastname": "Tester",
-        "role": "player",
-        "coinBalance": 0,
-        "avatarKey": null,
-        "lastLogin": "2025-11-15 06:59:07"
-    }
+  "refresh": "eyJh...GjAs",
+  "access": "eyJh...APDI",
+  "firstLogin": false,
+  "user": {
+    "id": 38,
+    "username": "sprint4Tester",
+    "email": "sprint4Tester@example.com",
+    "firstname": "sprint4",
+    "lastname": "Tester",
+    "role": "player",
+    "coinBalance": 0,
+    "avatarKey": null,
+    "lastLogin": "2025-11-15 06:59:07"
+  }
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field              | Type           | Description                                           |
 | ------------------ | -------------- | ----------------------------------------------------- |
@@ -128,6 +465,8 @@ None
 | `user.id`          | number         | User ID                                               |
 | `user.username`    | string         | Username                                              |
 | `user.email`       | string         | Email used for login                                  |
+| `user.firstname`   | string         | First name                                            |
+| `user.lastname`    | string         | Last name                                             |
 | `user.role`        | string         | User role (`player`, `manager`)                       |
 | `user.coinBalance` | number         | Current CL Coin balance                               |
 | `user.avatarKey`   | string or null | Selected avatar filename                              |
@@ -135,25 +474,23 @@ None
 
 ---
 
-## **3. POST /api/auth/token/refresh**
+### 3. POST /api/auth/token/refresh
 
-**Authentication Requirement:**
-Not required (uses refresh token)
+### Description
+
+Generates a new access token using a valid refresh token.
+
+**Authentication Requirement:** Not required (uses refresh token in body)
 
 **Related Frontend:**
 
-* Token Refresh Handler
-* Auto-login logic
-
-**Description:**
-Generates a new access token using a valid refresh token.
+* Token refresh handler
+* Auto-login / token rotation logic
 
 **Query Parameters:**
 None
 
-
-
-### **Request Payload Example**
+### Request Payload Example
 
 ```json
 {
@@ -161,7 +498,7 @@ None
 }
 ```
 
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -169,7 +506,7 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field     | Type   | Description                             |
 | --------- | ------ | --------------------------------------- |
@@ -178,10 +515,13 @@ None
 
 ---
 
-## **4. GET /api/auth/me**
+### 4. GET /api/auth/me
 
-**Authentication Requirement:**
-Required (player or manager)
+### Description
+
+Returns the authenticated user’s profile and wallet information (balance).
+
+**Authentication Requirement:** Required (Player or Manager)
 
 **Related Frontend:**
 
@@ -190,30 +530,26 @@ Required (player or manager)
 * Profile Page
 * Manager Dashboard
 
-**Description:**
-Returns the authenticated user’s profile and wallet information.
-
 **Query Parameters:**
 None
 
-
-### **Response Example**
+### Response Example
 
 ```json
 {
-    "id": 46,
-    "username": "TheLastTester",
-    "email": "lasttester@example.com",
-    "firstname": "Hoshitsuki",
-    "lastname": "Hokori",
-    "avatarKey": null,
-    "role": "player",
-    "balance": 1000,
-    "lastLogin": "2025-11-15 07:03:31"
+  "id": 46,
+  "username": "TheLastTester",
+  "email": "lasttester@example.com",
+  "firstname": "Hoshitsuki",
+  "lastname": "Hokori",
+  "avatarKey": null,
+  "role": "player",
+  "balance": 1000,
+  "lastLogin": "2025-11-15 07:03:31"
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field       | Type           | Description                 |
 | ----------- | -------------- | --------------------------- |
@@ -229,64 +565,67 @@ None
 
 ---
 
-## **5. GET /api/auth/`{user_id}`**
+### 5. GET /api/auth/{user_id}
 
-**Authentication Requirement:**
-Manager only
+### Description
+
+Retrieves profile data for any player.
+Used by managers when verifying booking ownership during check-in.
+
+**Authentication Requirement:** Required (Manager only)
 
 **Related Frontend:**
 
 * Manager Check-in Panel
 * Manager Booking Detail Modal
 
-**Description:**
-Retrieves profile data for any player.
-Used by managers when verifying booking ownership during check-in.
+**Path Parameters:**
+
+| Name      | Type   | Required | Description    |
+| --------- | ------ | -------- | -------------- |
+| `user_id` | number | Yes      | Target user ID |
 
 **Query Parameters:**
-user_id
+None
 
-
-### **Response Example**
+### Response Example
 
 ```json
 {
-    "id": 46,
-    "username": "TheLastTester",
-    "email": "lasttester@example.com",
-    "firstname": "Hoshitsuki",
-    "lastname": "Hokori",
-    "avatarKey": null,
-    "role": "player",
-    "balance": 1000,
-    "lastLogin": "2025-11-15 07:03:31"
+  "id": 46,
+  "username": "TheLastTester",
+  "email": "lasttester@example.com",
+  "firstname": "Hoshitsuki",
+  "lastname": "Hokori",
+  "avatarKey": null,
+  "role": "player",
+  "balance": 1000,
+  "lastLogin": "2025-11-15 07:03:31"
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
-Same schema as `/api/auth/me`.
+Same schema as `GET /api/auth/me`.
 
 ---
 
-## **6. POST /api/auth/me**
+### 6. POST /api/auth/me
 
-**Authentication Requirement:**
-Required
+### Description
+
+Updates the authenticated user’s profile (name, email, avatar).
+
+**Authentication Requirement:** Required
 
 **Related Frontend:**
 
 * Player Profile → Edit Profile Page
 
-**Description:**
-Updates the authenticated user’s profile.
-Used for changing name, email, or avatar.
-
 **Query Parameters:**
 None
 
-
-### **Request Payload Example**
+### Request Payload Example
 
 ```json
 {
@@ -299,13 +638,15 @@ None
 }
 ```
 
-### **Response Example**
+### Response Example
 
 ```json
-{ "status": "ok" }
+{
+  "status": "ok"
+}
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field       | Type   | Description              |
 | ----------- | ------ | ------------------------ |
@@ -317,12 +658,17 @@ None
 | `avatarKey` | string | Avatar image filename    |
 
 ---
----
 
-## **7. GET /month-view?club=`<club_id>`&month=`<YYYY-MM>`**
+## 2. Calendar & Slot APIs
 
-**Authentication Requirement:**
-Not required
+### 7. GET /api/month-view?club={club_id}&month={YYYY-MM}
+
+### Description
+
+Returns the full slot map for each day in the requested month, including all slot IDs and their statuses.
+Used by both player and manager sides for month view.
+
+**Authentication Requirement:** Not required
 
 **Related Frontend:**
 
@@ -330,19 +676,14 @@ Not required
 * Manager Dashboard (Monthly Slot Overview)
 * Manager Control Page
 
-**Description:**
-Returns the full slot map for each day in the requested month, including all slot IDs and their statuses.
-This endpoint allows both the player and manager to view court availability, booked slots, expired slots, and maintenance schedules for each day.
-
 **Query Parameters:**
 
-| Parameter | Type    | Required | Description                               |
-| --------- | ------- | -------- | ----------------------------------------- |
-| `club`    | integer | Yes      | Club ID                                   |
-| `month`   | string  | Yes      | Month in format `YYYY-MM` (e.g., 2025-11) |
+| Name    | Type    | Required | Description                               |
+| ------- | ------- | -------- | ----------------------------------------- |
+| `club`  | integer | Yes      | Club ID                                   |
+| `month` | string  | Yes      | Month in format `YYYY-MM` (e.g., 2025-11) |
 
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -373,47 +714,45 @@ This endpoint allows both the player and manager to view court availability, boo
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
-| Field        | Type   | Description                               |
-| ------------ | ------ | ----------------------------------------- |
-| `month`      | string | Returned month (`MM-YY`)                  |
-| `days`       | array  | List of days with slot mappings           |
-| `date`       | string | Date in `DD-MM-YY`                        |
-| `slot_list`  | object | Dictionary of slot_id → slot_details      |
-| `status`     | string | Slot status (`available`, `booked`, etc.) |
-| `start_time` | string | Slot start time                           |
-| `end_time`   | string | Slot end time                             |
-| `court`      | number | Court number                              |
-| `court_name` | string | Court display name                        |
-| `price_coin` | number | Slot price in CL Coins                    |
+| Field              | Type   | Description                               |
+| ------------------ | ------ | ----------------------------------------- |
+| `month`            | string | Returned month (`MM-YY`)                  |
+| `days`             | array  | List of days with slot mappings           |
+| `days[].date`      | string | Date in `DD-MM-YY`                        |
+| `days[].slot_list` | object | Dictionary of `slot_id` → slot details    |
+| `status`           | string | Slot status (`available`, `booked`, etc.) |
+| `start_time`       | string | Slot start time                           |
+| `end_time`         | string | Slot end time                             |
+| `court`            | number | Court number                              |
+| `court_name`       | string | Court display name                        |
+| `price_coin`       | number | Slot price in CL Coins                    |
 
 ---
 
-## **8. GET /available-slots?club=`<club_id>`&month=`<YYYY-MM>`**
+### 8. GET /api/available-slots?club={club_id}&month={YYYY-MM}
 
-**Authentication Requirement:**
-Not required
+### Description
+
+Returns simplified availability information for each day in the month.
+Includes percentage availability and example available slots for each day.
+
+**Authentication Requirement:** Not required
 
 **Related Frontend:**
 
 * Player Homepage (Availability Summary Panel)
 * Manager Dashboard (Availability Preview)
 
-**Description:**
-Returns simplified availability information for each day in the month.
-Includes percentage availability and example available slots for each day.
-
 **Query Parameters:**
 
-| Parameter | Type    | Required | Description               |
-| --------- | ------- | -------- | ------------------------- |
-| `club`    | integer | Yes      | Club ID                   |
-| `month`   | string  | Yes      | Month in `YYYY-MM` format |
+| Name    | Type    | Required | Description               |
+| ------- | ------- | -------- | ------------------------- |
+| `club`  | integer | Yes      | Club ID                   |
+| `month` | string  | Yes      | Month in `YYYY-MM` format |
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -438,35 +777,41 @@ Includes percentage availability and example available slots for each day.
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field               | Type              | Description                                 |
 | ------------------- | ----------------- | ------------------------------------------- |
+| `month`             | string            | Returned month (`MM-YY`)                    |
+| `days`              | array             | List of day entries                         |
+| `days[].date`       | string            | Date in format `DD-MM-YY`                   |
 | `available_percent` | number            | Ratio of available slots (0–1) for that day |
 | `available_slots`   | array of SlotItem | Example available slots for the day         |
-| `date`              | string            | Date in format `DD-MM-YY`                   |
 
 ---
 
-## **9. GET /slots/`{slot_id}`**
+### 9. GET /api/slots/{slot_id}
 
-**Authentication Requirement:**
-Required
+### Description
+
+Retrieves complete details of a slot, including its time range, court information, price, and booking status.
+
+**Authentication Requirement:** Required (Player or Manager)
 
 **Related Frontend:**
 
 * Player Booking History (Detail Modal and PDF)
 * Manager Log (Slot Detail in Booking Modal)
 
-**Description:**
-Retrieves complete details of a slot, including its time range, court information, price, and booking status.
+**Path Parameters:**
+
+| Name      | Type   | Required | Description    |
+| --------- | ------ | -------- | -------------- |
+| `slot_id` | string | Yes      | Target slot ID |
 
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -481,12 +826,12 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field          | Type           | Description                        |
 | -------------- | -------------- | ---------------------------------- |
 | `slot_status`  | string         | Slot status                        |
-| `service_date` | string         | Date of the slot                   |
+| `service_date` | string         | Date of the slot (service date)    |
 | `start_time`   | string         | Slot starting time                 |
 | `end_time`     | string         | Slot ending time                   |
 | `court`        | number         | Court number                       |
@@ -496,10 +841,14 @@ None
 
 ---
 
-## **10. POST /slots/slots-list**
+### 10. POST /api/slots/slots-list
 
-**Authentication Requirement:**
-Required
+### Description
+
+Retrieves full slot details for a list of slot IDs.
+Used when a booking contains multiple slots.
+
+**Authentication Requirement:** Required (Player or Manager)
 
 **Related Frontend:**
 
@@ -507,16 +856,10 @@ Required
 * Player Booking History (View Detail, PDF)
 * Manager Log Page (Booking Detail Modal)
 
-**Description:**
-Retrieves full slot details for a list of slot IDs.
-Used when a booking contains multiple slots.
-
 **Query Parameters:**
 None
 
-
-
-### **Request Payload Example**
+### Request Payload Example
 
 ```json
 {
@@ -524,7 +867,7 @@ None
 }
 ```
 
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -542,7 +885,7 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field        | Type              | Description           |
 | ------------ | ----------------- | --------------------- |
@@ -551,24 +894,22 @@ None
 
 ---
 
-## **11. POST /slots/status**
+### 11. POST /api/slots/status
 
-**Authentication Requirement:**
-Required (Manager only)
+### Description
+
+Updates the status of multiple slots, typically switching between `available` and `maintenance`.
+
+**Authentication Requirement:** Required (Manager only)
 
 **Related Frontend:**
 
 * Manager Control Page (Slot Status Change UI)
 
-**Description:**
-Updates the status of multiple slots, typically switching between `available` and `maintenance`.
-
 **Query Parameters:**
 None
 
-
-
-### **Request Payload Example**
+### Request Payload Example
 
 **Set to maintenance**
 
@@ -588,7 +929,7 @@ None
 }
 ```
 
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -598,7 +939,7 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field           | Type            | Description                             |
 | --------------- | --------------- | --------------------------------------- |
@@ -608,30 +949,28 @@ None
 | `new_status`    | string          | Status applied to all slots             |
 | `message`       | string          | Operation summary message               |
 
-
----
 ---
 
-## **12. POST /api/booking**
+## 3. Booking APIs
 
-**Authentication Requirement:**
-Required
+### 12. POST /api/booking
+
+### Description
+
+Creates a new booking for the selected slots.
+The system validates slot availability and calculates the total cost automatically.
+
+**Authentication Requirement:** Required
 
 **Related Frontend:**
 
 * Player Booking Summary Modal (confirm booking)
 * Manager Control Page (Walk-in booking)
 
-**Description:**
-Creates a new booking for the selected slots.
-The system validates slot availability and calculates the total cost automatically.
-
 **Query Parameters:**
 None
 
-
-
-### **Request Payload Example (Player Site)**
+### Request Payload Example (Player site)
 
 ```json
 {
@@ -644,7 +983,7 @@ None
 }
 ```
 
-### **Request Payload Example (Manager Walk-in)**
+### Request Payload Example (Manager walk-in)
 
 ```json
 {
@@ -657,36 +996,38 @@ None
 }
 ```
 
----
-
-### **Response Example**
+### Response Example
 
 ```json
-{ "status": "ok" }
+{
+  "status": "ok"
+}
 ```
 
-*(or error message if fail)*
+*(Error responses may include `error` or `detail` depending on failure type.)*
+
+### Field Descriptions
+
+| Field            | Type            | Description                                       |
+| ---------------- | --------------- | ------------------------------------------------- |
+| `club`           | number          | Club ID for booking                               |
+| `booking_method` | string          | Booking channel (`courtly-website`, `phone-call`) |
+| `owner_username` | string          | Name/username of the customer                     |
+| `owner_contact`  | string          | Email or phone number                             |
+| `payment_method` | string          | `coin`, `mobile-banking`                          |
+| `slots`          | array of string | Slot IDs (player booking)                         |
+| `booking_slots`  | array of string | Slot IDs (manager walk-in booking)                |
 
 ---
 
-### **Field Descriptions**
+### 13. GET /api/booking/{booking_id}
 
-| Field            | Type          | Description                                       |
-| ---------------- | ------------- | ------------------------------------------------- |
-| `club`           | number        | Club ID for booking                               |
-| `booking_method` | string        | Booking channel (`courtly-website`, `phone-call`) |
-| `owner_username` | string        | Name/username of the customer                     |
-| `owner_contact`  | string        | Email or phone number                             |
-| `payment_method` | string        | `coin`, `mobile-banking`                          |
-| `slots`          | array<string> | Slot IDs (player)                                 |
-| `booking_slots`  | array<string> | Slot IDs (manager walk-in)                        |
+### Description
 
----
+Returns full booking details, including all slot information.
+This endpoint replaces the need to call `/api/slots/slots-list` just for display.
 
-## **13. GET /api/booking/{booking_id}**
-
-**Authentication Requirement:**
-Required (Booking owner or Manager)
+**Authentication Requirement:** Required (Booking owner or Manager)
 
 **Related Frontend:**
 
@@ -694,16 +1035,16 @@ Required (Booking owner or Manager)
 * Player Booking History (Detail Modal + PDF Receipt)
 * Manager Log Page (Booking Detail Modal + PDF)
 
-**Description:**
-Returns **full booking details**, including all slot information.
-This endpoint replaces the need to call `/slots/slots-list` for display.
+**Path Parameters:**
+
+| Name         | Type   | Required | Description |
+| ------------ | ------ | -------- | ----------- |
+| `booking_id` | string | Yes      | Booking ID  |
 
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -743,9 +1084,7 @@ None
 }
 ```
 
----
-
-### **Field Descriptions**
+### Field Descriptions
 
 | Field            | Type    | Description                                        |
 | ---------------- | ------- | -------------------------------------------------- |
@@ -753,41 +1092,44 @@ None
 | `booking_id`     | string  | Booking reference ID                               |
 | `owner_id`       | number  | User ID of booking owner                           |
 | `owner_username` | string  | Owner username                                     |
-| `owner_contact`  | string  | Owner contact                                      |
+| `owner_contact`  | string  | Owner contact (email/phone)                        |
 | `booking_method` | string  | Booking channel                                    |
 | `total_cost`     | number  | Total cost in CL Coins                             |
 | `payment_method` | string  | `coin` or `mobile-banking`                         |
 | `booking_date`   | string  | Service date                                       |
 | `booking_status` | string  | `confirmed`, `cancelled`, `end_game`, `checked_in` |
 | `able_to_cancel` | boolean | Whether the cancellation button should be shown    |
-| `booking_slots`  | object  | Slot map keyed by slot_id                          |
+| `booking_slots`  | object  | Slot map keyed by `slot_id`                        |
 
 ---
 
+### 14. POST /api/booking/{booking_id}/cancel
 
-## **14. POST /api/booking/{booking_id}/cancel**
+### Description
 
-**Authentication Requirement:**
-Required (Player or Manager)
+Cancels a booking.
+If cancellation is before the 24-hour policy window, the system refunds CL Coins.
+
+**Authentication Requirement:** Required (Player or Manager)
 
 **Related Frontend:**
 
-* Player History Page (Cancel Button)
+* Player History Page (Cancel button)
 * Manager Log Page (Cancel from admin panel)
 
-**Description:**
-Cancels a booking.
-If cancellation is before the 24-hour policy window, the system refunds CL Coins.
+**Path Parameters:**
+
+| Name         | Type   | Required | Description |
+| ------------ | ------ | -------- | ----------- |
+| `booking_id` | string | Yes      | Booking ID  |
 
 **Query Parameters:**
 None
 
-**Payload:**
+**Request Payload:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -798,9 +1140,7 @@ None
 }
 ```
 
----
-
-### **Field Descriptions**
+### Field Descriptions
 
 | Field          | Type   | Description       |
 | -------------- | ------ | ----------------- |
@@ -811,29 +1151,32 @@ None
 
 ---
 
+### 15. POST /api/booking/{booking_id}/checkin
 
-## **15. POST /api/booking/{booking_id}/checkin**
+### Description
 
-**Authentication Requirement:**
-Required (Manager only)
+Marks a booking as “checked-in”.
+All associated slots become playing/end-game according to the system logic.
+
+**Authentication Requirement:** Required (Manager only)
 
 **Related Frontend:**
 
-* Manager Log Page (Check-in Button)
+* Manager Log Page (Check-in button)
 
-**Description:**
-Marks a booking as “checked-in”.
-All associated slots become “playing” or “end_game” depending on the logic.
+**Path Parameters:**
+
+| Name         | Type   | Required | Description       |
+| ------------ | ------ | -------- | ----------------- |
+| `booking_id` | string | Yes      | Target booking ID |
 
 **Query Parameters:**
 None
 
-**Payload:**
+**Request Payload:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -844,9 +1187,7 @@ None
 }
 ```
 
----
-
-### **Field Descriptions**
+### Field Descriptions
 
 | Field           | Type   | Description       |
 | --------------- | ------ | ----------------- |
@@ -857,28 +1198,23 @@ None
 
 ---
 
+### 16. GET /api/bookings/
 
-## **16. GET /api/bookings/**
+### Description
 
-*(Manager only – full system booking table)*
+Returns a lightweight list of **all bookings in the system**.
+Used for listing before loading detailed booking info with `GET /api/booking/{booking_id}`.
 
-**Authentication Requirement:**
-Required (Manager)
+**Authentication Requirement:** Required (Manager only)
 
 **Related Frontend:**
 
 * Manager Log → Booking Table
 
-**Description:**
-Returns the **lightweight list** of all bookings in the system.
-Used for listing before loading detailed booking info using GET `/api/booking/{booking_id}`.
-
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 [
@@ -894,9 +1230,7 @@ None
 ]
 ```
 
----
-
-### **Field Descriptions**
+### Field Descriptions
 
 | Field            | Type    | Description               |
 | ---------------- | ------- | ------------------------- |
@@ -909,25 +1243,25 @@ None
 | `owner_id`       | number  | User ID of booking owner  |
 
 ---
----
 
-## **17. GET /api/my-booking/**
+### 17. GET /api/my-booking/
 
-*(Player only – their own booking history)*
+### Description
 
-**Authentication Requirement:**
-Required (Player)
+Returns a lightweight list of bookings belonging to the current authenticated player.
+
+**Authentication Requirement:** Required (Player only)
 
 **Related Frontend:**
 
 * Player Booking History Page
 
-**Description:**
-Returns a lightweight list of bookings belonging to the current authenticated player.
+**Query Parameters:**
+None
 
-### **Response Example**
+### Response Example
 
-*(Same structure as /api/bookings/)*
+*Same structure as `GET /api/bookings/`*
 
 ```json
 [
@@ -945,26 +1279,27 @@ Returns a lightweight list of bookings belonging to the current authenticated pl
 
 ---
 
----
+### 18. GET /api/bookings/upcoming and GET /api/my-booking/upcoming
 
-## **18. GET /api/bookings/upcoming  and  GET /api/my-booking/upcoming**
+### Description
 
-**Authentication Requirement:**
-Required
+Returns only the **confirmed** bookings whose booking date is **≥ today**.
+Used for homepage reminders and upcoming session panels.
 
 * `GET /api/bookings/upcoming` → Manager only
 * `GET /api/my-booking/upcoming` → Player only
+
+**Authentication Requirement:** Required
 
 **Related Frontend:**
 
 * Player Homepage (Upcoming Booking Modal)
 * Manager Dashboard (Upcoming Sessions)
 
-**Description:**
-Returns only the **confirmed** bookings whose booking date is **≥ today**.
-Used for homepage reminders and upcoming session panels.
+**Query Parameters:**
+None
 
-### **Response Example**
+### Response Example
 
 ```json
 [
@@ -980,35 +1315,35 @@ Used for homepage reminders and upcoming session panels.
 ]
 ```
 
-### **Additional Filtering Behavior**
+### Additional Filtering Behavior
 
-| Condition                     | Behavior |
-| ----------------------------- | -------- |
-| booking_status != "confirmed" | excluded |
-| booking_date < today          | excluded |
+| Condition                       | Behavior |
+| ------------------------------- | -------- |
+| `booking_status != "confirmed"` | Excluded |
+| `booking_date < today`          | Excluded |
 
 ---
 
-## **19. GET /api/wallet/balance**
+## 4. Wallet APIs
 
-**Authentication Requirement:**
-Required (Player only)
+### 19. GET /api/wallet/balance
+
+### Description
+
+Returns the player’s current CL Coin wallet balance, balance in THB, and number of ledger entries.
+Used to show up-to-date wallet status in the user’s wallet/profile sections.
+
+**Authentication Requirement:** Required (Player only)
 
 **Related Frontend:**
 
 * Player Wallet Page (Balance Panel)
 * Player Booking Summary Modal (Wallet balance deduction display)
 
-**Description:**
-Returns the player’s current CL Coin wallet balance, balance in THB, and number of ledger entries.
-Used to show up-to-date wallet status in the user's profile or wallet section.
-
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -1018,7 +1353,7 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field         | Type   | Description                                      |
 | ------------- | ------ | ------------------------------------------------ |
@@ -1028,27 +1363,24 @@ None
 
 ---
 
+### 20. GET /api/wallet/ledger
 
-## **20. GET /api/wallet/ledger**
+### Description
 
-**Authentication Requirement:**
-Required (Player only)
+Returns the player’s wallet ledger (transaction history), sorted by newest first.
+Each entry indicates money-in/money-out, including booking captures, refunds, and top-ups.
+
+**Authentication Requirement:** Required (Player only)
 
 **Related Frontend:**
 
 * Player Wallet Page (Transaction History)
-* Export CSV Button (uses same data source)
-
-**Description:**
-Returns the player’s wallet ledger (transaction history), sorted by newest first.
-Each entry indicates money-in/money-out, including booking captures, refunds, and top-ups.
+* Export CSV button (uses same data source)
 
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -1072,88 +1404,83 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field         | Type           | Description                                           |
 | ------------- | -------------- | ----------------------------------------------------- |
 | `count`       | number         | Total number of records in the ledger                 |
 | `results`     | array          | List of ledger entries                                |
 | `id`          | number         | Ledger entry ID                                       |
-| `type`        | string         | Transaction type: `topup`, `capture`, `refund`        |
+| `type`        | string         | `topup`, `capture`, `refund`                          |
 | `amount`      | number         | Positive (in) or negative (out) coin amount           |
 | `ref_booking` | number or null | Booking reference if transaction relates to a booking |
 | `created_at`  | string         | Timestamp of transaction                              |
 
 ---
 
+### 21. GET /api/wallet/ledger/export-csv
 
-## **21. GET /api/wallet/ledger/export-csv**
+### Description
 
-**Authentication Requirement:**
-Required (Player only)
+Generates a downloadable CSV file containing the player’s full transaction history.
+
+**Authentication Requirement:** Required (Player only)
 
 **Related Frontend:**
 
 * Player Wallet Page → “Export CSV” button
 
-**Description:**
-Generates a downloadable CSV file containing the player’s full transaction history.
-
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 **Headers returned by backend:**
 
-```
+```text
 Content-Type: text/csv
 Content-Disposition: attachment; filename="wallet_transactions.csv"
 ```
 
 **CSV file includes:**
 
-```
+```text
 id,type,amount,ref_booking,created_at
 260,topup,200,,2025-10-26T00:26:34.915094+07:00
 257,capture,-100,294,2025-10-25T10:31:08.995632+07:00
 ```
 
-
-
 ---
 
-## **22. POST /api/wallet/topups**
+### 22. POST /api/wallet/topups
 
-**Authentication Requirement:**
-Required (Player only)
+### Description
+
+Creates a new top-up request by submitting transfer information and an image slip.
+
+**Authentication Requirement:** Required (Player only)
 
 **Related Frontend:**
 
 * Player Wallet → Top-up Form (Upload Slip)
 
-**Description:**
-Creates a new top-up request by submitting transfer information and an image slip.
-
 **Query Parameters:**
 None
 
+### Request Payload Example
 
-### **Request Payload Example**
+> หมายเหตุ: จริง ๆ payload จะเป็น `multipart/form-data` ที่มีไฟล์ slip
 
 ```json
 {
-"amount_thb": 200
-"transfer_date": "2025-10-26"
-"transfer_time": "14:45:00"
-"slip_path": "<file image>"
+  "amount_thb": 200,
+  "transfer_date": "2025-10-26",
+  "transfer_time": "14:45:00",
+  "slip_path": "<file image>"
 }
 ```
 
-
-### **Response Example**
+### Response Example
 
 ```json
 {
@@ -1165,7 +1492,7 @@ None
 }
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
 | Field        | Type   | Description                       |
 | ------------ | ------ | --------------------------------- |
@@ -1177,29 +1504,26 @@ None
 
 ---
 
+### 23. GET /api/wallet/topups
 
-## **23. GET /api/wallet/topups**
+### Description
 
-**Authentication Requirement:**
-Required
+Returns a list of top-up requests with their status and slip images.
 
-* Player: sees **only their own** top-up requests
-* Manager: sees **all pending requests** (depending on backend permissions)
+* Player: sees **only their own** requests
+* Manager: sees **pending/all** requests depending on backend permission
+
+**Authentication Requirement:** Required
 
 **Related Frontend:**
 
 * Player Wallet → “My Top-ups” list
 * Manager Dashboard → Pending Top-up Approval List
 
-**Description:**
-Returns a list of top-up requests with their status and slip images.
-
 **Query Parameters:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
 [
@@ -1214,71 +1538,82 @@ None
 ]
 ```
 
-### **Field Descriptions**
+### Field Descriptions
 
-| Field        | Type   | Description               |
-| ------------ | ------ | ------------------------- |
-| `id`         | number | Top-up request ID         |
-| `player`     | string | Player email/username     |
-| `amount_thb` | string | Amount requested          |
-| `status`     | string | Pending/Approved/Rejected |
-| `slip_path`  | string | Slip image URL            |
-| `created_at` | string | Creation timestamp        |
+| Field        | Type   | Description                       |
+| ------------ | ------ | --------------------------------- |
+| `id`         | number | Top-up request ID                 |
+| `player`     | string | Player email/username             |
+| `amount_thb` | string | Amount requested                  |
+| `status`     | string | `pending`, `approved`, `rejected` |
+| `slip_path`  | string | Slip image URL                    |
+| `created_at` | string | Creation timestamp                |
 
 ---
 
-## **24. POST /api/wallet/topups/{id}/approve**
+### 24. POST /api/wallet/topups/{id}/approve
 
-**Authentication Requirement:**
-Required (Manager only)
+### Description
 
-**Related Frontend:**
-
-* Manager Dashboard → Top-up Approval Modal
-
-**Description:**
 Approves a top-up request and immediately updates the player’s coin balance.
 
-**Query Parameters:**
-None
-**Request Payload:**
-None
-
-
-
-### **Response Example**
-
-```json
-{ "detail": "Top-up approved." }
-```
-
----
-
----
-
-## **25. POST /api/wallet/topups/{id}/reject**
-
-**Authentication Requirement:**
-Required (Manager only)
+**Authentication Requirement:** Required (Manager only)
 
 **Related Frontend:**
 
 * Manager Dashboard → Top-up Approval Modal
 
-**Description:**
-Rejects a top-up request (no balance added).
+**Path Parameters:**
+
+| Name | Type   | Required | Description       |
+| ---- | ------ | -------- | ----------------- |
+| `id` | number | Yes      | Top-up request ID |
 
 **Query Parameters:**
 None
+
 **Request Payload:**
 None
 
-
-
-### **Response Example**
+### Response Example
 
 ```json
-{ "detail": "Top-up rejected." }
+{
+  "detail": "Top-up approved."
+}
 ```
 
 ---
+
+### 25. POST /api/wallet/topups/{id}/reject
+
+### Description
+
+Rejects a top-up request (no balance added).
+
+**Authentication Requirement:** Required (Manager only)
+
+**Related Frontend:**
+
+* Manager Dashboard → Top-up Approval Modal
+
+**Path Parameters:**
+
+| Name | Type   | Required | Description       |
+| ---- | ------ | -------- | ----------------- |
+| `id` | number | Yes      | Top-up request ID |
+
+**Query Parameters:**
+None
+
+**Request Payload:**
+None
+
+### Response Example
+
+```json
+{
+  "detail": "Top-up rejected."
+}
+```
+
