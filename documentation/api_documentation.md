@@ -27,7 +27,6 @@ The backend validates matching passwords, unique email/username, and acceptance 
 **Query Parameters:**
 None
 
----
 
 ### **Request Payload Example**
 
@@ -87,7 +86,6 @@ Also returns the user’s profile and wallet balance.
 **Query Parameters:**
 None
 
----
 
 ### **Request Payload Example**
 
@@ -153,7 +151,7 @@ Generates a new access token using a valid refresh token.
 **Query Parameters:**
 None
 
----
+
 
 ### **Request Payload Example**
 
@@ -198,7 +196,6 @@ Returns the authenticated user’s profile and wallet information.
 **Query Parameters:**
 None
 
----
 
 ### **Response Example**
 
@@ -249,7 +246,6 @@ Used by managers when verifying booking ownership during check-in.
 **Query Parameters:**
 user_id
 
----
 
 ### **Response Example**
 
@@ -289,7 +285,6 @@ Used for changing name, email, or avatar.
 **Query Parameters:**
 None
 
----
 
 ### **Request Payload Example**
 
@@ -346,7 +341,6 @@ This endpoint allows both the player and manager to view court availability, boo
 | `club`    | integer | Yes      | Club ID                                   |
 | `month`   | string  | Yes      | Month in format `YYYY-MM` (e.g., 2025-11) |
 
----
 
 ### **Response Example**
 
@@ -417,7 +411,7 @@ Includes percentage availability and example available slots for each day.
 | `club`    | integer | Yes      | Club ID                   |
 | `month`   | string  | Yes      | Month in `YYYY-MM` format |
 
----
+
 
 ### **Response Example**
 
@@ -470,7 +464,7 @@ Retrieves complete details of a slot, including its time range, court informatio
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -520,7 +514,7 @@ Used when a booking contains multiple slots.
 **Query Parameters:**
 None
 
----
+
 
 ### **Request Payload Example**
 
@@ -572,7 +566,7 @@ Updates the status of multiple slots, typically switching between `available` an
 **Query Parameters:**
 None
 
----
+
 
 ### **Request Payload Example**
 
@@ -635,7 +629,7 @@ The system validates slot availability and calculates the total cost automatical
 **Query Parameters:**
 None
 
----
+
 
 ### **Request Payload Example (Player Site)**
 
@@ -707,7 +701,7 @@ This endpoint replaces the need to call `/slots/slots-list` for display.
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -791,7 +785,7 @@ None
 **Payload:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -837,7 +831,7 @@ None
 **Payload:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -882,7 +876,7 @@ Used for listing before loading detailed booking info using GET `/api/booking/{b
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -1012,7 +1006,7 @@ Used to show up-to-date wallet status in the user's profile or wallet section.
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -1034,7 +1028,6 @@ None
 
 ---
 
----
 
 ## **20. GET /api/wallet/ledger**
 
@@ -1053,7 +1046,7 @@ Each entry indicates money-in/money-out, including booking captures, refunds, an
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -1093,7 +1086,6 @@ None
 
 ---
 
----
 
 ## **21. GET /api/wallet/ledger/export-csv**
 
@@ -1110,7 +1102,7 @@ Generates a downloadable CSV file containing the player’s full transaction his
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -1148,15 +1140,15 @@ Creates a new top-up request by submitting transfer information and an image sli
 **Query Parameters:**
 None
 
----
+
 ### **Request Payload Example**
 
 ```json
 {
 "amount_thb": 200
-"transfer_date": 2025-10-26
-"transfer_time": 14:45:00
-"slip_path": <file image>
+"transfer_date": "2025-10-26"
+"transfer_time": "14:45:00"
+"slip_path": "<file image>"
 }
 ```
 
@@ -1184,7 +1176,7 @@ None
 | `created_at` | string | Timestamp of creation             |
 
 ---
----
+
 
 ## **23. GET /api/wallet/topups**
 
@@ -1205,7 +1197,7 @@ Returns a list of top-up requests with their status and slip images.
 **Query Parameters:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -1235,8 +1227,6 @@ None
 
 ---
 
----
-
 ## **24. POST /api/wallet/topups/{id}/approve**
 
 **Authentication Requirement:**
@@ -1254,7 +1244,7 @@ None
 **Request Payload:**
 None
 
----
+
 
 ### **Response Example**
 
@@ -1283,7 +1273,7 @@ None
 **Request Payload:**
 None
 
----
+
 
 ### **Response Example**
 
