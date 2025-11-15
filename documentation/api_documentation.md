@@ -1,5 +1,5 @@
 
-# Courtly API Documentation
+# **Courtly API Documentation**
 
 ### Badminton Court Management and Booking System
 
@@ -11,72 +11,72 @@ https://backend.courtlyeasy.app/
 
 ---
 
-## 0. API Overview & Master Summary
+# API Overview & Master Summary
 
-### 0.1 Endpoint Summary Table
+### **Endpoint Summary Table**
 
-| #  | Method | Endpoint                            | Short Description                                            | Auth Required | Roles that can call it              |
-| -- | ------ | ----------------------------------- | ------------------------------------------------------------ | ------------- | ----------------------------------- |
-| 1  | POST   | `/api/auth/register`                | Register a new user account                                  | No            | Guest                               |
-| 2  | POST   | `/api/auth/login`                   | Log in with email & password, get JWT tokens + profile       | No            | Guest                               |
-| 3  | POST   | `/api/auth/token/refresh`           | Refresh access token using a refresh token                   | No*           | Logged-in user (Player/Manager)     |
-| 4  | GET    | `/api/auth/me`                      | Get current authenticated user profile                       | Yes           | Player, Manager                     |
-| 5  | GET    | `/api/auth/{user_id}`               | Get profile of a specific user                               | Yes           | Manager                             |
-| 6  | POST   | `/api/auth/me`                      | Update current user profile                                  | Yes           | Player, Manager                     |
-| 7  | GET    | `/api/month-view`                   | Get monthly slot overview with full slot map & statuses      | No            | Guest, Player, Manager              |
-| 8  | GET    | `/api/available-slots`              | Get monthly availability summary (percentage + sample slots) | No            | Guest, Player, Manager              |
-| 9  | GET    | `/api/slots/{slot_id}`              | Get details of a single slot                                 | Yes           | Player, Manager                     |
-| 10 | POST   | `/api/slots/slots-list`             | Get details of multiple slots by ID                          | Yes           | Player, Manager                     |
-| 11 | POST   | `/api/slots/status`                 | Bulk update slot status (available / maintenance, etc.)      | Yes           | Manager                             |
-| 12 | POST   | `/api/booking`                      | Create a booking (player online booking or manager walk-in)  | Yes           | Player, Manager                     |
-| 13 | GET    | `/api/booking/{booking_id}`         | Get full booking details (including all booked slots)        | Yes           | Booking owner, Manager              |
-| 14 | POST   | `/api/booking/{booking_id}/cancel`  | Cancel a booking and trigger refund logic                    | Yes           | Booking owner, Manager              |
-| 15 | POST   | `/api/booking/{booking_id}/checkin` | Mark a booking as checked-in                                 | Yes           | Manager                             |
-| 16 | GET    | `/api/bookings/`                    | Get a lightweight list of all bookings                       | Yes           | Manager                             |
-| 17 | GET    | `/api/my-booking/`                  | Get the current player’s own booking history                 | Yes           | Player                              |
-| 18 | GET    | `/api/bookings/upcoming`            | Get all upcoming confirmed bookings in the system            | Yes           | Manager                             |
-|    | GET    | `/api/my-booking/upcoming`          | Get upcoming confirmed bookings for the current player       | Yes           | Player                              |
-| 19 | GET    | `/api/wallet/balance`               | Get wallet balance (coins, THB, and ledger count)            | Yes           | Player                              |
-| 20 | GET    | `/api/wallet/ledger`                | Get wallet ledger (coin transaction history)                 | Yes           | Player                              |
-| 21 | GET    | `/api/wallet/ledger/export-csv`     | Export wallet ledger as CSV                                  | Yes           | Player                              |
-| 22 | POST   | `/api/wallet/topups`                | Create a coin top-up request (with transfer slip)            | Yes           | Player                              |
-| 23 | GET    | `/api/wallet/topups`                | List top-up requests                                         | Yes           | Player (own), Manager (pending/all) |
-| 24 | POST   | `/api/wallet/topups/{id}/approve`   | Approve a top-up request and credit coins                    | Yes           | Manager                             |
-| 25 | POST   | `/api/wallet/topups/{id}/reject`    | Reject a top-up request                                      | Yes           | Manager                             |
+| No. | Method | Endpoint                            | Short Description                                            | Auth Required | Roles that can call it   |
+| --- | ------ | ----------------------------------- | ------------------------------------------------------------ | ------------- | ------------------------ |
+| 1   | POST   | `/api/auth/register`                | Register a new user account                                  | No            | Visitor                  |
+| 2   | POST   | `/api/auth/login`                   | Log in with email & password, get JWT tokens + profile       | No            | Visitor                  |
+| 3   | POST   | `/api/auth/token/refresh`           | Refresh access token using a refresh token                   | Yes           | Player, Manager          |
+| 4   | GET    | `/api/auth/me`                      | Get current authenticated user profile                       | Yes           | Player, Manager          |
+| 5   | GET    | `/api/auth/{user_id}`               | Get profile of a specific user                               | Yes           | Manager                  |
+| 6   | POST   | `/api/auth/me`                      | Update current user profile                                  | Yes           | Player, Manager          |
+| 7   | GET    | `/api/month-view`                   | Get monthly slot overview with full slot map & statuses      | No            | Visitor, Player, Manager |
+| 8   | GET    | `/api/available-slots`              | Get monthly availability summary (percentage + sample slots) | No            | Visitor, Player, Manager |
+| 9   | GET    | `/api/slots/{slot_id}`              | Get details of a single slot                                 | Yes           | Player, Manager          |
+| 10  | POST   | `/api/slots/slots-list`             | Get details of multiple slots by ID                          | Yes           | Player, Manager          |
+| 11  | POST   | `/api/slots/status`                 | Bulk update slot status (available / maintenance, etc.)      | Yes           | Manager                  |
+| 12  | POST   | `/api/booking`                      | Create a booking (player online booking or manager walk-in)  | Yes           | Player, Manager          |
+| 13  | GET    | `/api/booking/{booking_id}`         | Get full booking details (including all booked slots)        | Yes           | Player, Manager          |
+| 14  | POST   | `/api/booking/{booking_id}/cancel`  | Cancel a booking and trigger refund logic                    | Yes           | Player, Manager          |
+| 15  | POST   | `/api/booking/{booking_id}/checkin` | Mark a booking as checked-in                                 | Yes           | Manager                  |
+| 16  | GET    | `/api/bookings/`                    | Get a lightweight list of all bookings                       | Yes           | Manager                  |
+| 17  | GET    | `/api/my-booking/`                  | Get the current player’s own booking history                 | Yes           | Player                   |
+| 18  | GET    | `/api/bookings/upcoming`            | Get all upcoming confirmed bookings in the system            | Yes           | Manager                  |
+| 19  | GET    | `/api/my-booking/upcoming`          | Get upcoming confirmed bookings for the current player       | Yes           | Player                   |
+| 20  | GET    | `/api/wallet/balance`               | Get wallet balance (coins, THB, and ledger count)            | Yes           | Player                   |
+| 21  | GET    | `/api/wallet/ledger`                | Get wallet ledger (coin transaction history)                 | Yes           | Player, Manager          |
+| 22  | GET    | `/api/wallet/ledger/export-csv`     | Export wallet ledger as CSV                                  | Yes           | Player, Manager          |
+| 23  | POST   | `/api/wallet/topups`                | Create a coin top-up request (with transfer slip)            | Yes           | Player                   |
+| 24  | GET    | `/api/wallet/topups`                | List top-up requests                                         | Yes           | Player, Manager          |
+| 25  | POST   | `/api/wallet/topups/{id}/approve`   | Approve a top-up request and credit coins                    | Yes           | Manager                  |
+| 26  | POST   | `/api/wallet/topups/{id}/reject`    | Reject a top-up request                                      | Yes           | Manager                  |
 
 > * `token/refresh` itself does not require an access token, but it does require a valid **refresh token** in the request body.
 
 ---
 
-### 0.2 Access Matrix by Role
+### **Access Matrix by Role**
 
-| Endpoint / Behaviour                                          | Guest |  Player |     Manager     |
-| ------------------------------------------------------------- | :---: | :-----: | :-------------: |
-| Register / Login (`/api/auth/register`, `/login`)             |   ✓   |    ✓    |        ✓        |
-| Token refresh                                                 |       |    ✓    |        ✓        |
-| Get / update own profile                                      |       |    ✓    |        ✓        |
-| Get other user’s profile                                      |       |         |        ✓        |
-| Month view / availability (`/month-view`, `/available-slots`) |   ✓   |    ✓    |        ✓        |
-| Slot details / slots-list                                     |       |    ✓    |        ✓        |
-| Change slot status (`/slots/status`)                          |       |         |        ✓        |
-| Create booking                                                |       |    ✓    |        ✓        |
-| View booking detail                                           |       |    ✓*   |        ✓        |
-| Cancel booking                                                |       |    ✓*   |        ✓        |
-| Check-in booking                                              |       |         |        ✓        |
-| Get all bookings / upcoming system-wide                       |       |         |        ✓        |
-| Get own bookings / own upcoming                               |       |    ✓    |                 |
-| Wallet balance / ledger / export                              |       |    ✓    |                 |
-| Create top-up                                                 |       |    ✓    |                 |
-| List top-ups                                                  |       | ✓ (own) | ✓ (pending/all) |
-| Approve / reject top-up                                       |       |         |        ✓        |
+| Endpoint / Behaviour                                          | Visitor | Player | Manager |
+| ------------------------------------------------------------- | :-----: | :----: | :-----: |
+| Register / Login (`/api/auth/register`, `/login`)             |    ✓    |   ✓    |    ✓    |
+| Token refresh                                                 |         |   ✓    |    ✓    |
+| Get / update own profile                                      |         |   ✓    |    ✓    |
+| Get other user’s profile                                      |         |        |    ✓    |
+| Month view / availability (`/month-view`, `/available-slots`) |    ✓    |   ✓    |    ✓    |
+| Slot details / slots-list                                     |         |   ✓    |    ✓    |
+| Change slot status (`/slots/status`)                          |         |        |    ✓    |
+| Create booking                                                |         |   ✓    |    ✓    |
+| View booking detail                                           |         |   ✓    |    ✓    |
+| Cancel booking                                                |         |   ✓    |    ✓    |
+| Check-in booking                                              |         |        |    ✓    |
+| Get all bookings / upcoming system-wide                       |         |        |    ✓    |
+| Get own bookings / own upcoming                               |         |   ✓    |         |
+| Wallet balance / ledger / export                              |         |   ✓    |         |
+| Create top-up                                                 |         |   ✓    |         |
+| List top-ups                                                  |         |   ✓    |    ✓    |
+| Approve / reject top-up                                       |         |        |    ✓    |
 
-* Player can only access or cancel **their own** bookings.
+
 
 ---
 
-### 0.3 Slot Status Reference
+### **Slot Status Reference**
 
-#### 0.3.1 Quick Summary
+#### Slot Status Summary
 
 | Slot Status   | High-level meaning                                                           |
 | ------------- | ---------------------------------------------------------------------------- |
@@ -89,7 +89,7 @@ https://backend.courtlyeasy.app/
 | `expired`     | Slot time has passed without any booking.                                    |
 | `noshow`      | Slot was booked (player or walk-in) but no one checked in before start time. |
 
-#### 0.3.2 Detailed Behaviour by Role
+#### Detailed Behaviour by Role
 
 **`available`**
 
@@ -216,9 +216,9 @@ https://backend.courtlyeasy.app/
 
 ---
 
-### 0.4 Booking Status Flow
+### **Booking Status Flow**
 
-#### 0.4.1 Booking Status Summary
+#### Booking Status Summary
 
 Booking status is tracked at **booking level**, while each booking also controls a set of **slot statuses**.
 
@@ -230,7 +230,7 @@ Booking status is tracked at **booking level**, while each booking also controls
 | `Endgame`      | A checked-in booking has fully finished playing (all slots finished).      | All slots in this booking move to `ended`.                        |
 | `No-Show`      | An upcoming booking reaches the end of its slot time without any Check-in. | All slots in this booking move to `noshow`.                       |
 
-#### 0.4.2 Flow and Related Endpoints
+#### Flow and Related Endpoints
 
 * **Upcoming**
 
@@ -286,7 +286,7 @@ Booking status is tracked at **booking level**, while each booking also controls
 
 ---
 
-### 0.5 Wallet Transaction Types
+### **Wallet Transaction Types**
 
 Coin transactions in the wallet ledger:
 
@@ -306,7 +306,7 @@ Top-up request statuses (for `/api/wallet/topups`):
 
 ---
 
-### 0.6 Error Response Format (Global)
+### **Error Response Format (Global)**
 
 Common response shapes used across endpoints:
 
@@ -345,9 +345,9 @@ Recommended HTTP codes (for documentation & implementation):
 
 ---
 
-## 1. Auth & User APIs
+# Auth & User APIs
 
-### 1. POST /api/auth/register
+## 1. POST /api/auth/register
 
 ### Description
 
@@ -409,7 +409,7 @@ None
 
 ---
 
-### 2. POST /api/auth/login
+## 2. POST /api/auth/login
 
 ### Description
 
@@ -474,7 +474,7 @@ None
 
 ---
 
-### 3. POST /api/auth/token/refresh
+## 3. POST /api/auth/token/refresh
 
 ### Description
 
@@ -515,7 +515,7 @@ None
 
 ---
 
-### 4. GET /api/auth/me
+## 4. GET /api/auth/me
 
 ### Description
 
@@ -565,7 +565,7 @@ None
 
 ---
 
-### 5. GET /api/auth/{user_id}
+## 5. GET /api/auth/`{user_id}`
 
 ### Description
 
@@ -610,7 +610,7 @@ Same schema as `GET /api/auth/me`.
 
 ---
 
-### 6. POST /api/auth/me
+## 6. POST /api/auth/me
 
 ### Description
 
@@ -659,9 +659,9 @@ None
 
 ---
 
-## 2. Calendar & Slot APIs
+# Calendar & Slot APIs
 
-### 7. GET /api/month-view?club={club_id}&month={YYYY-MM}
+## 7. GET /api/month-view?club=`{club_id}`&month=`{YYYY-MM}`
 
 ### Description
 
@@ -731,7 +731,7 @@ Used by both player and manager sides for month view.
 
 ---
 
-### 8. GET /api/available-slots?club={club_id}&month={YYYY-MM}
+## 8. GET /api/available-slots?club=`{club_id}`&month=`{YYYY-MM}`
 
 ### Description
 
@@ -789,7 +789,7 @@ Includes percentage availability and example available slots for each day.
 
 ---
 
-### 9. GET /api/slots/{slot_id}
+## 9. GET /api/slots/`{slot_id}`
 
 ### Description
 
@@ -841,7 +841,7 @@ None
 
 ---
 
-### 10. POST /api/slots/slots-list
+## 10. POST /api/slots/slots-list
 
 ### Description
 
@@ -880,6 +880,15 @@ None
       "court": 3,
       "court_name": "Court 3",
       "price_coin": 100
+    },
+    {
+      "slot_status": "available",
+      "service_date": "2025-10-25",
+      "start_time": "17:30",
+      "end_time": "18:00",
+      "court": 3,
+      "court_name": "Court 3",
+      "price_coin": 100
     }
   ]
 }
@@ -894,7 +903,7 @@ None
 
 ---
 
-### 11. POST /api/slots/status
+## 11. POST /api/slots/status
 
 ### Description
 
@@ -951,9 +960,9 @@ None
 
 ---
 
-## 3. Booking APIs
+# Booking APIs
 
-### 12. POST /api/booking
+## 12. POST /api/booking
 
 ### Description
 
@@ -1020,7 +1029,7 @@ None
 
 ---
 
-### 13. GET /api/booking/{booking_id}
+## 13. GET /api/booking/`{booking_id}`
 
 ### Description
 
@@ -1103,7 +1112,7 @@ None
 
 ---
 
-### 14. POST /api/booking/{booking_id}/cancel
+## 14. POST /api/booking/`{booking_id}`/cancel
 
 ### Description
 
@@ -1151,7 +1160,7 @@ None
 
 ---
 
-### 15. POST /api/booking/{booking_id}/checkin
+## 15. POST /api/booking/`{booking_id}`/checkin
 
 ### Description
 
@@ -1198,7 +1207,7 @@ None
 
 ---
 
-### 16. GET /api/bookings/
+## 16. GET /api/bookings/
 
 ### Description
 
@@ -1244,7 +1253,7 @@ None
 
 ---
 
-### 17. GET /api/my-booking/
+## 17. GET /api/my-booking/
 
 ### Description
 
@@ -1279,21 +1288,17 @@ None
 
 ---
 
-### 18. GET /api/bookings/upcoming and GET /api/my-booking/upcoming
+## 18. GET /api/bookings/upcoming
 
 ### Description
 
-Returns only the **confirmed** bookings whose booking date is **≥ today**.
-Used for homepage reminders and upcoming session panels.
+Returns only the **confirmed** bookings whose booking date is **≥ today** across the entire system.
+Used on the manager side for monitoring upcoming sessions.
 
-* `GET /api/bookings/upcoming` → Manager only
-* `GET /api/my-booking/upcoming` → Player only
-
-**Authentication Requirement:** Required
+**Authentication Requirement:** Required (Manager only)
 
 **Related Frontend:**
 
-* Player Homepage (Upcoming Booking Modal)
 * Manager Dashboard (Upcoming Sessions)
 
 **Query Parameters:**
@@ -1322,11 +1327,58 @@ None
 | `booking_status != "confirmed"` | Excluded |
 | `booking_date < today`          | Excluded |
 
+> Response item schema is the same as `GET /api/bookings/`.
+
 ---
 
-## 4. Wallet APIs
+## 19. GET /api/my-booking/upcoming
 
-### 19. GET /api/wallet/balance
+### Description
+
+Returns only the **confirmed** upcoming bookings for the **currently authenticated player**, where booking date is **≥ today**.
+Used on the player homepage as a reminder of their next sessions.
+
+**Authentication Requirement:** Required (Player only)
+
+**Related Frontend:**
+
+* Player Homepage (Upcoming Booking Modal)
+
+**Query Parameters:**
+None
+
+### Response Example
+
+```json
+[
+  {
+    "booking_id": "BK-01D82793F7",
+    "created_date": "2025-10-19 16:42",
+    "total_cost": 300,
+    "booking_date": "2025-10-25",
+    "booking_status": "confirmed",
+    "able_to_cancel": false,
+    "owner_id": 38
+  }
+]
+```
+
+### Additional Filtering Behavior
+
+| Condition                       | Behavior |
+| ------------------------------- | -------- |
+| `booking_status != "confirmed"` | Excluded |
+| `booking_date < today`          | Excluded |
+| `owner_id != current_user_id`   | Excluded |
+
+> Response item schema is the same as `GET /api/my-booking/`.
+
+---
+
+
+# Wallet APIs
+
+## 20. GET /api/wallet/balance
 
 ### Description
 
@@ -1363,7 +1415,7 @@ None
 
 ---
 
-### 20. GET /api/wallet/ledger
+## 21. GET /api/wallet/ledger
 
 ### Description
 
@@ -1418,7 +1470,7 @@ None
 
 ---
 
-### 21. GET /api/wallet/ledger/export-csv
+## 22. GET /api/wallet/ledger/export-csv
 
 ### Description
 
@@ -1452,7 +1504,7 @@ id,type,amount,ref_booking,created_at
 
 ---
 
-### 22. POST /api/wallet/topups
+## 23. POST /api/wallet/topups
 
 ### Description
 
@@ -1476,7 +1528,7 @@ None
   "amount_thb": 200,
   "transfer_date": "2025-10-26",
   "transfer_time": "14:45:00",
-  "slip_path": "<file image>"
+  "slip_path": <file image>
 }
 ```
 
@@ -1504,7 +1556,7 @@ None
 
 ---
 
-### 23. GET /api/wallet/topups
+## 24. GET /api/wallet/topups
 
 ### Description
 
@@ -1551,7 +1603,7 @@ None
 
 ---
 
-### 24. POST /api/wallet/topups/{id}/approve
+## 25. POST /api/wallet/topups/`{request_id}`/approve
 
 ### Description
 
@@ -1585,7 +1637,7 @@ None
 
 ---
 
-### 25. POST /api/wallet/topups/{id}/reject
+## 26. POST /api/wallet/topups/`{request_id}`/reject
 
 ### Description
 
