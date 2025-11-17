@@ -3,9 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { customRequest } from "@/api-client/custom-client";
 import dayjs from "dayjs";
-import type { SlotItem } from "@/api-client/extras/types";
+import type { SlotItem, AvailableSlotsResponse } from "@/api-client/extras/types";
 
-/* 🟢 For month-view endpoint */
+/* =========================================================================
+   Types
+   ========================================================================= */
+
+/** Month-view (slots for each day) */
 export type MonthViewResponse = {
   month: string;
   days: Array<{
@@ -14,15 +18,6 @@ export type MonthViewResponse = {
   }>;
 };
 
-/* 🟢 For available-view endpoint */
-export type AvailableViewResponse = {
-  month: string; // YYYY-MM
-  days: Array<{
-    date: string; // YYYY-MM-DD
-    percent: number; // available %
-    slots: SlotItem[];
-  }>;
-};
 
 /* =========================================================================
    Query Keys
@@ -30,16 +25,17 @@ export type AvailableViewResponse = {
 export const monthViewKey = (month: string) =>
   ["month-view", { month }] as const;
 
-export const availableViewKey = (club: number, month: string) =>
-  ["available-slots", { club, month }] as const;
+export const availableSlotsKey = (month: string) =>
+  ["available-slots", { month }] as const;
+
+const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
 
 /* =========================================================================
    Hook: useMonthView
    ========================================================================= */
 export function useMonthView(monthParam?: string) {
-  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
+  
   const MONTH = monthParam || dayjs().format("YYYY-MM");
-
   return useQuery({
     queryKey: monthViewKey(MONTH),
     queryFn: ({ signal }) =>
@@ -58,20 +54,19 @@ export function useMonthView(monthParam?: string) {
 }
 
 /* =========================================================================
-   Hook: useAvailableView
+   Hook: useAvailableSlots (NEW — cleaned + unified)
    ========================================================================= */
 /**
- * ✅ Simplified calendar view
- * GET /api/slots/available-view?club=1&month=YYYY-MM
+ * ⭐ Unified clean version for available-slots
+ * GET /api/available-slots/?club=1&month=YYYY-MM
  */
-export function useAvailableView(monthParam?: string, clubParam?: number) {
-  const CLUB_ID = clubParam || Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
+export function useAvailableSlots(monthParam?: string) {
   const MONTH = monthParam || dayjs().format("YYYY-MM");
 
   return useQuery({
-    queryKey: availableViewKey(CLUB_ID, MONTH),
+    queryKey: availableSlotsKey(MONTH),
     queryFn: ({ signal }) =>
-      customRequest<AvailableViewResponse>({
+      customRequest<AvailableSlotsResponse>({
         url: "/api/available-slots/",
         method: "GET",
         signal,

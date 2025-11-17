@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, Loader2 } from "lucide-react";
 import Button from "@/ui/components/basic/Button";
 import type { BookingRow } from "@/api-client/extras/types";
 import BookingCard from "@/ui/components/bookingpage/BookingCard";
@@ -31,25 +31,34 @@ export default function UpcomingModal({
     return () => style.remove();
   }, []);
 
-  /* ======================== Loading State ======================== */
-  if (isLoading) {
-    return (
-      <aside className="rounded-2xl border border-platinum bg-white p-8 shadow-sm text-center">
-        <div className="flex flex-col items-center justify-center space-y-3 animate-[fadeUp_0.4s_ease]">
-          <div className="relative">
-            <img
-              src="/brand/shuttlecock.png"
-              alt="Courtly shuttlecock"
-              className="h-12 w-12 animate-[spin_1.3s_linear_infinite]"
-            />
+/* ======================== Loading State ======================== */
+if (isLoading) {
+  return (
+    <aside className="rounded-2xl border border-platinum bg-white p-6 shadow-sm transition hover:shadow-md">
+      {/* Header */}
+      <div className="mb-5 border-b-4 border-pine/80 pb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-pine/10 p-2 text-pine">
+            <CalendarCheck size={18} strokeWidth={2.2} />
           </div>
-          <p className="text-sm font-medium text-pine">
-            Fetching your upcoming games...
-          </p>
+          <div>
+            <h2 className="text-xl font-bold text-pine">Upcoming Booking</h2>
+            <p className="text-sm font-medium text-neutral-500">
+              Free cancellation up to 24 hrs before playtime.
+            </p>
+          </div>
         </div>
-      </aside>
-    );
-  }
+      </div>
+
+      {/* Loading Spinner */}
+      <div className="flex items-center justify-center h-[180px]">
+        <Loader2 className="animate-spin text-pine" size={28} />
+      </div>
+    </aside>
+  );
+}
+
+
 
   /* ======================== Empty State ======================== */
   if (!bookings?.length) {
@@ -104,8 +113,10 @@ export default function UpcomingModal({
             key={bk.booking_id}
             booking={bk}
             onCancel={onCancel}
-            showUserName={false}
+            showUserName={true}
             showCancelButton={true}
+            showInlineSlots={true}
+            showCheckinButton={false}
           />
         ))}
       </ul>

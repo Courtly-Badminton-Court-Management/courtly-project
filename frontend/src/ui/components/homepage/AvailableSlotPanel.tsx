@@ -77,13 +77,15 @@ export default function AvailableSlotPanel({
             <Loader2 className="animate-spin text-pine" size={24} />
           </div>
         ) : isError ? (
-          <p className="text-sm text-red-500 text-center font-medium">
-            Unable to load available slots 😢
+          <p className="rounded-lg bg-neutral-100 text-center text-sm text-neutral-500 py-3 w-full mx-4">
+            Unable to load available slots data. 
+            Please try again later.
           </p>
         ) : groupedSlots.length === 0 ? (
-          <p className="rounded-lg bg-neutral-100 text-center text-sm text-neutral-500 py-3 w-full">
-            No available slots today.
+          <p className="rounded-lg bg-neutral-100 text-center text-sm text-neutral-500 py-3 w-full mx-4">
+            No available slots left on this day.
           </p>
+
         ) : (
           <div className="scrollbar-thin max-h-[60vh] overflow-y-auto w-full p-4">
             {groupedSlots.map((group, i) => (

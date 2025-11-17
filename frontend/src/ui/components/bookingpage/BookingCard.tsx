@@ -13,13 +13,14 @@ function statusLabel(s?: string) {
   if (x === "end_game" || x === "endgame") return "End Game";
   if (x === "cancelled") return "Cancelled";
   if (x === "no_show" || x === "no-show") return "No-show";
-  if (x === "confirmed") return "Upcoming";
+  if (x === "upcoming") return "Upcoming";
+  if (x === "booked") return "UpcomingBooked"; // debug
   return "Unknown";
 }
 
 function statusClass(s?: string) {
   const x = (s || "").toLowerCase();
-  if (["confirmed"].includes(x))
+  if (["upcoming"].includes(x))
     return "bg-sea/10 text-sea ring-1 ring-inset ring-sea/30";
   if (["cancelled"].includes(x))
     return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
@@ -32,17 +33,22 @@ function statusClass(s?: string) {
 export default function BookingCard({
   booking,
   onCancel,
+  onCheckin,            // ⭐ NEW (เปิด CheckInModal)
   showCancelButton = true,
   showUserName = false,
   showCheckinButton = false,
+  showInlineSlots = true,   // ⭐ NEW MODE
 }: {
   booking: BookingRow;
   onCancel?: (b: BookingRow) => void;
+  onCheckin?: (b: BookingRow) => void;
   showCancelButton?: boolean;
   showUserName?: boolean;
   showCheckinButton?: boolean;
+  showInlineSlots?: boolean; // ⭐ default true
 }) {
   const slotItems = Object.values(booking.booking_slots || {});
+  const canCancel = booking.able_to_cancel;
 
   return (
     <li className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-gradient-to-b from-white to-neutral-50 shadow-sm hover:shadow-md transition-all duration-200">
@@ -73,8 +79,12 @@ export default function BookingCard({
           {dayjs(booking.booking_date).format("DD MMMM YYYY")}
         </div>
 
-        {/* ✅ Slot Summary (ใช้ SlotsBookingCard แทน groupSlots เดิม) */}
-        <SlotsBookingCard slotItems={slotItems} minutesPerCell={30} />
+        {/* ⭐ Inline Slot Details only if enabled */}
+        {showInlineSlots && (
+          <div className="mt-2">
+            <SlotsBookingCard slotItems={slotItems} minutesPerCell={30} />
+          </div>
+        )}
 
         {/* Footer */}
         <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -83,7 +93,7 @@ export default function BookingCard({
               <p className="text-sm text-neutral-600 mb-1">
                 Booked by:{" "}
                 <span className="font-medium text-neutral-800">
-                  {booking.user}
+                  {booking.owner_username}
                 </span>
               </p>
             )}
@@ -96,32 +106,41 @@ export default function BookingCard({
           </div>
 
           <div className="flex flex-wrap gap-2">
+
+            {/* Checkin Button */}
             {showCheckinButton && (
               <Button
-                label="Check-in"
-                bgColor="bg-sea hover:bg-pine"
-                textColor="text-white"
-                onClick={() => {}}
+                label="Check In"
+                bgColor={
+                  (onCheckin && !canCancel)
+                    ? "bg-copper-rust hover:bg-red-700"
+                    : "bg-neutral-200 hover:bg-neutral-200"
+                }
+                textColor={(onCheckin && !canCancel) ? "text-white" : "text-gray-400"}
+                onClick={() => !canCancel && onCheckin?.(booking)}
+                disabled={canCancel}
+                className={
+                  canCancel
+                    ? "transition hover:scale-[1.02] active:scale-[0.98]"
+                    : ""
+                }
               />
             )}
 
+            {/* Cancel Button*/}
             {showCancelButton && (
               <Button
                 label="Cancel Booking"
                 bgColor={
-                  booking.able_to_cancel
+                  canCancel
                     ? "bg-copper-rust hover:bg-red-700"
                     : "bg-neutral-200 hover:bg-neutral-200"
                 }
-                textColor={
-                  booking.able_to_cancel ? "text-white" : "text-gray-400"
-                }
-                onClick={() =>
-                  booking.able_to_cancel && onCancel?.(booking)
-                }
-                disabled={!booking.able_to_cancel}
+                textColor={canCancel ? "text-white" : "text-gray-400"}
+                onClick={() => canCancel && onCancel?.(booking)}
+                disabled={!canCancel}
                 className={
-                  booking.able_to_cancel
+                  canCancel
                     ? "transition hover:scale-[1.02] active:scale-[0.98]"
                     : ""
                 }

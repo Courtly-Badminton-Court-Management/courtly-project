@@ -2,86 +2,128 @@
 
 import { useMemo, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import dayjs from "dayjs";
 
 import ImageSlider from "@/ui/components/homepage/ImageSlider";
-import UpcomingModal from "@/ui/components/homepage/UpcomingModal";
 import CalendarModal from "@/ui/components/homepage/CalendarModal";
+import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
+import UpcomingModal from "@/ui/components/homepage/UpcomingModal";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
 
-import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
-import { useAvailableSlotsRetrieve } from "@/api-client/endpoints/available-slots/available-slots";
-import type { AvailableSlotsResponse } from "@/api-client/extras/types";
-import { useCancelBooking } from "@/api-client/extras/cancel_booking";
-
 import type { BookingRow } from "@/api-client/extras/types";
-import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
+
+import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
+import { useAvailableSlots } from "@/api-client/extras/slots";
+import { useCancelBooking } from "@/api-client/extras/cancel_booking";
+import { bookingRetrieve } from "@/api-client/endpoints/booking/booking";
+
+import { filterUpcomingBookings } from "@/lib/booking/filterUpcoming";
+
+/* ========================================================================== */
+/*                              Player Home Page                              */
+/* ========================================================================== */
 
 export default function PlayerHomePage() {
-  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
-  const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
+  /* -------------------------------------------------------------------------- */
+  /* 1. Manage selected date                                                    */
+  /* -------------------------------------------------------------------------- */
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
+  useEffect(() => {
+    setSelectedDate(dayjs().format("YYYY-MM-DD"));
+  }, []);
 
-  /* --------------------------------------------------------------------------
-   * 2. Fetch monthly available slots for current club (club = 1)
-   * -------------------------------------------------------------------------- */
-  const currentMonth = dayjs().format("YYYY-MM");
+  /* -------------------------------------------------------------------------- */
+  /* 2. Manage month change (Calendar)                                          */
+  /* -------------------------------------------------------------------------- */
+
+  // ใช้ชื่อที่ถูกต้อง: [state, setter]
+  const [currentMonth, setCurrentMonth] = useState<string>(
+    dayjs().format("YYYY-MM")
+  );
+
   const {
     data: availableData,
     isLoading: isAvailLoading,
     isError: isAvailError,
-  } = useAvailableSlotsRetrieve<AvailableSlotsResponse>({
-    query: {
-      queryKey: ["available-slots", currentMonth],
-      queryFn: async ({ signal }) => {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/available-slots/?club=${process.env.NEXT_PUBLIC_CLUB_ID}&month=${currentMonth}`,
-          { signal, credentials: "include" }
-        );
-        return res.json();
-      },
-    },
-  });
+  } = useAvailableSlots(currentMonth);
 
-  /* --------------------------------------------------------------------------
-   * 3. Fetch user bookings (for upcoming section)
-   * -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
+  /* 3. Fetch ALL my bookings → keep only upcoming                              */
+  /* -------------------------------------------------------------------------- */
   const {
     data: bookingData,
     isLoading: isBookingLoading,
     isError: isBookingError,
-  } = useMyBookingsRetrieve();
+    refetch: refetchBookings,
+  } = useMyBookingRetrieve();
+
+  const upcomingList: BookingRow[] = useMemo(() => {
+    return filterUpcomingBookings(bookingData);
+  }, [bookingData]);
+
+  /* -------------------------------------------------------------------------- */
+  /* 4. Load FULL DETAILS for each upcoming booking                              */
+  /* -------------------------------------------------------------------------- */
+  const [fullUpcoming, setFullUpcoming] = useState<BookingRow[]>([]);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!upcomingList.length) {
+      setFullUpcoming([]);
+      return;
+    }
+
+    const loadDetails = async () => {
+      setIsDetailLoading(true);
+
+      try {
+        const results = await Promise.all(
+          upcomingList.map(async (b) => {
+            try {
+              const detail = await bookingRetrieve(b.booking_id);
+              return detail;
+            } catch (err) {
+              console.error("❌ Failed to load detail for:", b.booking_id, err);
+              return b; // fallback
+            }
+          })
+        );
+
+        setFullUpcoming(results as any);
+      } catch (err) {
+        console.error("❌ Error loading booking details", err);
+        setFullUpcoming(upcomingList);
+      }
+
+      setIsDetailLoading(false);
+    };
+
+    loadDetails();
+  }, [upcomingList]);
+
+  const finalUpcoming =
+    isBookingError || isDetailLoading ? [] : fullUpcoming;
+
+  /* -------------------------------------------------------------------------- */
+  /* 5. Cancel booking logic                                                    */
+  /* -------------------------------------------------------------------------- */
+  const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
 
   const { cancelMut, handleCancel } = useCancelBooking({
-    onSuccess: () => setConfirmModal(null),
+    onSuccess: async () => {
+      await refetchBookings();
+      setConfirmModal(null);
+    },
   });
-
-  const confirmedList: BookingRow[] = useMemo(() => {
-    const raw = bookingData as any;
-    const arr: BookingRow[] = Array.isArray(raw?.data)
-      ? raw.data
-      : Array.isArray(raw?.results)
-      ? raw.results
-      : Array.isArray(raw)
-      ? raw
-      : [];
-    return arr
-      .filter((b) => b.booking_status?.toLowerCase() === "confirmed")
-      .sort(
-        (a, b) =>
-          new Date(a.booking_date).getTime() -
-          new Date(b.booking_date).getTime()
-      );
-  }, [bookingData]);
 
   const onCancelConfirm = useCallback((b: BookingRow) => {
     setConfirmModal(b);
   }, []);
 
-  /* --------------------------------------------------------------------------
-   * 4. Render Layout
-   * -------------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------------- */
+  /* 6. Render Layout                                                           */
+  /* -------------------------------------------------------------------------- */
   return (
     <main className="mx-auto my-auto">
       {/* 🖼 Hero slider */}
@@ -91,28 +133,33 @@ export default function PlayerHomePage() {
 
       {/* Header */}
       <header className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <h1 className="text-2xl font-bold">Courtly Overview!</h1>
+
         <Link
           href="/booking"
-          className="inline-flex items-center rounded-2xl px-4 py-2 text-m font-semibold shadow-sm transition border border-platinum bg-pine text-white hover:bg-sea hover:shadow-md"
+          className="inline-flex items-center rounded-2xl px-4 py-2 text-m font-semibold shadow-sm transition border border-platinum bg-pine text-white hover:bg-sea hover:shadow-md scale-100 hover:scale-[1.05]"
         >
-          Book the courts!
+          Book the courts NOW!
         </Link>
       </header>
 
       {/* 🧩 Calendar + Slot Panel */}
       <section className="grid items-stretch mb-8 gap-6 md:grid-cols-3">
-        {/* Calendar 3/5 */}
+        {/* Calendar */}
         <div className="md:col-span-2">
           <CalendarModal
             data={availableData}
             isLoading={isAvailLoading}
             isError={isAvailError}
             onSelectDate={(d) => setSelectedDate(d)}
+            onMonthChange={(m) => {
+                setCurrentMonth(m);
+                setSelectedDate(`${m}-01`);
+              }}
           />
         </div>
 
-        {/* Panel 2/5 */}
+        {/* Slot Panel */}
         {selectedDate && (
           <div className="md:col-span-1">
             <AvailableSlotPanel
@@ -128,8 +175,9 @@ export default function PlayerHomePage() {
       {/* 📅 Upcoming bookings */}
       <div className="mb-12 w-full">
         <UpcomingModal
-          bookings={isBookingLoading || isBookingError ? [] : confirmedList}
+          bookings={finalUpcoming}
           onCancel={onCancelConfirm}
+          isLoading={isBookingLoading || isDetailLoading}
         />
       </div>
 
@@ -138,11 +186,14 @@ export default function PlayerHomePage() {
         open={!!confirmModal}
         bookingId={confirmModal?.booking_id || ""}
         isPending={cancelMut.isPending}
-        onConfirm={() =>
-          confirmModal && handleCancel(confirmModal.booking_id)
-        }
+        onConfirm={() => {
+          if (!confirmModal) return;
+          handleCancel(confirmModal.booking_id);
+        }}
         onClose={() => setConfirmModal(null)}
       />
+
+
     </main>
   );
 }

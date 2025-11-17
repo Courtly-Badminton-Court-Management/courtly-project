@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
-import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
+import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 import { useBookingRetrieve } from "@/api-client/endpoints/booking/booking";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
@@ -17,8 +17,9 @@ const statusLabel = (s?: string) => {
   if (x === "end_game" || x === "endgame") return "End Game";
   if (x === "cancelled") return "Cancelled";
   if (x === "no_show" || x === "no-show") return "No-show";
-  if (x === "confirmed") return "Upcoming";
-  return "Upcoming";
+  if (x === "upcoming") return "Upcoming";
+  if (x === "confirmed") return "End Game";
+  return "Unknown";
 };
 
 const statusPillClass = (s?: string) => {
@@ -27,6 +28,8 @@ const statusPillClass = (s?: string) => {
     return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
   if (x === "cancelled")
     return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
+  if (x === "upcoming")
+    return "bg-sea/10 text-sea ring-1 ring-inset ring-sea/30";
   return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
 };
 
@@ -53,7 +56,7 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 
 /* ========================= Main Page ========================= */
 export default function PlayerHistoryPage() {
-  const { data, isLoading, isError } = useMyBookingsRetrieve();
+  const { data, isLoading, isError } = useMyBookingRetrieve();
   const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
 
   const [open, setOpen] = useState(false);
@@ -167,7 +170,7 @@ export default function PlayerHistoryPage() {
               className="rounded-xl border border-neutral-300 bg-white px-3 py-2 mr-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
             >
               <option value="all">All</option>
-              <option value="confirmed">Upcoming</option>
+              <option value="upcoming">Upcoming</option>
               <option value="cancelled">Cancelled</option>
               <option value="end_game">End Game</option>
               <option value="no_show">No-show</option>
@@ -261,7 +264,7 @@ export default function PlayerHistoryPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm ${statusPillClass(
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-sm ${statusPillClass(
                           b.booking_status
                         )}`}
                       >
@@ -272,7 +275,7 @@ export default function PlayerHistoryPage() {
                       <div className="inline-flex flex-wrap justify-center gap-2">
                         <button
                           onClick={() => onView(b)}
-                          className="rounded-lg border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
+                          className="rounded-xl border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
                         >
                           View Details
                         </button>
@@ -287,7 +290,7 @@ export default function PlayerHistoryPage() {
                               b.able_to_cancel === false
                             )
                           }
-                          className={`rounded-lg border px-4 py-2 ${
+                          className={`rounded-xl border px-4 py-2 ${
                             !me || isMeLoading
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                               : b.booking_status.toLowerCase() ===
@@ -305,7 +308,7 @@ export default function PlayerHistoryPage() {
                             onCancelConfirm(b);
                           }}
                           disabled={!canCancel || cancelMut.isPending}
-                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
+                          className={`rounded-xl border px-4 py-2 flex items-center justify-center gap-2 ${
                             !canCancel
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                               : "border-[#8d3e3e] bg-[#8d3e3e] text-white hover:brightness-95"

@@ -13,11 +13,18 @@ export type SlotItem = {
 export type BookingRow = {
   created_date: string;
   booking_id: string;
+  owner_id: string;
   user: string;
   total_cost: number | string;
   booking_date: string;
   booking_status: string;
   able_to_cancel: boolean;
+  owner_username: string;
+  owner_contact: string;
+  booking_method: string;
+  payment_method: string;
+
+
   booking_slots: Record<string, SlotItem>;
 };
 
