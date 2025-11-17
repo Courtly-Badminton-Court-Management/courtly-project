@@ -18,14 +18,15 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
+import type { Slot } from "../../schemas";
+
 import { customRequest } from "../../custom-client";
 
 /**
- * Monthly slot overview for a given club.
-GET /month-view/?club=1&month=2025-10
+ * GET /api/month-view/?club=1&month=2025-11
  */
 export const monthViewRetrieve = (signal?: AbortSignal) => {
-  return customRequest<void>({
+  return customRequest<Slot>({
     url: `/api/month-view/`,
     method: "GET",
     signal,
