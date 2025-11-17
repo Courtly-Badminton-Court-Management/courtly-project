@@ -49,12 +49,38 @@ services:
       - ./backend/media:/app/media
     restart: unless-stopped
 
+  # ────────────────────────────────────────────────
+  # 🔁 Scheduler: Auto Expire Slots & Bookings
+  # ────────────────────────────────────────────────
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      backend:
+        condition: service_started
+    env_file: [.env]
+    command: >
+      sh -c "
+        echo '⏳ Starting auto-expire scheduler...' &&
+        while true; do
+          python manage.py expire_slots;
+          echo '✅ Checked expired slots at $(date)';
+          sleep 300;
+        done
+      "
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Bangkok
+
   frontend:
     image: node:20-alpine
     working_dir: /app
     environment:
-      NEXT_PUBLIC_API_BASE: "http://localhost:8000"  # Browser → Backend API
-      INTERNAL_API_BASE: "http://localhost:8000"     # Next.js (Server) → Backend API
+      NEXT_PUBLIC_API_BASE: "http://localhost:8000"
+      INTERNAL_API_BASE: "http://localhost:8000"
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
       NEXT_TELEMETRY_DISABLED: "1"

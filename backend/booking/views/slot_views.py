@@ -19,16 +19,22 @@ from ..serializers import SlotSerializer, SlotListRequestSerializer
 def available_slots_month_view(request):
     """
     Public calendar: GET /available-slots/?club=<id>&month=YYYY-MM
-    Response fields must match doc: available_percent (0-1), available_slots[], date: DD-MM-YY
     """
+
     raw_club = request.query_params.get("club")
     month_str = request.query_params.get("month")
 
+    # Sanitize month: allow formats like "2025-11/" → "2025-11"
+    if month_str:
+        month_str = month_str.rstrip("/").strip()
+
+    # Validate club ID
     try:
         club_id = int(raw_club)
     except (TypeError, ValueError):
         return Response({"detail": "club must be an integer id"}, status=400)
 
+    # Validate clean month format
     if not month_str or len(month_str) != 7 or "-" not in month_str:
         return Response({"detail": "month is required as YYYY-MM"}, status=400)
 
@@ -40,22 +46,37 @@ def available_slots_month_view(request):
     first_day = date(y, m, 1)
     last_day = date(y, m, calendar.monthrange(y, m)[1])
 
+    # Fetch all slots in this club + month
     qs = (
         Slot.objects
         .select_related("court", "slot_status")
-        .filter(court__club_id=club_id, service_date__gte=first_day, service_date__lte=last_day)
+        .filter(
+            court__club_id=club_id,
+            service_date__gte=first_day,
+            service_date__lte=last_day
+        )
         .order_by("service_date", "court_id", "start_at")
     )
 
     by_day = {}
+
     for s in qs:
         day_key = s.service_date.strftime("%d-%m-%y")
         status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+
         if day_key not in by_day:
-            by_day[day_key] = {"total": 0, "available": 0, "slots": []}
+            by_day[day_key] = {
+                "total": 0,
+                "available": 0,
+                "slots": []
+            }
+
         by_day[day_key]["total"] += 1
-        if status_val == "available":
+
+        if status_val in ["available", "expired"]:
             by_day[day_key]["available"] += 1
+
+        if status_val == "available":
             by_day[day_key]["slots"].append({
                 "slot_status": status_val,
                 "service_date": s.service_date.isoformat(),
@@ -69,11 +90,15 @@ def available_slots_month_view(request):
     days_payload = []
     for day_key in sorted(by_day.keys(), key=lambda x: datetime.strptime(x, "%d-%m-%y")):
         info = by_day[day_key]
-        total = info["total"]
-        available_ratio = round(info["available"] / total, 2) if total > 0 else 0.0
+
+        available_percent = (
+            round(info["available"] / info["total"], 2)
+            if info["total"] > 0 else 0.0
+        )
+
         days_payload.append({
-            "date": day_key,  # DD-MM-YY
-            "available_percent": available_ratio,
+            "date": day_key,
+            "available_percent": available_percent,
             "available_slots": info["slots"],
         })
 
@@ -149,59 +174,136 @@ def month_view(request):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2) /api/slots/<slot_id>/ (Authenticated)  + 3) /api/slots/slots-list/ (POST)
+# 2) SlotViewSet
 # ─────────────────────────────────────────────────────────────────────────────
 class SlotViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    /api/slots/<pk>/ : detail
-    /api/slots/slots-list/ : POST { "slot_list": ["25188","25189"] }
-    """
     queryset = Slot.objects.all().select_related("court", "slot_status")
     serializer_class = SlotSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
-    def retrieve(self, request, pk=None):
+    @action(detail=False, url_path="month-view", methods=["GET"])
+    def month_view(self, request):
+        """
+        GET /api/month-view/?club=1&month=2025-11
+        """
+
+        raw_club = request.query_params.get("club")
+        month_str = request.query_params.get("month")
+        raw_day = request.query_params.get("day")
+
+        # Sanitize month: allow formats like "2025-11/" → "2025-11"
+        if month_str:
+            month_str = month_str.rstrip("/").strip()
+
+        # Validate club
         try:
-            slot = self.get_queryset().get(pk=pk)
-        except Slot.DoesNotExist:
-            return Response({"detail": "Not found"}, status=404)
+            club_id = int(raw_club)
+        except (TypeError, ValueError):
+            return Response({"detail": "club must be an integer id"}, status=400)
 
-        # Map fields to match doc for detail
-        data = {
-            "slot_status": getattr(getattr(slot, "slot_status", None), "status", "available"),
-            "service_date": slot.service_date.strftime("%Y-%m-%d"),
-            "start_time": timezone.localtime(slot.start_at).strftime("%H:%M"),
-            "end_time": timezone.localtime(slot.end_at).strftime("%H:%M"),
-            "court": slot.court_id,
-            "court_name": slot.court.name,
-            "price_coin": slot.price_coins,
-            "booking_id": SlotSerializer(slot).data.get("booking_id"),  # reuse logic
+        # Validate month
+        if not month_str or len(month_str) != 7 or "-" not in month_str:
+            return Response({"detail": "month is required as YYYY-MM"}, status=400)
+
+        try:
+            y, m = map(int, month_str.split("-"))
+        except ValueError:
+            return Response({"detail": "invalid month format, use YYYY-MM"}, status=400)
+
+        first_day = date(y, m, 1)
+        last_day = date(y, m, calendar.monthrange(y, m)[1])
+        today = timezone.localdate()
+
+        if last_day < today:
+            return Response({"detail": "Cannot view past months."}, status=400)
+
+        # Optional day filter
+        day_filter = None
+        if raw_day:
+            try:
+                day_filter = int(raw_day)
+                if not (1 <= day_filter <= last_day.day):
+                    raise ValueError
+            except ValueError:
+                return Response({"detail": "day must be valid"}, status=400)
+
+        qs = (
+            Slot.objects
+            .select_related("court", "slot_status")
+            .filter(
+                court__club_id=club_id,
+                service_date__gte=max(first_day, today),
+                service_date__lte=last_day,
+            )
+            .order_by("service_date", "court_id", "start_at")
+        )
+
+        if day_filter:
+            qs = qs.filter(service_date__day=day_filter)
+
+        tz = timezone.get_current_timezone()
+        by_day = {}
+
+        for s in qs:
+            day_key = s.service_date.strftime("%d-%m-%y")
+            by_day.setdefault(day_key, {})[str(s.id)] = {
+                "status": getattr(getattr(s, "slot_status", None), "status", "available"),
+                "start_time": timezone.localtime(s.start_at, tz).strftime("%H:%M"),
+                "end_time": timezone.localtime(s.end_at, tz).strftime("%H:%M"),
+                "court": s.court_id,
+                "court_name": s.court.name,
+                "price_coin": s.price_coins,
+            }
+
+        payload = {
+            "month": first_day.strftime("%m-%y"),
+            "days": [
+                {"date": d, "booking_slots": slots}
+                for d, slots in by_day.items()
+            ],
         }
-        return Response(data, status=200)
+        payload["days"].sort(key=lambda x: datetime.strptime(x["date"], "%d-%m-%y"))
+
+        return Response(payload)
 
     @action(detail=False, methods=["POST"], url_path="slots-list")
     def slots_list(self, request):
         """
         POST /api/slots/slots-list/
-        Body: { "slot_list": ["25188", "25189"] }
+        Body: {
+            "slot_list": ["25188", "25189"]
+        }
         """
+
+        if not request.data:
+            return Response({"detail": "Request body cannot be empty"}, status=400)
+
         ser = SlotListRequestSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+
         slot_ids = ser.validated_data["slot_list"]
 
-        # cast to int safely
+        if not slot_ids:
+            return Response({"detail": "slot_list cannot be empty"}, status=400)
+
         try:
             slot_ids = [int(sid) for sid in slot_ids]
-        except Exception:
-            return Response({"detail": "All slot IDs must be integers or numeric strings"}, status=400)
+        except:
+            return Response({"detail": "slot_list must contain integers"}, status=400)
 
-        qs = self.get_queryset().filter(id__in=slot_ids).order_by("start_at")
+        qs = (
+            Slot.objects
+            .select_related("court", "slot_status")
+            .filter(id__in=slot_ids)
+            .order_by("start_at")
+        )
+
         if not qs.exists():
             return Response({"detail": "No slots found"}, status=404)
 
-        slot_items = []
+        items = []
         for s in qs:
-            slot_items.append({
+            items.append({
                 "slot_status": getattr(getattr(s, "slot_status", None), "status", "available"),
                 "service_date": s.service_date.strftime("%Y-%m-%d"),
                 "start_time": timezone.localtime(s.start_at).strftime("%H:%M"),
@@ -210,6 +312,6 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
                 "court_name": s.court.name,
                 "price_coin": s.price_coins,
             })
-        return Response({"slot_items": slot_items}, status=200)
-    
+
+        return Response({"slot_items": items}, status=200)
 
