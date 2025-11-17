@@ -6,6 +6,7 @@ import { CalendarCheck, Loader2 } from "lucide-react";
 import Button from "@/ui/components/basic/Button";
 import type { BookingRow } from "@/api-client/extras/types";
 import BookingCard from "@/ui/components/bookingpage/BookingCard";
+import { fa } from "zod/v4/locales";
 
 export default function UpcomingModal({
   bookings,
@@ -113,7 +114,7 @@ if (isLoading) {
             key={bk.booking_id}
             booking={bk}
             onCancel={onCancel}
-            showUserName={true}
+            showUserName={false}
             showCancelButton={true}
             showInlineSlots={true}
             showCheckinButton={false}
