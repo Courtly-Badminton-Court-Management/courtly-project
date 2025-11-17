@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from ..models import Slot, SlotStatus, Booking, BookingSlot, Club
 from ..serializers import BookingCreateSerializer
-from .utils import gen_booking_no, combine_dt
+from .utils import gen_booking_no, combine_dt, calculate_able_to_cancel
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -191,10 +191,9 @@ def slot_bulk_status_update_view(request):
 @transaction.atomic
 def booking_checkin_view(request, booking_no):
     """
-    Allows a manager to perform a 'check-in' operation for a specific booking.
-    When a booking is checked in:
-      1. The booking.status is changed to "checkin"
-      2. All slots within that booking have their SlotStatus updated to "checkin"
+    Manager performs check-in:
+      - Booking.status → "checkin"
+      - All SlotStatus for this booking → "checkin"
     """
 
     role = getattr(request.user, "role", None)
@@ -233,60 +232,57 @@ def booking_checkin_view(request, booking_no):
             ss = SlotStatus.objects.get(slot=bs.slot)
             ss.status = "checkin"
             ss.save(update_fields=["status", "updated_at"])
-            updated_slots.append(ss.slot.id)
+            updated_slots.append(str(ss.slot.id))
         except SlotStatus.DoesNotExist:
             continue
 
-    # Step 5: Response summary
+    # Step 5: Spec-compliant response
     return Response(
         {
-            "detail": f"Booking {booking_no} checked-in successfully.",
-            "booking_status": booking.status,
+            "booking_id": booking.booking_no,
+            "status": "checked_in",
             "updated_slots": updated_slots,
+            "message": "Booking checked in successfully."
         },
         status=200,
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Simple Bulk Status Update (Manager only): POST /api/slots/status/
-# ─────────────────────────────────────────────────────────────────────────────
+
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 @transaction.atomic
 def slot_simple_status_update_view(request):
     """
-    Allows manager to change status of multiple slots at once.
-    Allowed transitions:
-      - available -> maintenance
-      - maintenance -> available
-    Payload:
-    {
-        "slots": ["25188", "25189"],
-        "changed_to": "maintenance"
-    }
+    Simple bulk slot status update.
     """
 
     role = getattr(request.user, "role", None)
     if role != "manager":
         return Response({"detail": "Only managers can change slot status."}, status=403)
 
-    slots = request.data.get("slots")
-    changed_to = request.data.get("changed_to")
+    # Validate request format using serializer
+    from ..serializers import SlotStatusUpdateSerializer
 
-    # Validate payload
-    if not slots or not isinstance(slots, list):
-        return Response({"detail": "slots must be a list of slot IDs."}, status=400)
+    ser = SlotStatusUpdateSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
 
-    if changed_to not in ["maintenance", "available"]:
-        return Response({"detail": "changed_to must be 'maintenance' or 'available'."}, status=400)
+    slots = ser.validated_data["slots"]
+    changed_to = ser.validated_data["changed_to"]
+
+    # Make sure all slots are numeric
+    try:
+        slots = [int(s) for s in slots]
+    except Exception:
+        return Response({"detail": "All slot IDs must be numeric strings or integers."}, status=400)
 
     allowed_map = {
-        "maintenance": ["available"],
         "available": ["maintenance"],
+        "maintenance": ["available"],
     }
 
-    updated, errors = [], []
+    updated_count = 0
+    errors = []
 
     for slot_id in slots:
         try:
@@ -295,25 +291,67 @@ def slot_simple_status_update_view(request):
             errors.append({"slot": slot_id, "detail": "Slot not found"})
             continue
 
-        # Validate transition
-        if changed_to not in allowed_map.get(changed_to, []) and ss.status not in allowed_map[changed_to]:
+        if ss.status not in allowed_map[changed_to]:
             errors.append({
                 "slot": slot_id,
                 "detail": f"Cannot change from {ss.status} → {changed_to}"
             })
             continue
 
-        # Update slot status
         ss.status = changed_to
         ss.save(update_fields=["status", "updated_at"])
-        updated.append({"slot_id": slot_id, "new_status": changed_to})
+        updated_count += 1
 
     return Response(
         {
-            "detail": "Simple bulk update complete",
-            "updated": updated,
+            "updated_count": updated_count,
+            "new_status": changed_to,
+            "message": "Slot statuses updated successfully.",
             "errors": errors,
         },
-        status=200,
+        status=200
     )
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def bookings_upcoming_view(request):
+    """Managers — Get upcoming confirmed bookings only."""
+    role = getattr(request.user, "role", "player")
+    if role not in ["manager", "admin"]:
+        return Response({"detail": "Forbidden"}, status=403)
+
+    today = timezone.localdate()
+
+    qs = (
+        Booking.objects
+        .filter(status="confirmed", booking_date__gte=today)
+        .select_related("user")
+        .order_by("booking_date", "created_at")
+    )
+
+    tz = timezone.get_current_timezone()
+    data = []
+
+    for b in qs:
+        slots = (
+            BookingSlot.objects.filter(booking=b)
+            .select_related("slot", "slot__slot_status")
+            .order_by("slot__start_at")
+        )
+        first_slot = slots.first()
+        able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+
+        created_local = timezone.localtime(b.created_at, tz)
+
+        data.append({
+            "booking_id": b.booking_no,
+            "created_date": created_local.strftime("%Y-%m-%d %H:%M"),
+            "total_cost": int(b.total_cost or 0),
+            "booking_date": b.booking_date.strftime("%Y-%m-%d"),
+            "booking_status": b.status,
+            "able_to_cancel": able_to_cancel,
+            "owner_id": b.user_id if b.user_id else None,
+        })
+
+    return Response(data, status=200)
 

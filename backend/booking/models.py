@@ -102,15 +102,9 @@ class Booking(models.Model):
 
 # ────────────────────────────── BookingSlot ──────────────────────────────
 class BookingSlot(models.Model):
-    """
-    Links a Booking to its corresponding Slot(s).
-    Each slot can belong to only one booking (One-to-One with Slot).
-    """
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="booking_slots")
-    slot = models.OneToOneField(Slot, on_delete=models.CASCADE, related_name="booked_by")
+    slot = models.ForeignKey(Slot, on_delete=models.CASCADE, related_name="booked_by")
 
     class Meta:
+        unique_together = (("booking", "slot"),)
         indexes = [models.Index(fields=["booking"])]
-
-    def __str__(self):
-        return f"{self.booking.booking_no} → slot {self.slot_id}"
