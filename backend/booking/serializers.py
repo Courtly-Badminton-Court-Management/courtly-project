@@ -242,3 +242,26 @@ class BookingHistorySerializer(serializers.ModelSerializer):
             "booking_date",
             "booking_slots",
         ]
+
+
+class SlotStatusUpdateSerializer(serializers.Serializer):
+    slots = serializers.ListField(
+        child=serializers.CharField(),
+        required=True,
+        allow_empty=False,
+        error_messages={
+            "required": "slots is required.",
+            "blank": "slots cannot be empty.",
+            "empty": "slots cannot be empty."
+        }
+    )
+    changed_to = serializers.ChoiceField(
+        choices=["maintenance", "available"],
+        required=True,
+        error_messages={
+            "required": "changed_to is required.",
+            "invalid_choice": "changed_to must be 'maintenance' or 'available'."
+        }
+    )
+
+
