@@ -35,7 +35,7 @@ def booking_detail_view(request, booking_no: str):
     )
     tz = timezone.get_current_timezone()
 
-    # Build booking_slots dict keyed by slot_id
+    # Build booking_slots dict
     booking_slots = {}
     for s in slots:
         slot = s.slot
@@ -51,7 +51,15 @@ def booking_detail_view(request, booking_no: str):
             "booking_id": b.booking_no
         }
 
+    # ⭐ FIX: calculate able_to_cancel
+    first_slot = slots.first()
+    able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+
+    if b.status == "cancelled":
+        able_to_cancel = False
+
     created_local = timezone.localtime(b.created_at, tz)
+
     payload = {
         "created_date": created_local.strftime("%Y-%m-%d %H:%M"),
         "booking_id": b.booking_no,
@@ -63,9 +71,10 @@ def booking_detail_view(request, booking_no: str):
         "payment_method": getattr(b, "payment_method", "coin"),
         "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
         "booking_status": b.status,
-        "able_to_cancel": False,
+        "able_to_cancel": able_to_cancel,
         "booking_slots": booking_slots,
     }
+
     return Response(payload, status=200)
 
 
@@ -302,6 +311,7 @@ def booking_cancel_view(request, booking_no: str):
         },
         status=200,
     )
+
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
