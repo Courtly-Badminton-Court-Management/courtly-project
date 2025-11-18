@@ -60,56 +60,74 @@ export function groupSelectionsWithPrice(
 /* -------------------------------------------------------------------------- */
 /* 🆕 เพิ่มฟังก์ชันใหม่: group จาก SlotItem[] โดยตรง                        */
 /* -------------------------------------------------------------------------- */
-export function groupSlotItemsWithPrice(slotItems: SlotItem[]): GroupedSelection[] {
+export function groupSlotItemsWithPrice(slotItems: SlotItem[]) {
   if (!slotItems.length) return [];
 
-  // group ตาม court
-  const byCourt: Record<string, SlotItem[]> = {};
+  // group by court
+  const byCourt: Record<number, SlotItem[]> = {};
   slotItems.forEach((s) => {
-    (byCourt[s.court_name] ??= []).push(s);
+    (byCourt[s.court] ??= []).push(s);
   });
 
-  const out: GroupedSelection[] = [];
+  const out: {
+    court: number;
+    court_name: string;
+    start_time: string;
+    end_time: string;
+    slots: number;
+    price: number;
+  }[] = [];
 
-  Object.entries(byCourt).forEach(([courtName, slots]) => {
-    // sort ตามเวลาเริ่ม
+  Object.values(byCourt).forEach((slots) => {
+    // sort by time
     const sorted = [...slots].sort((a, b) =>
       a.start_time.localeCompare(b.start_time)
     );
 
     let groupStart = sorted[0];
-    let prevEnd = sorted[0].end_time;
-    let priceSum = sorted[0].price_coin;
-    let count = 1;
+    let prev = sorted[0];
+
+    let slotsCount = 1;
+    let totalPrice = prev.price_coin;
 
     for (let i = 1; i <= sorted.length; i++) {
       const cur = sorted[i];
-      // ถ้าเวลาต่อกัน (end == start) ให้รวมกลุ่ม
-      if (cur && cur.start_time === prevEnd) {
-        priceSum += cur.price_coin;
-        prevEnd = cur.end_time;
-        count++;
+
+      const isContinuous =
+        cur && cur.start_time === prev.end_time;
+
+      if (cur && isContinuous) {
+        // same group
+        slotsCount++;
+        totalPrice += cur.price_coin;
+        prev = cur;
       } else {
-        // push group ปัจจุบัน
+        // push finished group
         out.push({
-          courtRow: sorted[0].court, // หรือ i+1 ก็ได้
-          startIdx: 0,
-          endIdx: 0,
-          slots: count,
-          price: priceSum,
-          timeLabel: `${groupStart.start_time} - ${prevEnd}`,
+          court: groupStart.court,
+          court_name: groupStart.court_name,
+          start_time: groupStart.start_time,
+          end_time: prev.end_time,
+          slots: slotsCount,
+          price: totalPrice,
         });
 
-        // เริ่ม group ใหม่
+        // start new group
         if (cur) {
           groupStart = cur;
-          prevEnd = cur.end_time;
-          priceSum = cur.price_coin;
-          count = 1;
+          prev = cur;
+          slotsCount = 1;
+          totalPrice = cur.price_coin;
         }
       }
     }
   });
 
-  return out;
+  // sort by court then start_time
+  return out.sort(
+    (a, b) =>
+      a.court - b.court ||
+      a.start_time.localeCompare(b.start_time)
+  );
 }
+

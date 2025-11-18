@@ -194,6 +194,7 @@ def bookings_all_view(request):
             "booking_status": b.status,
             "able_to_cancel": able_to_cancel,
             "owner_id": b.user_id if b.user_id else None,
+            "owner_username": b.user.username if b.user_id else (b.customer_name or "Unknown"),
         })
 
     return Response(data, status=200)

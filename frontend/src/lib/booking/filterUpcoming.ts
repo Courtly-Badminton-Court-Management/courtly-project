@@ -21,8 +21,7 @@ export function filterUpcomingBookings(raw: any): BookingRow[] {
       const date = b.booking_date || "";
 
       return (
-        status === "upcoming" &&         // ⭐ แก้ตรงนี้แดก
-        dayjs(date).isSameOrAfter(today, "day")
+        (status === "upcoming" || status === "booked") && dayjs(date).isSameOrAfter(dayjs(), "day")
       );
     })
     .sort((a, b) =>

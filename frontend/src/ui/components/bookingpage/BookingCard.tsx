@@ -14,13 +14,14 @@ function statusLabel(s?: string) {
   if (x === "cancelled") return "Cancelled";
   if (x === "no_show" || x === "no-show") return "No-show";
   if (x === "upcoming") return "Upcoming";
-  if (x === "booked") return "UpcomingBooked"; // debug
+  if (x === "booked") return "Upcoming"; // debug
+  if (x === "checkin") return "Check-In"
   return "Unknown";
 }
 
 function statusClass(s?: string) {
   const x = (s || "").toLowerCase();
-  if (["upcoming"].includes(x))
+  if (["upcoming","booked"].includes(x))
     return "bg-sea/10 text-sea ring-1 ring-inset ring-sea/30";
   if (["cancelled"].includes(x))
     return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
@@ -53,7 +54,7 @@ export default function BookingCard({
   return (
     <li className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-gradient-to-b from-white to-neutral-50 shadow-sm hover:shadow-md transition-all duration-200">
       {/* Top highlight bar */}
-      <div className="absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r from-sea to-pine" />
+      <div className="absolute left-0 top-0 h-1.5 w-full bg-gradient-to-r from-cambridge to-pine" />
 
       <div className="p-4 sm:p-5">
         {/* Header */}
@@ -112,20 +113,29 @@ export default function BookingCard({
               <Button
                 label="Check In"
                 bgColor={
-                  (onCheckin && !canCancel)
-                    ? "bg-copper-rust hover:bg-red-700"
-                    : "bg-neutral-200 hover:bg-neutral-200"
+                  !canCancel
+                    ? "bg-sea hover:bg-pine"       // can check-in
+                    : "bg-neutral-200"             // disabled
                 }
-                textColor={(onCheckin && !canCancel) ? "text-white" : "text-gray-400"}
-                onClick={() => !canCancel && onCheckin?.(booking)}
+                textColor={
+                  !canCancel
+                    ? "text-white"
+                    : "text-neutral-400"
+                }
+                onClick={() => {
+                  if (!canCancel) {
+                    onCheckin?.(booking);
+                  }
+                }}
                 disabled={canCancel}
                 className={
-                  canCancel
-                    ? "transition hover:scale-[1.02] active:scale-[0.98]"
-                    : ""
+                  !canCancel
+                    ? "transition hover:scale-[1.03] active:scale-[0.97]"
+                    : "cursor-not-allowed select-none"
                 }
               />
             )}
+
 
             {/* Cancel Button*/}
             {showCancelButton && (
