@@ -21,8 +21,9 @@ type AdminMe = {
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Slot Control", href: "/control" },
-  { name: "Booking Log", href: "/log" },
   { name: "Top-up Approval", href: "/approval" },
+  { name: "Booking Log", href: "/log" },
+
 ] as const;
 
 export default function ManagerNavBar() {
