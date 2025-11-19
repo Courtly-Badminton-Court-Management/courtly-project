@@ -1,3 +1,4 @@
+// frontend/src/ui/components/controlpage/SlotGridManager.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -27,16 +28,18 @@ function normalizeForManager(statusRaw: string): ManagerGroup {
   if (status === "available") return "available";
   if (status === "booked") return "booked";
   if (status === "walkin") return "walkin";
-  if (status === "checkin") return "checkin";
+  if (status === "checkin" || status === "checked_in" || status === "playing")
+    return "checkin";
   if (status === "maintenance") return "maintenance";
-  if (["expired", "endgame", "no_show"].includes(status)) return "ended";
+  if (["expired", "endgame", "end_game", "no_show", "noshow", "ended"].includes(status))
+    return "ended";
   return "ended";
 }
 
 /* ====================== Props ====================== */
 type Props = {
   cols: Col[];
-  grid: GridCell[][];
+  grid: (GridCell & { slot?: any; slot_id?: string })[][];
   courtNames: string[];
   currentDate: string;
   selected: SelectedSlot[];
@@ -108,6 +111,8 @@ export default function SlotGridManager({
     const cell = grid[rIdx][cIdx];
     const group = normalizeForManager(readStatus(cell));
 
+    // ถ้าไม่มี slotId หรือไม่ใช่ available/maintenance → ห้ามเลือก
+    if (!slotId) return;
     if (group !== "available" && group !== "maintenance") return;
 
     // ถ้าคลิกข้าม status → ล้าง selection แล้วตั้งโหมดใหม่
@@ -119,7 +124,9 @@ export default function SlotGridManager({
     }
 
     // ถ้ายังไม่มีโหมด → เซ็ตใหม่
-    if (!selectionMode) setSelectionMode(group);
+    if (!selectionMode) {
+      setSelectionMode(group);
+    }
 
     onToggle(rIdx + 1, cIdx, slotId);
   }
@@ -127,53 +134,56 @@ export default function SlotGridManager({
   /* ====================== Bulk Select: Row / Column / All ====================== */
   function selectRow(rIdx: number) {
     const row = grid[rIdx];
-    const target = selectionMode || "available";
+    const target = selectionMode || "available" as ManagerGroup;
 
-    // ตรวจว่ามี status ตรงข้ามอยู่มั้ย
     if (selected.length > 0 && selectionMode && selectionMode !== target) {
       clearSelection();
-      setSelectionMode(target);
+      setSelectionMode(target as "available" | "maintenance");
     }
 
     row.forEach((cell, cIdx) => {
       const group = normalizeForManager(readStatus(cell));
       if (group === target) {
-        const slotId = (cell as any)?.id;
+        const slotId = (cell as any)?.slot_id as string | undefined;
+        if (!slotId) return;
         onToggle(rIdx + 1, cIdx, slotId);
       }
     });
   }
 
   function selectColumn(cIdx: number) {
-    const target = selectionMode || "available";
+    const target = selectionMode || "available" as ManagerGroup;
 
     if (selected.length > 0 && selectionMode && selectionMode !== target) {
       clearSelection();
-      setSelectionMode(target);
+      setSelectionMode(target as "available" | "maintenance");
     }
 
     grid.forEach((row, rIdx) => {
-      const group = normalizeForManager(readStatus(row[cIdx]));
+      const cell = row[cIdx];
+      const group = normalizeForManager(readStatus(cell));
       if (group === target) {
-        const slotId = (row[cIdx] as any)?.id;
+        const slotId = (cell as any)?.slot_id as string | undefined;
+        if (!slotId) return;
         onToggle(rIdx + 1, cIdx, slotId);
       }
     });
   }
 
   function selectAll() {
-    const target = selectionMode || "available";
+    const target = selectionMode || "available" as ManagerGroup;
 
     if (selected.length > 0 && selectionMode && selectionMode !== target) {
       clearSelection();
-      setSelectionMode(target);
+      setSelectionMode(target as "available" | "maintenance");
     }
 
     grid.forEach((row, rIdx) =>
       row.forEach((cell, cIdx) => {
         const group = normalizeForManager(readStatus(cell));
         if (group === target) {
-          const slotId = (cell as any)?.id;
+          const slotId = (cell as any)?.slot_id as string | undefined;
+          if (!slotId) return;
           onToggle(rIdx + 1, cIdx, slotId);
         }
       })
@@ -245,11 +255,9 @@ export default function SlotGridManager({
                 {row.map((cell, cIdx) => {
                   const rawStatus = readStatus(cell);
                   const group = normalizeForManager(rawStatus);
-                  const slotId = (cell as any)?.id;
+                  const slotId = (cell as any)?.slot_id as string | undefined;
 
-                  const isSelected = selected.some(
-                    (s) => s.courtRow === rIdx + 1 && s.colIdx === cIdx
-                  );
+                  const isSelected = !!slotId && selected.some((s) => s.slotId === slotId);
 
                   const slotStart = dayjs(
                     `${currentDate} ${cols[cIdx].start}`,
@@ -270,7 +278,7 @@ export default function SlotGridManager({
                           : styleByManager[group]
                       )}
                       onClick={() => handleCellClick(rIdx, cIdx, slotId)}
-                      disabled={isPastAvailable}
+                      disabled={isPastAvailable || !slotId}
                       title={group}
                     >
                       {isSelected ? "✓" : ""}

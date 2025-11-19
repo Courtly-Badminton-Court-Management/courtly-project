@@ -11,6 +11,7 @@ import {
   User,
   MessageSquare,
   Phone,
+  CreditCard,
 } from "lucide-react";
 import type { GroupedSelection } from "@/lib/slot/slotGridModel";
 
@@ -21,8 +22,9 @@ type Props = {
   courtNames: string[];
   onConfirm: (customer: {
     name: string;
-    method: string;
-    detail?: string;
+    paymentMethod: string;
+    contactMethod: string;
+    contactDetail?: string;
   }) => Promise<void> | void;
   minutesPerCell: number;
   isSubmitting?: boolean;
@@ -46,9 +48,13 @@ export default function WalkinSummaryModal({
   isSubmitting,
 }: Props) {
   const [justSubmitted, setJustSubmitted] = useState(false);
+
   const [customerName, setCustomerName] = useState("");
   const [contactMethod, setContactMethod] = useState("Walk-in (no contact)");
   const [contactDetail, setContactDetail] = useState("");
+
+  // 🆕 payment method state (ใช้ค่า value ให้ตรง backend)
+  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 
   useEffect(() => {
     if (!open) {
@@ -56,6 +62,7 @@ export default function WalkinSummaryModal({
       setCustomerName("");
       setContactMethod("Walk-in (no contact)");
       setContactDetail("");
+      setPaymentMethod("cash");
     }
   }, [open]);
 
@@ -74,12 +81,14 @@ export default function WalkinSummaryModal({
       alert("Please enter customer's name.");
       return;
     }
+
     setJustSubmitted(true);
     try {
       await onConfirm({
         name: customerName.trim(),
-        method: contactMethod,
-        detail: contactDetail.trim(),
+        paymentMethod, // 🧾 ใช้สำหรับ payment_method
+        contactMethod, // 📞 วิธีติดต่อ
+        contactDetail: contactDetail.trim() || undefined,
       });
     } catch (err) {
       console.error(err);
@@ -103,7 +112,7 @@ export default function WalkinSummaryModal({
           }}
         >
           <motion.div
-            className="relative w-full max-h-[90vh] max-w-[500px] rounded-2xl bg-white p-4 sm:p-5 text-center shadow-2xl flex flex-col"
+            className="relative flex w-full max-h-[90vh] max-w-[500px] flex-col rounded-2xl bg-white p-4 text-center shadow-2xl sm:p-5"
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 10 }}
@@ -112,7 +121,7 @@ export default function WalkinSummaryModal({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 rounded-full p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition"
+              className="absolute right-3 top-3 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
@@ -120,16 +129,16 @@ export default function WalkinSummaryModal({
 
             {/* Header */}
             <div className="mb-4">
-              <h2 className="text-lg sm:text-xl font-bold text-pine">
+              <h2 className="text-lg font-bold text-pine sm:text-xl">
                 Walk-in Booking Summary
               </h2>
-              <p className="text-sm sm:text-[14px] text-neutral-500 mt-1 font-semibold">
+              <p className="mt-1 text-sm font-semibold text-neutral-500 sm:text-[14px]">
                 Confirm walk-in details before proceeding.
               </p>
             </div>
 
             {/* List */}
-            <div className="max-h-[45vh] overflow-y-auto space-y-3 mb-5 text-left p-2">
+            <div className="mb-5 max-h-[45vh] space-y-3 overflow-y-auto p-2 text-left">
               {items.map((it, i) => (
                 <motion.div
                   key={i}
@@ -143,7 +152,7 @@ export default function WalkinSummaryModal({
                       {it.courtLabel}
                     </span>
                   </div>
-                  <div className="mt-3 grid sm:grid-cols-2 gap-2 text-[13px] text-gray-700">
+                  <div className="mt-3 grid gap-2 text-[13px] text-gray-700 sm:grid-cols-2">
                     <div className="flex items-center gap-2">
                       <CalendarRange className="h-4 w-4 text-gray-400" />
                       <span className="font-medium">Time:</span>
@@ -160,7 +169,7 @@ export default function WalkinSummaryModal({
             </div>
 
             {/* Customer Info Form */}
-            <div className="space-y-3 mb-5 text-left">
+            <div className="mb-5 space-y-3 text-left">
               {/* Customer Name */}
               <label className="block text-sm font-semibold text-gray-700">
                 Customer Name
@@ -172,12 +181,32 @@ export default function WalkinSummaryModal({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="e.g. Proud"
-                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-sea/30 outline-none"
+                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sea/30"
                 />
               </div>
 
+              {/* 🆕 Payment Method */}
+              <label className="mt-3 block text-sm font-semibold text-gray-700">
+                Payment Method
+              </label>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-gray-400" />
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sea/30"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="mobile-banking">
+                    Mobile Banking / PromptPay
+                  </option>
+                  <option value="transfer">Bank Transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
               {/* Contact Method */}
-              <label className="block text-sm font-semibold text-gray-700 mt-3">
+              <label className="mt-3 block text-sm font-semibold text-gray-700">
                 Contact Method
               </label>
               <div className="flex items-center gap-2">
@@ -185,7 +214,7 @@ export default function WalkinSummaryModal({
                 <select
                   value={contactMethod}
                   onChange={(e) => setContactMethod(e.target.value)}
-                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-sea/30 outline-none"
+                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sea/30"
                 >
                   <option>Walk-in (no contact)</option>
                   <option>Facebook DM</option>
@@ -196,7 +225,7 @@ export default function WalkinSummaryModal({
               </div>
 
               {/* Contact Detail */}
-              <label className="block text-sm font-semibold text-gray-700 mt-3">
+              <label className="mt-3 block text-sm font-semibold text-gray-700">
                 Contact Detail (optional)
               </label>
               <div className="flex items-center gap-2">
@@ -205,22 +234,22 @@ export default function WalkinSummaryModal({
                   type="text"
                   value={contactDetail}
                   onChange={(e) => setContactDetail(e.target.value)}
-                  placeholder="e.g. 0987654321 or Hoshitsuki Hokori"
-                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-sea/30 outline-none"
+                  placeholder="e.g. 0987654321 or Line ID"
+                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sea/30"
                 />
               </div>
             </div>
 
             {/* Buttons */}
-            <div className="flex flex-col sm:flex-row justify-center gap-3 mt-3">
+            <div className="mt-3 flex flex-col justify-center gap-3 sm:flex-row">
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                whileTap={{ scale: isSubmitting ? 1 : 0.97 }}
                 onClick={handleConfirm}
                 disabled={isSubmitting || justSubmitted}
-                className={`w-full h-[44px] rounded-xl text-white font-medium text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-sm ${
+                className={`flex h-[44px] w-full items-center justify-center gap-2 rounded-xl text-sm font-medium text-white shadow-sm transition-all sm:text-base ${
                   isSubmitting
-                    ? "bg-gray-400 cursor-wait"
+                    ? "cursor-wait bg-gray-400"
                     : "bg-pine hover:brightness-110 hover:shadow-lg"
                 }`}
               >

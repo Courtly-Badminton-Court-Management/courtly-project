@@ -28,6 +28,16 @@ const SlotGridManager = dynamic(
   { ssr: false }
 );
 
+// Shape of payload sent to the booking API for walk-in/admin bookings
+type CreateBookingPayload = {
+  club: number;
+  booking_method: string;
+  owner_username: string;
+  owner_contact: string;
+  payment_method: string;
+  slots: string[];
+};
+
 /* =========================================================================
    Utils
    ========================================================================= */
@@ -115,7 +125,8 @@ export default function ManagerControlPage() {
   );
 
   const selCount = selected.length;
-  const isLoading = mv.isLoading || updateStatusMut.isPending || bookingAdminMut.isPending || isBatchLoading;
+  const isLoading =
+    mv.isLoading || updateStatusMut.isPending || bookingMut.isPending || isBatchLoading;
 
   // ======= Toggle Select =======
   function toggleSelect(courtRow: number, colIdx: number, slotId?: string) {
@@ -145,80 +156,110 @@ export default function ManagerControlPage() {
   }
 
   // ======= Maintenance Toggle =======
-  async function handleSetMaintenance() {
-    if (!selected.length) {
-      alert("Please select at least one slot.");
-      return;
-    }
-
-    const newStatus = selectionMode === "maintenance" ? "available" : "maintenance";
-    setIsBatchLoading(true);
-
-    try {
-      await Promise.all(
-        selected.map(async (slot) => {
-          if (!slot.slotId) return;
-          await updateStatusMut.mutateAsync({
-            slotId: slot.slotId,
-            status: newStatus,
-            club: CLUB_ID,
-            month: CURRENT_MONTH,
-          });
-        })
-      );
-    } catch (error) {
-      console.error("❌ Update slot failed:", error);
-      alert("Some slots failed to update. Please check the console.");
-    } finally {
-      setIsBatchLoading(false);
-      setSelected([]);
-      setSelectionMode(null);
-    }
+async function handleSetMaintenance() {
+  if (!selected.length) {
+    alert("Please select at least one slot.");
+    return;
   }
+
+  // รวม slotIds ทั้งหมดที่เลือก
+  const slotIds = selected
+    .map((s) => s.slotId)
+    .filter((id): id is string => Boolean(id));
+
+  if (!slotIds.length) {
+    alert("Cannot find any valid slot IDs. Please try selecting again.");
+    return;
+  }
+
+  const newStatus: "available" | "maintenance" =
+    selectionMode === "maintenance" ? "available" : "maintenance";
+
+  setIsBatchLoading(true);
+
+  try {
+    // 🔥 ยิงทีเดียวด้วย list ทั้งหมด
+    await updateStatusMut.mutateAsync({
+      slotIds,
+      status: newStatus,
+      month: CURRENT_MONTH,
+    });
+  } catch (error) {
+    console.error("❌ Update slot failed:", error);
+    alert("Some slots failed to update. Please check the console.");
+  } finally {
+    setIsBatchLoading(false);
+    setSelected([]);
+    setSelectionMode(null);
+  }
+}
+
 
   // ======= Walk-in =======
-  async function handleConfirm(_customer: { name: string; method: string; detail?: string }) {
-    if (!selected.length) {
-      alert("Please select at least one slot.");
-      return;
-    }
-
-    setIsBatchLoading(true);
-    try {
-      await Promise.all(
-        selected.map(async (slot) => {
-          if (!slot.slotId) return;
-          await updateStatusMut.mutateAsync({
-            slotId: slot.slotId,
-            status: "walkin",
-            club: CLUB_ID,
-            month: CURRENT_MONTH,
-          });
-        })
-      );
-
-      setBookingNos([]);
-      setOpenSummary(false);
-      setOpenConfirm(true);
-      setSelected([]);
-    } catch (e: any) {
-      console.error("❌ Walk-in failed:", e);
-      const status = e?.response?.status;
-      let msg = "";
-      if (status === 409) {
-        msg = "This slot has just been taken. Please choose another available time.";
-      } else if (e?.response?.data?.detail) {
-        msg = e.response.data.detail;
-      } else {
-        msg = e?.message || "Walk-in action failed. Please try again.";
-      }
-      setErrorMessage(msg);
-      setErrorModal(true);
-      setOpenSummary(false);
-    } finally {
-      setIsBatchLoading(false);
-    }
+  async function handleConfirm(customer: {
+  name: string;
+  paymentMethod: string;
+  contactMethod: string;
+  contactDetail?: string;
+}) {
+  if (!selected.length) {
+    alert("Please select at least one slot.");
+    return;
   }
+
+  const slotIds = selected
+    .map((s) => s.slotId)
+    .filter((id): id is string => Boolean(id));
+
+  if (!slotIds.length) {
+    alert("Cannot find any valid slot IDs. Please try selecting again.");
+    return;
+  }
+
+  setIsBatchLoading(true);
+
+  try {
+    const payload: CreateBookingPayload = {
+      club: CLUB_ID,
+      booking_method: customer.contactMethod,
+      owner_username: customer.name,
+      owner_contact:customer.contactDetail || "walk-in (no contact)",
+      payment_method: customer.paymentMethod,
+      slots: slotIds,
+    };
+
+    const res = await bookingMut.mutateAsync(payload);
+
+    if (res && (res as any).booking_id) {
+      setBookingNos([(res as any).booking_id]);
+    } else {
+      setBookingNos([]);
+    }
+
+    setOpenSummary(false);
+    setOpenConfirm(true);
+    setSelected([]);
+    setSelectionMode(null);
+  } catch (e: any) {
+    console.error("❌ Walk-in booking failed:", e);
+    const status = e?.response?.status;
+    let msg = "";
+    if (status === 409) {
+      msg =
+        "This slot has just been taken. Please choose another available time.";
+    } else if (e?.response?.data?.detail) {
+      msg = e.response.data.detail;
+    } else {
+      msg = e?.message || "Walk-in booking failed. Please try again.";
+    }
+    setErrorMessage(msg);
+    setErrorModal(true);
+    setOpenSummary(false);
+  } finally {
+    setIsBatchLoading(false);
+  }
+}
+
 
   // ======= Date shift =======
   function shiftDay(delta: number) {

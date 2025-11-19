@@ -1,3 +1,4 @@
+// frontend/src/ui/components/dashboardpage/CheckInModal.tsx
 "use client";
 
 import React, { useMemo } from "react";

@@ -4,10 +4,14 @@ import { useMemo, useState } from "react";
 import { Calendar, Loader2, ArrowUpDown, CheckCircle } from "lucide-react";
 import { useBookingsRetrieve } from "@/api-client/endpoints/bookings/bookings";
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
+import { useBookingRetrieve } from "@/api-client/endpoints/booking/booking";
+
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
+import CheckInModal from "@/ui/components/dashboardpage/CheckInModal";
+
 import type { BookingRow, UserProfile } from "@/api-client/extras/types";
 
 /* ========================= Utils ========================= */
@@ -16,16 +20,21 @@ const statusLabel = (s?: string) => {
   if (x === "end_game" || x === "endgame") return "End Game";
   if (x === "cancelled") return "Cancelled";
   if (x === "no_show" || x === "no-show") return "No-show";
-  if (x === "confirmed") return "Upcoming";
-  return "Upcoming";
+  if (x === "upcoming" || x === "booked" || x === "confirmed") return "Upcoming";
+  if (x === "checkin" || x === "checked_in") return "✓ Checked-In";
+  return "Unknown";
 };
 
 const statusPillClass = (s?: string) => {
   const x = (s || "").toLowerCase();
-  if (["confirmed", "endgame", "end_game"].includes(x))
+  if (["endgame", "end_game"].includes(x))
     return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
   if (x === "cancelled")
     return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
+  if (["upcoming", "booked", "confirmed"].includes(x))
+    return "bg-sea/10 text-sea ring-1 ring-inset ring-sea/30";
+  if (x === "checkin" || x === "checked_in")
+    return "bg-cambridge/10 text-cambridge ring-1 ring-inset ring-cambridge/40";
   return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
 };
 
@@ -55,7 +64,15 @@ export default function ManagerLogPage() {
   const { data, isLoading, isError } = useBookingsRetrieve();
   const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
 
-  const [open, setOpen] = useState(false);
+  // 🔹 View details modal
+  const [openView, setOpenView] = useState(false);
+  const [viewId, setViewId] = useState<string | null>(null);
+
+  // 🔹 Check-in modal
+  const [checkinId, setCheckinId] = useState<string | null>(null);
+  const [isCheckinPending, setIsCheckinPending] = useState(false); // TODO: hook กับ check-in API จริง
+
+  // 🔹 Cancel
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
 
@@ -71,13 +88,21 @@ export default function ManagerLogPage() {
     },
   });
 
+  // ✅ ดึง booking detail เมื่อมี viewId หรือ checkinId
+  const {
+    data: bookingDetail,
+    isLoading: isDetailLoading,
+  } = useBookingRetrieve(viewId || checkinId || "", {
+    query: { enabled: !!viewId || !!checkinId },
+  });
+
   const rows: BookingRow[] = useMemo(() => {
     const raw = data as any;
     const arr = raw?.data ?? raw?.results ?? raw;
     return Array.isArray(arr)
       ? arr.map((b: any) => ({
           ...b,
-          user: b.user ?? "-",
+          user: b.owner_username ?? "-",
           booking_status: b.booking_status ?? b.status ?? "upcoming",
         }))
       : [];
@@ -104,21 +129,38 @@ export default function ManagerLogPage() {
     });
   }, [rows, filterStatus, sortBy, sortDesc]);
 
+  /* ========================= Handlers ========================= */
   const onView = (b: BookingRow) => {
-    setActive(b);
-    setOpen(true);
+    // เปิด receipt modal → trigger GET /api/booking/{id}
+    setCheckinId(null); // กันไม่ให้ชนกัน
+    setViewId(b.booking_id);
+    setOpenView(true);
   };
 
   const onDownload = (b: BookingRow) => {
+    // ตอนนี้ยังใช้ row เดิมไปออก pdf ได้อยู่
     if (!me) return;
     generateBookingInvoicePDF(b, me as UserProfile);
   };
 
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
 
-  const onCheckIn = (b: BookingRow) => {
-    // 🔹 Placeholder — integrate check-in endpoint later
-    alert(`✅ Checked in booking ${b.booking_id}`);
+  const onCheckInClick = (b: BookingRow) => {
+    // เปิด CheckInModal → trigger GET /api/booking/{id}
+    setViewId(null); // ensure มีแค่ modal เดียว
+    setCheckinId(b.booking_id);
+  };
+
+  const handleConfirmCheckIn = async () => {
+    if (!bookingDetail) return;
+    try {
+      setIsCheckinPending(true);
+      // TODO: ผูกกับ check-in mutation จริง เช่น useCheckInBooking(bookingDetail.booking_id)
+      alert(`✅ Checked in booking successfully!`);
+      setCheckinId(null);
+    } finally {
+      setIsCheckinPending(false);
+    }
   };
 
   const today = formatDate(new Date().toISOString(), {
@@ -127,6 +169,19 @@ export default function ManagerLogPage() {
     day: "2-digit",
     year: "numeric",
   });
+
+  // modal state จาก detail
+    const checkinBooking =
+      checkinId && !isDetailLoading && bookingDetail != null
+        ? (bookingDetail as BookingRow)
+        : null;
+    const viewBooking =
+      viewId && !isDetailLoading && bookingDetail != null
+        ? (bookingDetail as BookingRow)
+        : null;
+
+  const isCheckinOpen = !!checkinId && !!checkinBooking;
+  const isViewLoading = isDetailLoading && !!viewId;
 
   return (
     <div className="mx-auto my-auto">
@@ -137,7 +192,8 @@ export default function ManagerLogPage() {
             Booking Logs
           </h1>
           <p className="text-s font-semibold tracking-tight text-dimgray">
-            View all player bookings, download receipts, check in, or manage status.
+            View all player bookings, download receipts, check in, or manage
+            status.
           </p>
         </div>
       </div>
@@ -230,15 +286,21 @@ export default function ManagerLogPage() {
 
             {!isLoading &&
               filtered.map((b) => {
+                const bookingStatus = (b.booking_status || "").toLowerCase();
                 const canCancel =
                   b.able_to_cancel &&
-                  !["cancelled", "end_game"].includes(b.booking_status);
+                  !["cancelled", "end_game"].includes(bookingStatus);
                 const isCancelling =
                   cancelMut.isPending &&
                   active &&
                   active.booking_id === b.booking_id;
 
-                const canCheckIn = b.booking_status.toLowerCase() === "confirmed";
+                const isUpcoming =
+                  bookingStatus === "confirmed" ||
+                  bookingStatus === "upcoming" ||
+                  bookingStatus === "booked";
+
+                const isPrimaryAsCheckIn = isUpcoming;
 
                 return (
                   <tr
@@ -260,7 +322,7 @@ export default function ManagerLogPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm ${statusPillClass(
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-sm ${statusPillClass(
                           b.booking_status
                         )}`}
                       >
@@ -269,11 +331,28 @@ export default function ManagerLogPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex flex-wrap justify-center gap-2">
+                        {/* 🔹 Primary: Upcoming => Check in (→ fetch detail & open CheckInModal)
+                            อื่น ๆ => View details (→ fetch detail & open ReceiptModal) */}
                         <button
-                          onClick={() => onView(b)}
-                          className="rounded-lg border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
+                          onClick={() =>
+                            isPrimaryAsCheckIn
+                              ? onCheckInClick(b)
+                              : onView(b)
+                          }
+                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
+                            isPrimaryAsCheckIn
+                              ? "border-[#31734d] bg-[#31734d] text-white hover:brightness-95"
+                              : "border-[#2a756a] bg-[#2a756a] text-white hover:brightness-95"
+                          }`}
                         >
-                          View
+                          {isPrimaryAsCheckIn ? (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Check In
+                            </>
+                          ) : (
+                            "View details"
+                          )}
                         </button>
 
                         <button
@@ -286,19 +365,6 @@ export default function ManagerLogPage() {
                           }`}
                         >
                           {isMeLoading ? "Loading..." : "Download"}
-                        </button>
-
-                        <button
-                          onClick={() => onCheckIn(b)}
-                          disabled={!canCheckIn}
-                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
-                            canCheckIn
-                              ? "border-[#31734d] bg-[#31734d] text-white hover:brightness-95"
-                              : "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
-                          }`}
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Check In
                         </button>
 
                         <button
@@ -315,7 +381,8 @@ export default function ManagerLogPage() {
                         >
                           {isCancelling ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> Cancelling…
+                              <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                              Cancelling…
                             </>
                           ) : (
                             "Cancel"
@@ -341,11 +408,24 @@ export default function ManagerLogPage() {
         onClose={() => setConfirmModal(null)}
       />
 
-      {/* Receipt Modal */}
+      {/* Booking Detail Modal — ใช้ detail จาก GET /api/booking/{id} */}
       <BookingReceiptModal
-        open={open}
-        onClose={() => setOpen(false)}
-        booking={active as any}
+        open={openView}
+        onClose={() => {
+          setOpenView(false);
+          setViewId(null);
+        }}
+        booking={viewBooking || null}
+        isLoading={isViewLoading}
+      />
+
+      {/* Check-in Modal — ใช้ detail จาก GET /api/booking/{id} */}
+      <CheckInModal
+        open={isCheckinOpen}
+        booking={checkinBooking}
+        isPending={isCheckinPending}
+        onConfirm={handleConfirmCheckIn}
+        onClose={() => setCheckinId(null)}
       />
     </div>
   );
