@@ -1,3 +1,4 @@
+// frontend/src/lib/slot/buildDayGridFromMonthView.ts
 import type { Col, GridCell } from "@/lib/slot/slotGridModel";
 import type { MonthViewResponse } from "@/api-client/extras/slots";
 import type { SlotItem } from "@/api-client/extras/types";
