@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState,useEffect } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
 import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
@@ -18,18 +18,21 @@ const statusLabel = (s?: string) => {
   if (x === "cancelled") return "Cancelled";
   if (x === "no_show" || x === "no-show") return "No-show";
   if (x === "upcoming") return "Upcoming";
-  if (x === "confirmed") return "End Game";
+  if (x === "booked") return "Upcoming"; // debug
+  if (x === "checkin") return "✓ Checked-In";
   return "Unknown";
 };
 
 const statusPillClass = (s?: string) => {
   const x = (s || "").toLowerCase();
-  if (["confirmed", "endgame", "end_game"].includes(x))
+  if (["endgame", "end_game"].includes(x))
     return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
   if (x === "cancelled")
     return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
-  if (x === "upcoming")
+  if (["upcoming", "booked","confirmed"].includes(x))
     return "bg-sea/10 text-sea ring-1 ring-inset ring-sea/30";
+  if (x === "checkin")
+    return "bg-cambridge/10 text-cambridge ring-1 ring-inset ring-cambridge/40";
   return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
 };
 
@@ -61,18 +64,35 @@ export default function PlayerHistoryPage() {
 
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
+
+    // ⭐ NEW: state for downloading PDF
+  const [downloadId, setDownloadId] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // ✅ ดึงข้อมูล booking detail เมื่อเลือก id
   const {
     data: bookingDetail,
-    isLoading: isBookingLoading,
-  } = useBookingRetrieve(selectedId || "", {
-    query: {
-      enabled: !!selectedId,
-    },
+    isLoading: isDetailLoading,
+  } = useBookingRetrieve(selectedId || downloadId || "", {
+    query: { enabled: !!selectedId || !!downloadId },
   });
+
+    /* ====================== Effect: handle PDF download ====================== */
+  useEffect(() => {
+    if (!isDownloading) return;
+    if (!bookingDetail || isDetailLoading) return;
+    if (!me) return;
+
+    generateBookingInvoicePDF(bookingDetail, me as UserProfile);
+
+    // reset download state
+    setIsDownloading(false);
+    setDownloadId(null);
+
+  }, [isDownloading, bookingDetail, isDetailLoading, me]);
 
   // 🧭 Filters + Sort
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -125,8 +145,16 @@ export default function PlayerHistoryPage() {
 
   const onDownload = (b: BookingRow) => {
     if (!me) return;
-    generateBookingInvoicePDF(b, me as UserProfile);
+    setDownloadId(b.booking_id);   // trigger fetch detail
+    setIsDownloading(true);        // waiting for data
   };
+
+  const canDownloadPDF = (b: BookingRow) => {
+  return (
+    b.able_to_cancel === false &&
+    b.booking_status.toLowerCase() !== "cancelled"
+  );
+};
 
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
 
@@ -136,6 +164,8 @@ export default function PlayerHistoryPage() {
     day: "2-digit",
     year: "numeric",
   });
+
+
 
   return (
     <div className="mx-auto my-auto">
@@ -282,24 +312,16 @@ export default function PlayerHistoryPage() {
 
                         <button
                           onClick={() => onDownload(b)}
-                          disabled={
-                            isMeLoading ||
-                            !me ||
-                            !(
-                              b.booking_status.toLowerCase() === "confirmed" &&
-                              b.able_to_cancel === false
-                            )
-                          }
+                          disabled={isMeLoading || !me || !canDownloadPDF(b)}
                           className={`rounded-xl border px-4 py-2 ${
-                            !me || isMeLoading
+                            isMeLoading || !me || !canDownloadPDF(b)
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
-                              : b.booking_status.toLowerCase() ===
-                                  "confirmed" && !b.able_to_cancel
-                              ? "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
-                              : "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
                           }`}
                         >
-                          {isMeLoading ? "Loading..." : "Download"}
+                          {isDownloading && downloadId === b.booking_id
+                            ? "Generating..."
+                            : "Download"}
                         </button>
 
                         <button
@@ -350,7 +372,7 @@ export default function PlayerHistoryPage() {
           setSelectedId(null);
         }}
         booking={bookingDetail || null}
-        isLoading={isBookingLoading}
+        isLoading={isDetailLoading}
       />
     </div>
   );
