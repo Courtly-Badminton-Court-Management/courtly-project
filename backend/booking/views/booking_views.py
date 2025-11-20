@@ -24,10 +24,12 @@ def booking_detail_view(request, booking_no: str):
     except Booking.DoesNotExist:
         return Response({"detail": "Not found"}, status=404)
 
+    # Permission check
     user_role = getattr(request.user, "role", None)
     if b.user != request.user and user_role not in ["manager", "admin"]:
         return Response({"detail": "Forbidden"}, status=403)
 
+    # Fetch booking slots
     slots = (
         BookingSlot.objects.filter(booking=b)
         .select_related("slot", "slot__court", "slot__slot_status")
@@ -35,7 +37,7 @@ def booking_detail_view(request, booking_no: str):
     )
     tz = timezone.get_current_timezone()
 
-    # Build booking_slots dict keyed by slot_id
+    # Build booking_slots dictionary
     booking_slots = {}
     for s in slots:
         slot = s.slot
@@ -48,10 +50,25 @@ def booking_detail_view(request, booking_no: str):
             "court": slot.court_id,
             "court_name": slot.court.name,
             "price_coin": slot.price_coins,
-            "booking_id": b.booking_no
+            "booking_id": b.booking_no,
         }
 
+    # ───────────────────────────────────────────────
+    # CALCULATE able_to_cancel (24-hour rule)
+    # ───────────────────────────────────────────────
+    first_slot = slots.first()
+    able = False
+
+    if first_slot:
+        able = calculate_able_to_cancel(first_slot)
+
+    # Cancelled bookings always cannot cancel
+    if b.status == "cancelled":
+        able = False
+
     created_local = timezone.localtime(b.created_at, tz)
+
+    # Build final response payload
     payload = {
         "created_date": created_local.strftime("%Y-%m-%d %H:%M"),
         "booking_id": b.booking_no,
@@ -63,9 +80,10 @@ def booking_detail_view(request, booking_no: str):
         "payment_method": getattr(b, "payment_method", "coin"),
         "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
         "booking_status": b.status,
-        "able_to_cancel": False,
+        "able_to_cancel": able,
         "booking_slots": booking_slots,
     }
+
     return Response(payload, status=200)
 
 
@@ -294,7 +312,7 @@ def booking_create_view(request):
         club_id=club_id,
         court_id=first_slot.court_id,
         booking_date=first_slot.service_date,
-        status="upcoming",            # Always upcoming on creation
+        status="upcoming",  # Always upcoming on creation
         booking_method=booking_method,
         customer_name=owner_username,
         contact_method="Courtly Website",
@@ -507,6 +525,7 @@ def booking_cancel_view(request, booking_no: str):
         },
         status=200,
     )
+
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
