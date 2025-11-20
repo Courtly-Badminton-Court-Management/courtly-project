@@ -114,13 +114,13 @@ export default function RegisterPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-4xl font-extrabold mb-6">
+            <p className="text-3xl font-extrabold mb-3">
               <span className="text-pine">Game on!</span>{" "}
               <span className="text-walnut">Create an Account!</span>
-            </h2>
+            </p>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2">
               <Field label="Username" name="username" placeholder="e.g. smashtiger88" error={errors.username} />
               <Field type="email" label="Email" name="email" placeholder="e.g. player@email.com" error={errors.email} />
 
