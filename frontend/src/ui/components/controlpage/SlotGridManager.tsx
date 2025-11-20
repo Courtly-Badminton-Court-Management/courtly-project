@@ -260,7 +260,7 @@ export default function SlotGridManager({
                   const isSelected = !!slotId && selected.some((s) => s.slotId === slotId);
 
                   const slotStart = dayjs(
-                    `${currentDate} ${cols[cIdx].start}`,
+                    `${currentDate} ${cols[cIdx].end}`,
                     "YYYY-MM-DD HH:mm"
                   );
                   const isPast = isToday && dayjs().isAfter(slotStart);

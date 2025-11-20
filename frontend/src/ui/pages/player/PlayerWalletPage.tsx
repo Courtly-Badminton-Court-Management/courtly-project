@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+
 import PlayerWalletBalance from "@/ui/components/wallet/PlayerWalletBalance";
 import PlayerTopupForm from "@/ui/components/wallet/PlayerTopupForm";
 import PlayerTransactionHistory, {
   type LedgerItem,
 } from "@/ui/components/wallet/PlayerTransactionHistory";
 import BankInfoPanel from "@/ui/components/wallet/BankInfoPanel";
+import SuccessfulRequestModal from "@/ui/components/wallet/RequestConfirmedModal";
 
 import {
   useWalletBalanceRetrieve,
@@ -22,8 +24,9 @@ import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 
 export default function PlayerWalletPage() {
   const queryClient = useQueryClient();
+  const [openSuccessModal, setOpenSuccessModal] = useState(false);
 
-  /* 🔹 1. Fetch User Info (me) */
+  /* 🔹 1. Fetch User Info */
   const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
   const username =
     meData?.username ?? meData?.name ?? meData?.email ?? "User";
@@ -33,8 +36,9 @@ export default function PlayerWalletPage() {
     useWalletBalanceRetrieve<{ balance: number }>();
   const balanceCoins = balanceData?.balance ?? 0;
 
-  /* 🔹 3. Top-up Requests (List) */
-  const { data: topupsData, isLoading: topupsLoading } = useWalletTopupsList();
+  /* 🔹 3. Top-up Requests */
+  const { data: topupsData, isLoading: topupsLoading } =
+    useWalletTopupsList();
 
   const ledger: LedgerItem[] =
     topupsData?.map((item: any) => ({
@@ -80,39 +84,37 @@ export default function PlayerWalletPage() {
           queryClient.invalidateQueries({
             queryKey: getWalletTopupsListQueryKey(),
           });
-          alert("✅ Top-up request submitted successfully!");
+
           resetTopup();
+          setOpenSuccessModal(true);
         },
         onError: (err: unknown) => {
-          console.error(err);
-          alert("❌ Failed to submit top-up. Please try again.");
+          // console.error(err);
+          // alert("❌ Failed to submit top-up. Please try again.");
         },
       },
     });
 
   const submitTopup = () => {
-  if (!topup.amount || !topup.slip || !topup.date || !topup.time) {
-    alert("⚠ Please fill all required fields and upload your slip.");
-    return;
-  }
+    if (!topup.amount || !topup.slip || !topup.date || !topup.time) {
+      alert("⚠ Please fill all required fields and upload your slip.");
+      return;
+    }
 
-  createTopup({
-    data: {
-      amount_thb: Number(topup.amount),
-      transfer_date: topup.date,
-      transfer_time: topup.time,
-      // OpenAPI type is string (binary); cast File accordingly
-      slip_path: topup.slip as unknown as string,
-    },
-  });
-};
+    createTopup({
+      data: {
+        amount_thb: Number(topup.amount),
+        transfer_date: topup.date,
+        transfer_time: topup.time,
+        slip_path: topup.slip as unknown as string,
+      },
+    });
+  };
 
-  /* 🔹 6. Export CSV (manual trigger) */
+  /* 🔹 6. Export CSV */
   const { refetch: exportCsv, isFetching: csvLoading } =
     useWalletLedgerExportCsvRetrieve({
-      query: {
-        enabled: false,
-      },
+      query: { enabled: false },
     });
 
   const exportCSV = async () => {
@@ -122,7 +124,6 @@ export default function PlayerWalletPage() {
       return;
     }
 
-    // Treat API response as CSV string/binary
     const blob = new Blob([data as unknown as string], {
       type: "text/csv;charset=utf-8;",
     });
@@ -134,40 +135,54 @@ export default function PlayerWalletPage() {
     link.remove();
   };
 
-  /* 🔹 7. Render */
+  /* 🔹 scroll → Transaction History */
+  const scrollToHistory = () => {
+    const section = document.getElementById("transaction-history");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  /* 🔹 Render */
   const loadingAll = balanceLoading || meLoading;
 
   return (
-    <main className="space-y-6">
+    <main className="space-y-8">
+      {/* Wallet Header */}
       <PlayerWalletBalance
         balanceCoins={balanceCoins}
         userName={username}
+        avatarUrl={meData?.avatarKey}
         isLoading={loadingAll}
       />
-      
-    <section className="grid items-stretch mb-8 gap-6 md:grid-cols-4">
-        {/* Top up Form 2/3 */}
-        <div className="md:col-span-2">
+
+      {/* Form + Bank Info */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
         <PlayerTopupForm
-        values={topup}
-        onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
-        onSubmit={submitTopup}
-        onReset={resetTopup}
-        loading={topupLoading}
+          values={topup}
+          onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
+          onSubmit={submitTopup}
+          onReset={resetTopup}
+          loading={topupLoading}
         />
-        </div>
-        {/* Bank Info Panel 1/3 */}
-       <div className="md:col-span-2">
-        <BankInfoPanel/>
-        </div>
 
-
+        <BankInfoPanel />
       </section>
 
-      <PlayerTransactionHistory
-        items={ledger}
-        onExport={exportCSV}
-        loading={topupsLoading || csvLoading}
+      {/* Transaction History */}
+      <div id="transaction-history">
+        <PlayerTransactionHistory
+          items={ledger}
+          onExport={exportCSV}
+          loading={topupsLoading || csvLoading}
+        />
+      </div>
+
+      {/* Success Modal */}
+      <SuccessfulRequestModal
+        open={openSuccessModal}
+        onClose={() => setOpenSuccessModal(false)}
+        onGoHistory={scrollToHistory}
       />
     </main>
   );

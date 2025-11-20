@@ -1,5 +1,7 @@
 "use client";
 
+import { FileDown } from "lucide-react";
+
 export type LedgerItem = {
   id: string;
   dt: string;
@@ -18,39 +20,76 @@ export default function PlayerTransactionHistory({
   loading?: boolean;
 }) {
   return (
-    <section className="rounded-2xl border bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-xl font-semibold">Transaction History</h3>
+    <section
+      className="
+        h-full flex flex-col
+        rounded-2xl border border-platinum bg-white
+        p-6 shadow-sm transition hover:shadow-md
+      "
+    >
+      {/* Header */}
+      <div className="mb-4 border-b-4 border-pine/80 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-pine/10 p-2 text-pine">
+            <FileDown size={18} strokeWidth={2.2} />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-pine">Transaction History</h3>
+            <p className="text-sm font-medium text-neutral-500">
+              Top-ups, booking deductions, and refunds
+            </p>
+          </div>
+        </div>
+
         <button
           onClick={onExport}
           disabled={loading}
-          className="rounded-xl px-4 py-2 text-sm font-bold transition-colors bg-pine text-white hover:bg-emerald-800 disabled:opacity-60"
+          className="
+            rounded-xl px-4 py-2 text-sm font-semibold
+            transition-colors bg-pine text-white
+            hover:bg-emerald-800 disabled:opacity-60
+          "
         >
           {loading ? "Exporting..." : "Export CSV"}
         </button>
       </div>
 
+      {/* Loading Skeleton */}
       {loading ? (
-        <div className="animate-pulse space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="mt-2 animate-pulse space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-6 bg-neutral-100 rounded" />
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-neutral-50">
-              <tr>
-                <Th>Request ID</Th>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm border-collapse">
+            {/* Table Head */}
+            <thead>
+              <tr
+                className="
+                  bg-neutral-100 text-neutral-700
+                  rounded-t-xl
+                "
+              >
+                <Th first>Request ID</Th>
                 <Th>Amount (coins)</Th>
                 <Th>Datetime</Th>
                 <Th>Type</Th>
-                <Th>Status</Th>
+                <Th last>Status</Th>
               </tr>
             </thead>
+
+            {/* Table Body */}
             <tbody>
               {items.map((l) => (
-                <tr key={l.id} className="border-b border-neutral-300 last:border-0">
+                <tr
+                  key={l.id}
+                  className="
+                    border-b border-neutral-200
+                    hover:bg-neutral-50 transition
+                  "
+                >
                   <Td>{l.id}</Td>
                   <Td>
                     <span
@@ -88,7 +127,18 @@ export default function PlayerTransactionHistory({
   );
 }
 
-const Th = ({ children }: any) => (
-  <th className="p-3 text-left text-xs font-semibold">{children}</th>
+const Th = ({ children, first, last }: any) => (
+  <th
+    className={`
+      p-3 text-left text-xs font-semibold 
+      ${first ? "rounded-tl-xl" : ""}
+      ${last ? "rounded-tr-xl" : ""}
+    `}
+  >
+    {children}
+  </th>
 );
-const Td = ({ children }: any) => <td className="p-3">{children}</td>;
+
+const Td = ({ children }: any) => (
+  <td className="p-3 align-middle text-neutral-800">{children}</td>
+);

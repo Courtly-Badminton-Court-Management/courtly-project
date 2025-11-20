@@ -151,7 +151,7 @@ export default function SlotGrid({
                   let isPast = false;
                   if (isToday && group === "available") {
                     const slotStart = dayjs(
-                      `${currentDate} ${cols[cIdx].start}`,
+                      `${currentDate} ${cols[cIdx].end}`,
                       "YYYY-MM-DD HH:mm"
                     );
                     isPast = dayjs().isAfter(slotStart);

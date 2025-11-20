@@ -84,7 +84,7 @@ export default function PlayerHomePage() {
               const detail = await bookingRetrieve(b.booking_id);
               return detail;
             } catch (err) {
-              console.error("❌ Failed to load detail for:", b.booking_id, err);
+              // console.error("❌ Failed to load detail for:", b.booking_id, err);
               return b; // fallback
             }
           })
@@ -92,7 +92,7 @@ export default function PlayerHomePage() {
 
         setFullUpcoming(results as any);
       } catch (err) {
-        console.error("❌ Error loading booking details", err);
+        // console.error("❌ Error loading booking details", err);
         setFullUpcoming(upcomingList);
       }
 

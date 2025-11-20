@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Calendar, Loader2, ArrowUpDown, CheckCircle } from "lucide-react";
+
 import { useBookingsRetrieve } from "@/api-client/endpoints/bookings/bookings";
-import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 import { useBookingRetrieve } from "@/api-client/endpoints/booking/booking";
 
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
@@ -11,6 +11,7 @@ import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
 import CheckInModal from "@/ui/components/dashboardpage/CheckInModal";
+import { useCheckInBooking } from "@/api-client/extras/checkin_booking";
 
 import type { BookingRow, UserProfile } from "@/api-client/extras/types";
 
@@ -61,16 +62,23 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 
 /* ========================= Main Page ========================= */
 export default function ManagerLogPage() {
-  const { data, isLoading, isError } = useBookingsRetrieve();
-  const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch: refetchBookings,
+  } = useBookingsRetrieve();
 
   // 🔹 View details modal
   const [openView, setOpenView] = useState(false);
   const [viewId, setViewId] = useState<string | null>(null);
 
-  // 🔹 Check-in modal
+  // 🔹 Check-in modal — เก็บ booking_id
   const [checkinId, setCheckinId] = useState<string | null>(null);
-  const [isCheckinPending, setIsCheckinPending] = useState(false); // TODO: hook กับ check-in API จริง
+
+  // 🔹 Download state (เหมือนหน้า Player History)
+  const [downloadId, setDownloadId] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // 🔹 Cancel
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
@@ -82,18 +90,31 @@ export default function ManagerLogPage() {
   const [sortDesc, setSortDesc] = useState(true);
 
   const { cancelMut, handleCancel } = useCancelBooking({
-    onSuccess: () => {
+    onSuccess: async () => {
       setConfirmModal(null);
       setActive(null);
+      await refetchBookings();
     },
   });
 
-  // ✅ ดึง booking detail เมื่อมี viewId หรือ checkinId
+  // ✅ ใช้ hook เดียว ดึง detail จาก viewId / checkinId / downloadId (คนละ use-case กัน แต่ใช้ data ชุดเดียวได้)
   const {
     data: bookingDetail,
     isLoading: isDetailLoading,
-  } = useBookingRetrieve(viewId || checkinId || "", {
-    query: { enabled: !!viewId || !!checkinId },
+  } = useBookingRetrieve<BookingRow>(viewId || checkinId || downloadId || "", {
+    query: { enabled: !!viewId || !!checkinId || !!downloadId },
+  });
+
+  // ✅ Check-in mutation จริง (เหมือนหน้า Dashboard)
+  const { checkinMut, handleCheckin } = useCheckInBooking({
+    onSuccess: async () => {
+      await refetchBookings();
+      setCheckinId(null);
+    },
+    onError: (err) => {
+      // console.error("❌ Check-in failed:", err);
+      // alert("Check-in failed. Please try again.");
+    },
   });
 
   const rows: BookingRow[] = useMemo(() => {
@@ -108,59 +129,80 @@ export default function ManagerLogPage() {
       : [];
   }, [data]);
 
-  // 🧩 Filter + Sort logic
-  const filtered = useMemo(() => {
-    let list = [...rows];
-    if (filterStatus !== "all") {
-      list = list.filter(
-        (b) => b.booking_status.toLowerCase() === filterStatus.toLowerCase()
-      );
-    }
-    return list.sort((a, b) => {
-      const keyA =
-        sortBy === "booking"
-          ? new Date(a.booking_date).getTime()
-          : new Date(a.created_date).getTime();
-      const keyB =
-        sortBy === "booking"
-          ? new Date(b.booking_date).getTime()
-          : new Date(b.created_date).getTime();
-      return sortDesc ? keyB - keyA : keyA - keyB;
-    });
-  }, [rows, filterStatus, sortBy, sortDesc]);
+  // --- NEW ---
+function normalizeStatus(raw?: string) {
+  const s = (raw || "").toLowerCase();
+
+  if (["endgame", "end_game"].includes(s)) return "end_game";
+  if (["no_show", "no-show"].includes(s)) return "no_show";
+  if (["cancelled"].includes(s)) return "cancelled";
+
+  // upcoming group
+  if (["confirmed", "booked", "upcoming"].includes(s)) return "upcoming";
+
+  return "unknown";
+}
+
+// --- Replace your filtered useMemo ---
+const filtered = useMemo(() => {
+  let list = [...rows];
+
+  if (filterStatus !== "all") {
+    list = list.filter(
+      (b) => normalizeStatus(b.booking_status) === filterStatus
+    );
+  }
+
+  return list.sort((a, b) => {
+    const keyA =
+      sortBy === "booking"
+        ? new Date(a.booking_date).getTime()
+        : new Date(a.created_date).getTime();
+    const keyB =
+      sortBy === "booking"
+        ? new Date(b.booking_date).getTime()
+        : new Date(b.created_date).getTime();
+    return sortDesc ? keyB - keyA : keyA - keyB;
+  });
+}, [rows, filterStatus, sortBy, sortDesc]);
+
+
+  const canDownloadPDF = (b: BookingRow) => {
+    return (
+      b.able_to_cancel === false &&
+      (b.booking_status || "").toLowerCase() !== "cancelled"
+    );
+  };
 
   /* ========================= Handlers ========================= */
   const onView = (b: BookingRow) => {
     // เปิด receipt modal → trigger GET /api/booking/{id}
-    setCheckinId(null); // กันไม่ให้ชนกัน
+    setCheckinId(null);
+    setDownloadId(null);
     setViewId(b.booking_id);
     setOpenView(true);
   };
 
   const onDownload = (b: BookingRow) => {
-    // ตอนนี้ยังใช้ row เดิมไปออก pdf ได้อยู่
-    if (!me) return;
-    generateBookingInvoicePDF(b, me as UserProfile);
+    // pattern เหมือน PlayerHistoryPage: รอให้ detail โหลดแล้วค่อย gen PDF
+    if (!canDownloadPDF(b)) return;
+    setViewId(null);
+    setCheckinId(null);
+    setDownloadId(b.booking_id);
+    setIsDownloading(true);
   };
 
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
 
   const onCheckInClick = (b: BookingRow) => {
-    // เปิด CheckInModal → trigger GET /api/booking/{id}
-    setViewId(null); // ensure มีแค่ modal เดียว
+    setViewId(null);
+    setDownloadId(null);
     setCheckinId(b.booking_id);
   };
 
-  const handleConfirmCheckIn = async () => {
-    if (!bookingDetail) return;
-    try {
-      setIsCheckinPending(true);
-      // TODO: ผูกกับ check-in mutation จริง เช่น useCheckInBooking(bookingDetail.booking_id)
-      alert(`✅ Checked in booking successfully!`);
-      setCheckinId(null);
-    } finally {
-      setIsCheckinPending(false);
-    }
+  const handleConfirmCheckIn = () => {
+    if (!checkinId) return;
+    handleCheckin(checkinId);
   };
 
   const today = formatDate(new Date().toISOString(), {
@@ -170,18 +212,47 @@ export default function ManagerLogPage() {
     year: "numeric",
   });
 
-  // modal state จาก detail
-    const checkinBooking =
-      checkinId && !isDetailLoading && bookingDetail != null
-        ? (bookingDetail as BookingRow)
-        : null;
-    const viewBooking =
-      viewId && !isDetailLoading && bookingDetail != null
-        ? (bookingDetail as BookingRow)
-        : null;
+  // modal state จาก detail (แยกตาม id ที่ active)
+  const checkinBooking =
+    checkinId && !isDetailLoading && bookingDetail != null
+      ? (bookingDetail as BookingRow)
+      : null;
+  const viewBooking =
+    viewId && !isDetailLoading && bookingDetail != null
+      ? (bookingDetail as BookingRow)
+      : null;
 
   const isCheckinOpen = !!checkinId && !!checkinBooking;
   const isViewLoading = isDetailLoading && !!viewId;
+
+  /* ====================== Effect: handle PDF download ====================== */
+  useEffect(() => {
+    if (!isDownloading) return;
+    if (!downloadId) return;
+    if (!bookingDetail || isDetailLoading) return;
+
+    const raw = bookingDetail as any;
+
+    // 🎯 สร้าง UserProfile ของ "player" จาก owner_* ใน booking detail
+    const playerProfile: UserProfile = {
+      // ใส่ให้ครบ ๆ แล้ว cast เลย กัน TS ดุ (ค่าบางอันใส่ default ไป)
+      id: raw.owner_id ?? 0,
+      username: raw.owner_username ?? "",
+      email: raw.owner_contact ?? "",
+      // เผื่อใน type มีชื่ออื่น ๆ
+      first_name: raw.owner_first_name ?? raw.owner_username ?? "",
+      last_name: raw.owner_last_name ?? "",
+      avatar_url: raw.owner_avatar_url ?? null,
+      role: "player",
+      balance: 0,
+      last_login: "",
+    } as unknown as UserProfile;
+
+    generateBookingInvoicePDF(bookingDetail, playerProfile);
+
+    setIsDownloading(false);
+    setDownloadId(null);
+  }, [isDownloading, downloadId, bookingDetail, isDetailLoading]);
 
   return (
     <div className="mx-auto my-auto">
@@ -217,7 +288,7 @@ export default function ManagerLogPage() {
               className="rounded-xl border border-neutral-300 bg-white px-3 py-2 mr-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
             >
               <option value="all">All</option>
-              <option value="confirmed">Upcoming</option>
+              <option value="upcoming">Upcoming</option>
               <option value="cancelled">Cancelled</option>
               <option value="end_game">End Game</option>
               <option value="no_show">No-show</option>
@@ -301,6 +372,8 @@ export default function ManagerLogPage() {
                   bookingStatus === "booked";
 
                 const isPrimaryAsCheckIn = isUpcoming;
+                const isRowDownloading =
+                  isDownloading && downloadId === b.booking_id;
 
                 return (
                   <tr
@@ -331,8 +404,7 @@ export default function ManagerLogPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="inline-flex flex-wrap justify-center gap-2">
-                        {/* 🔹 Primary: Upcoming => Check in (→ fetch detail & open CheckInModal)
-                            อื่น ๆ => View details (→ fetch detail & open ReceiptModal) */}
+                        {/* Primary button: Upcoming => Check In, อื่น ๆ => View details */}
                         <button
                           onClick={() =>
                             isPrimaryAsCheckIn
@@ -357,14 +429,21 @@ export default function ManagerLogPage() {
 
                         <button
                           onClick={() => onDownload(b)}
-                          disabled={isMeLoading || !me}
+                          disabled={!canDownloadPDF(b) || isRowDownloading}
                           className={`rounded-lg border px-4 py-2 ${
-                            !me || isMeLoading
+                            !canDownloadPDF(b) || isRowDownloading
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                               : "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
                           }`}
                         >
-                          {isMeLoading ? "Loading..." : "Download"}
+                          {isRowDownloading ? (
+                            <span className="inline-flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Generating…
+                            </span>
+                          ) : (
+                            "Download"
+                          )}
                         </button>
 
                         <button
@@ -408,7 +487,7 @@ export default function ManagerLogPage() {
         onClose={() => setConfirmModal(null)}
       />
 
-      {/* Booking Detail Modal — ใช้ detail จาก GET /api/booking/{id} */}
+      {/* Booking Detail Modal */}
       <BookingReceiptModal
         open={openView}
         onClose={() => {
@@ -419,11 +498,11 @@ export default function ManagerLogPage() {
         isLoading={isViewLoading}
       />
 
-      {/* Check-in Modal — ใช้ detail จาก GET /api/booking/{id} */}
+      {/* Check-in Modal — ใช้ detail จาก GET /api/booking/{id} + check-in endpoint จริง */}
       <CheckInModal
         open={isCheckinOpen}
         booking={checkinBooking}
-        isPending={isCheckinPending}
+        isPending={checkinMut.isPending || isDetailLoading}
         onConfirm={handleConfirmCheckIn}
         onClose={() => setCheckinId(null)}
       />

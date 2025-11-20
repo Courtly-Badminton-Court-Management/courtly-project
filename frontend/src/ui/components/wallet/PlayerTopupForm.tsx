@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Image from "next/image";
-import Button from "@/ui/components/basic/Button";
 import dynamic from "next/dynamic";
 import { Wallet } from "lucide-react";
 
-const Field = dynamic(() => import("@/ui/components/basic/Field"), { ssr: false });
+const Field = dynamic(() => import("@/ui/components/basic/Field"), {
+  ssr: false,
+});
 
 export type TopupFormValues = {
   amount: number | "";
@@ -31,6 +32,10 @@ export default function PlayerTopupForm({
   onReset,
   loading = false,
 }: TopupFormProps) {
+  
+  /* 🟢 ป้องกันบัค upload slip ซ้ำ */
+  const fileInputKey = useMemo(() => Math.random(), [values.slip]);
+
   const canSubmit =
     !!values.amount &&
     Number(values.amount) >= 100 &&
@@ -39,7 +44,13 @@ export default function PlayerTopupForm({
     !!values.slip;
 
   return (
-    <aside className="rounded-2xl border border-platinum bg-white p-6 shadow-sm transition hover:shadow-md">
+    <aside
+      className="
+        h-full flex flex-col 
+        rounded-2xl border border-platinum bg-white 
+        p-6 shadow-sm transition hover:shadow-md
+      "
+    >
       {/* Header */}
       <div className="mb-5 border-b-4 border-pine/80 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -57,19 +68,22 @@ export default function PlayerTopupForm({
 
       {/* Form Section */}
       <div className="grid gap-5 md:grid-cols-2">
-        {/* Amount */}
-        <Field
-          label="Payment amount (THB)"
-          type="number"
-          min={100}
-          placeholder="Minimum 100"
-          value={values.amount}
-          onChange={(e) =>
-            onChange({
-              amount: e.target.value === "" ? "" : Number(e.target.value),
-            })
-          }
-        />
+
+        {/* Amount — full width */}
+        <div className="md:col-span-2">
+          <Field
+            label="Payment amount (THB)"
+            type="number"
+            min={100}
+            placeholder="Minimum 100"
+            value={values.amount}
+            onChange={(e) =>
+              onChange({
+                amount: e.target.value === "" ? "" : Number(e.target.value),
+              })
+            }
+          />
+        </div>
 
         {/* Date */}
         <Field
@@ -96,9 +110,9 @@ export default function PlayerTopupForm({
           <div className="relative">
             {/* Hidden file input */}
             <input
+              key={fileInputKey}
               type="file"
               accept="image/*"
-              id="slipUpload"
               className="absolute inset-0 z-10 cursor-pointer opacity-0"
               onChange={(e) => {
                 const file = e.target.files?.[0] ?? null;
@@ -108,7 +122,11 @@ export default function PlayerTopupForm({
 
             {/* Visible box */}
             <div
-              className={`flex items-center justify-between w-full rounded-xl border border-platinum px-3 py-2.5 shadow-sm hover:border-pine/60 transition`}
+              className="
+                flex items-center justify-between w-full 
+                rounded-xl border border-platinum px-3 py-2.5 
+                shadow-sm hover:border-pine/60 transition
+              "
             >
               <span className="text-sm font-medium text-onyx truncate">
                 {values.slip ? values.slip.name : "Choose payment slip file"}
@@ -116,13 +134,17 @@ export default function PlayerTopupForm({
 
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 flex-shrink-0 text-pine/80"
+                className="h-5 w-5 text-pine/80"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth="2"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
             </div>
           </div>
@@ -133,7 +155,7 @@ export default function PlayerTopupForm({
 
           {values.slip && (
             <div className="mt-3 flex items-center gap-3">
-              <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-platinum bg-neutral-50">
+              <div className="relative h-20 w-20 rounded-xl border border-platinum overflow-hidden bg-neutral-50">
                 <Image
                   src={URL.createObjectURL(values.slip)}
                   alt="Slip Preview"
@@ -150,21 +172,39 @@ export default function PlayerTopupForm({
       </div>
 
       {/* Buttons */}
-      <div className="mt-6 flex gap-2">
-        <Button
-          label={loading ? "Submitting..." : "Submit Request"}
-          disabled={!canSubmit || loading}
+      <div className="mt-6 flex flex-col sm:flex-row gap-2">
+
+        {/* Submit */}
+        <button
+          type="button"
           onClick={onSubmit}
-          bgColor="bg-pine hover:bg-sea"
-          textColor="text-white"
-        />
-        <Button
-          label="Reset"
-          bgColor="bg-neutral-200"
-          textColor="text-neutral-800"
+          disabled={!canSubmit || loading}
+          className="
+            rounded-xl px-4 py-2.5 text-sm font-semibold text-white
+            bg-pine hover:bg-cambridge
+            disabled:bg-platinum disabled:text-white
+            transition-colors
+            scale-100 hover:scale-[1.02] active:scale-95 duration-150
+          "
+        >
+          {loading ? "Submitting..." : "Submit Request"}
+        </button>
+
+        {/* Reset */}
+        <button
+          type="button"
           onClick={onReset}
           disabled={loading}
-        />
+          className="
+            rounded-xl px-4 py-2.5 text-sm font-semibold
+            text-white bg-dimgray hover:bg-[#c8c8c8]
+            disabled:bg-[#e0e0e0] disabled:text-[#777]
+            transition-colors
+          "
+        >
+          Reset
+        </button>
+
       </div>
     </aside>
   );

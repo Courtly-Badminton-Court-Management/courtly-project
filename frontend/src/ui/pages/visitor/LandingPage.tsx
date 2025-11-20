@@ -4,29 +4,43 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
+
 import BrandMark from "@/ui/components/basic/BrandMark";
 import Button from "@/ui/components/basic/Button";
 import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
+import GetToKnowUs from "@/ui/components/aboutus/GetToKnowUs";
+import OurServices from "@/ui/components/aboutus/OurServices";
+import WhyChooseUs from "@/ui/components/aboutus/WhyChooseUs";
+import ServiceCost from "@/ui/components/aboutus/ServiceCost";
 import CourtLocation from "@/ui/components/aboutus/CourtLocation";
 
-export default function LandingPage() {
-  const [today, setToday] = useState<string>("");
+import { useAvailableSlots } from "@/api-client/extras/slots";
 
+export default function LandingPage() {
+  const [today, setToday] = useState("");
+  const [currentMonth, setCurrentMonth] = useState(dayjs().format("YYYY-MM"));
+
+  /* Load today once */
   useEffect(() => {
     setToday(dayjs().format("YYYY-MM-DD"));
   }, []);
 
+  /* === NEW: Call /api/available-slots just like homepage === */
+  const {
+    data: availableData,
+    isLoading: isAvailLoading,
+    isError: isAvailError,
+  } = useAvailableSlots(currentMonth);
+
   return (
     <div className="relative min-h-dvh overflow-hidden text-onyx">
-      {/* ===== BG: สนามแบดจริง ===== */}
+      {/* Background */}
       <div
         className="absolute inset-0 -translate-y-[60px] z-[0] bg-[url('/brand/court.png')] bg-cover bg-center brightness-105"
         aria-hidden
       />
-      {/* ===== OVERLAY ===== */}
-      <div className="absolute inset-0 z-[0] bg-gradient-to-b from-white/100 via-white/85 to-white/50" />
+      <div className="absolute inset-0 z-[0] bg-gradient-to-b from-white/90 via-white/85 to-white/30" />
 
-      {/* ===== MAIN CONTENT ===== */}
       <div className="relative z-[2]">
         {/* NAVBAR */}
         <motion.nav
@@ -58,7 +72,7 @@ export default function LandingPage() {
             </motion.div>
           </div>
 
-          {/* Mobile menu buttons */}
+          {/* Mobile */}
           <div className="flex sm:hidden items-center gap-2">
             <Link href="/login">
               <Button
@@ -76,8 +90,8 @@ export default function LandingPage() {
         </motion.nav>
 
         {/* HERO */}
-        <header className="relative mx-auto max-w-6xl px-4 sm:px-6 py-10 sm:py-14 grid grid-cols-1 md:grid-cols-2 items-center gap-8 sm:gap-10">
-          {/* LEFT TEXT SECTION */}
+        <header className="relative mx-auto max-w-6xl px-4 sm:px-6 py-10 sm:py-14 grid grid-cols-1 md:grid-cols-2 items-top gap-8 sm:gap-10">
+          {/* LEFT TEXT */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -97,7 +111,6 @@ export default function LandingPage() {
               Designed for both players and managers.
             </p>
 
-            {/* Buttons */}
             <motion.div
               className="mt-6 sm:mt-8 flex flex-wrap justify-center md:justify-start gap-3"
               initial="hidden"
@@ -109,7 +122,10 @@ export default function LandingPage() {
             >
               <motion.a
                 href="/login"
-                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                variants={{
+                  hidden: { opacity: 0, y: 10 },
+                  visible: { opacity: 1, y: 0 },
+                }}
                 whileHover={{ scale: 1.07 }}
                 whileTap={{ scale: 0.96 }}
               >
@@ -123,7 +139,10 @@ export default function LandingPage() {
               </motion.a>
 
               <motion.div
-                variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+                variants={{
+                  hidden: { opacity: 0, y: 10 },
+                  visible: { opacity: 1, y: 0 },
+                }}
                 whileHover={{ scale: 1.07 }}
                 whileTap={{ scale: 0.96 }}
               >
@@ -146,11 +165,16 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="rounded-2xl bg-white/90 border border-platinum shadow-lg backdrop-blur-md p-4 sm:p-5 
-              h-[80dvh] sm:h-[420px] overflow-hidden"
+            className=""
           >
             {today ? (
-              <AvailableSlotPanel selectedDate={today} mode="landing" />
+              <AvailableSlotPanel
+                selectedDate={today}
+                data={availableData}
+                isLoading={isAvailLoading}
+                isError={isAvailError}
+                mode="landing"
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-walnut text-sm">
                 Loading availability...
@@ -190,29 +214,44 @@ export default function LandingPage() {
               className="rounded-2xl border border-platinum bg-white p-5 sm:p-6 text-center shadow-soft backdrop-blur-sm"
             >
               <div className="text-3xl mb-2">{item.icon}</div>
-              <h4 className="text-base sm:text-lg font-semibold">{item.title}</h4>
+              <h4 className="text-base sm:text-lg font-semibold">
+                {item.title}
+              </h4>
               <p className="text-xs sm:text-sm text-walnut mt-1">{item.desc}</p>
             </motion.div>
           ))}
-
         </section>
-
 
         {/* FOOTER */}
         <footer className="relative border-t border-platinum/70 bg-gradient-to-r from-white via-[#F9FAF9] to-white shadow-inner">
-        <div className="px-10 py-5">
-              <CourtLocation />
-            </div>
+              
+              <div className="mt-10 md:mt-14 pb-10 px-30">
+              <GetToKnowUs />
+              </div>
+        
+              <div className="mt-10 md:mt-14 pb-10 px-30">
+                <OurServices />
+              </div>
+        
+              <div className="mt-10 md:mt-14 pb-10 px-30">
+                <WhyChooseUs />
+              </div>
+        
+              <div className="mt-10 md:mt-14 pb-10 px-30">
+                <ServiceCost />
+              </div>
+        
+              <div className="mt-10 md:mt-14 pb-10 px-30">
+                <CourtLocation />
+              </div>
+
+        
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 pt-3 flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm text-walnut gap-3">
             <div className="flex items-center gap-2">
               <BrandMark />
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-pine">
-              <Link href="/about-us" className="font-semibold text-decoration-line: underline hover:text-cambridge transition-colors">
-                About Us
-              </Link>
-            </div>
+
 
             <span className="text-neutral-500 text-xs sm:text-sm">
               © {new Date().getFullYear()} Courtly • Easy Court, Easy Life

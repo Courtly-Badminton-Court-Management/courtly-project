@@ -21,7 +21,11 @@ import {
   buildPlaceholderGrid,
 } from "@/lib/slot/buildDayGridFromMonthView";
 import { groupSelectionsWithPrice } from "@/lib/slot/groupSelections";
-import type { Col, ManagerSelectedSlot, GridCell } from "@/lib/slot/slotGridModel";
+import type {
+  Col,
+  ManagerSelectedSlot,
+  GridCell,
+} from "@/lib/slot/slotGridModel";
 
 const SlotGridManager = dynamic(
   () => import("@/ui/components/controlpage/SlotGridManager"),
@@ -69,7 +73,9 @@ function dateFromYmd(ymd: string) {
 function readStatus(cell: GridCell): string {
   return String((cell as any)?.status ?? "").trim().toLowerCase();
 }
-function normalizeForManager(statusRaw: string): "available" | "maintenance" | string {
+function normalizeForManager(
+  statusRaw: string
+): "available" | "maintenance" | string {
   const status = (statusRaw || "").toLowerCase();
   if (status === "available") return "available";
   if (status === "maintenance") return "maintenance";
@@ -84,13 +90,18 @@ const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
 export default function ManagerControlPage() {
   const today = useMemo(() => startOfDay(new Date()), []);
   const minDate = today;
-  const maxDate = useMemo(() => startOfDay(addMonths(today, 1)), [today]);
+  const maxDate = useMemo(
+    () => startOfDay(addMonths(today, 1)),
+    [today]
+  );
 
   const [ymd, setYmd] = useState<string>(() => ymdFromDate(today));
   const CURRENT_MONTH = useMemo(() => ymd.slice(0, 7), [ymd]);
 
   const [selected, setSelected] = useState<ManagerSelectedSlot[]>([]);
-  const [selectionMode, setSelectionMode] = useState<"available" | "maintenance" | null>(null);
+  const [selectionMode, setSelectionMode] = useState<
+    "available" | "maintenance" | null
+  >(null);
 
   const [openSummary, setOpenSummary] = useState(false);
   const [openConfirm, setOpenConfirm] = useState(false);
@@ -102,10 +113,12 @@ export default function ManagerControlPage() {
   // ======= Hooks =======
   const mv = useMonthView(CURRENT_MONTH);
   const updateStatusMut = useUpdateSlotStatus();
-  const bookingAdminMut = useBookingCreateWithBody(CURRENT_MONTH);
   const bookingMut = useBookingCreateWithBody(CURRENT_MONTH);
 
-  const base = useMemo(() => buildDayGridFromMonthView(mv.data, ymd), [mv.data, ymd]);
+  const base = useMemo(
+    () => buildDayGridFromMonthView(mv.data, ymd),
+    [mv.data, ymd]
+  );
   const { cols, grid, priceGrid, courtNames, minutesPerCell } = useMemo(() => {
     if (mv.isLoading || !base.cols.length || !base.grid.length) {
       return buildPlaceholderGrid();
@@ -130,7 +143,9 @@ export default function ManagerControlPage() {
 
   // ======= Toggle Select =======
   function toggleSelect(courtRow: number, colIdx: number, slotId?: string) {
-    const status = normalizeForManager(readStatus(grid[courtRow - 1][colIdx]));
+    const status = normalizeForManager(
+      readStatus(grid[courtRow - 1][colIdx])
+    );
 
     if (!selectionMode) {
       setSelectionMode(status as "available" | "maintenance");
@@ -143,10 +158,14 @@ export default function ManagerControlPage() {
     }
 
     const key = `${courtRow}-${colIdx}-${slotId}`;
-    const exists = selected.some((s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` === key);
+    const exists = selected.some(
+      (s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` === key
+    );
     setSelected((prev) =>
       exists
-        ? prev.filter((s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` !== key)
+        ? prev.filter(
+            (s) => `${s.courtRow}-${s.colIdx}-${s.slotId}` !== key
+          )
         : [...prev, { courtRow, colIdx, slotId: slotId ?? "" }]
     );
   }
@@ -156,112 +175,110 @@ export default function ManagerControlPage() {
   }
 
   // ======= Maintenance Toggle =======
-async function handleSetMaintenance() {
-  if (!selected.length) {
-    alert("Please select at least one slot.");
-    return;
+  async function handleSetMaintenance() {
+    if (!selected.length) {
+      alert("Please select at least one slot.");
+      return;
+    }
+
+    // รวม slotIds ทั้งหมดที่เลือก
+    const slotIds = selected
+      .map((s) => s.slotId)
+      .filter((id): id is string => Boolean(id));
+
+    if (!slotIds.length) {
+      alert("Cannot find any valid slot IDs. Please try selecting again.");
+      return;
+    }
+
+    const newStatus: "available" | "maintenance" =
+      selectionMode === "maintenance" ? "available" : "maintenance";
+
+    setIsBatchLoading(true);
+
+    try {
+      // 🔥 ยิงทีเดียวด้วย list ทั้งหมด
+      await updateStatusMut.mutateAsync({
+        slotIds,
+        status: newStatus,
+        month: CURRENT_MONTH,
+      });
+    } catch (error) {
+      // console.error("❌ Update slot failed:", error);
+      // alert("Some slots failed to update. Please check the console.");
+    } finally {
+      setIsBatchLoading(false);
+      setSelected([]);
+      setSelectionMode(null);
+    }
   }
-
-  // รวม slotIds ทั้งหมดที่เลือก
-  const slotIds = selected
-    .map((s) => s.slotId)
-    .filter((id): id is string => Boolean(id));
-
-  if (!slotIds.length) {
-    alert("Cannot find any valid slot IDs. Please try selecting again.");
-    return;
-  }
-
-  const newStatus: "available" | "maintenance" =
-    selectionMode === "maintenance" ? "available" : "maintenance";
-
-  setIsBatchLoading(true);
-
-  try {
-    // 🔥 ยิงทีเดียวด้วย list ทั้งหมด
-    await updateStatusMut.mutateAsync({
-      slotIds,
-      status: newStatus,
-      month: CURRENT_MONTH,
-    });
-  } catch (error) {
-    console.error("❌ Update slot failed:", error);
-    alert("Some slots failed to update. Please check the console.");
-  } finally {
-    setIsBatchLoading(false);
-    setSelected([]);
-    setSelectionMode(null);
-  }
-}
-
 
   // ======= Walk-in =======
   async function handleConfirm(customer: {
-  name: string;
-  paymentMethod: string;
-  contactMethod: string;
-  contactDetail?: string;
-}) {
-  if (!selected.length) {
-    alert("Please select at least one slot.");
-    return;
-  }
-
-  const slotIds = selected
-    .map((s) => s.slotId)
-    .filter((id): id is string => Boolean(id));
-
-  if (!slotIds.length) {
-    alert("Cannot find any valid slot IDs. Please try selecting again.");
-    return;
-  }
-
-  setIsBatchLoading(true);
-
-  try {
-    const payload: CreateBookingPayload = {
-      club: CLUB_ID,
-      booking_method: customer.contactMethod,
-      owner_username: customer.name,
-      owner_contact:customer.contactDetail || "walk-in (no contact)",
-      payment_method: customer.paymentMethod,
-      slots: slotIds,
-    };
-
-    const res = await bookingMut.mutateAsync(payload);
-
-    if (res && (res as any).booking_id) {
-      setBookingNos([(res as any).booking_id]);
-    } else {
-      setBookingNos([]);
+    name: string;
+    paymentMethod: string;
+    contactMethod: string;
+    contactDetail?: string;
+  }) {
+    if (!selected.length) {
+      alert("Please select at least one slot.");
+      return;
     }
 
-    setOpenSummary(false);
-    setOpenConfirm(true);
-    setSelected([]);
-    setSelectionMode(null);
-  } catch (e: any) {
-    console.error("❌ Walk-in booking failed:", e);
-    const status = e?.response?.status;
-    let msg = "";
-    if (status === 409) {
-      msg =
-        "This slot has just been taken. Please choose another available time.";
-    } else if (e?.response?.data?.detail) {
-      msg = e.response.data.detail;
-    } else {
-      msg = e?.message || "Walk-in booking failed. Please try again.";
+    const slotIds = selected
+      .map((s) => s.slotId)
+      .filter((id): id is string => Boolean(id));
+
+    if (!slotIds.length) {
+      alert("Cannot find any valid slot IDs. Please try selecting again.");
+      return;
     }
-    setErrorMessage(msg);
-    setErrorModal(true);
-    setOpenSummary(false);
-  } finally {
-    setIsBatchLoading(false);
+
+    setIsBatchLoading(true);
+
+    try {
+      const payload: CreateBookingPayload = {
+        club: CLUB_ID,
+        booking_method: customer.contactMethod,
+        owner_username: customer.name,
+        owner_contact: customer.contactDetail || "walk-in (no contact)",
+        payment_method: customer.paymentMethod,
+        slots: slotIds,
+      };
+
+      const res = await bookingMut.mutateAsync(payload);
+
+      if (res && (res as any).booking_id) {
+        setBookingNos([(res as any).booking_id]);
+      } else {
+        setBookingNos([]);
+      }
+
+      setOpenSummary(false);
+      setOpenConfirm(true);
+      setSelected([]);
+      setSelectionMode(null);
+    } catch (e: any) {
+      // console.error("❌ Walk-in booking failed:", e);
+      const status = e?.response?.status;
+      let msg = "";
+      if (status === 409) {
+        msg =
+          "This slot has just been taken. Please choose another available time.";
+      } else if (e?.response?.data?.detail) {
+        msg = e.response.data.detail;
+      } else {
+        msg = e?.message || "Walk-in booking failed. Please try again.";
+      }
+      setErrorMessage(msg);
+      setErrorModal(true);
+      setOpenSummary(false);
+    } finally {
+      setIsBatchLoading(false);
+    }
   }
-}
 
-
-  // ======= Date shift =======
+  // ======= Date shift (ถ้าจะเอาไปใช้ที่อื่นต่อได้) =======
   function shiftDay(delta: number) {
     const next = dateFromYmd(ymd);
     next.setDate(next.getDate() + delta);
@@ -286,8 +303,12 @@ async function handleSetMaintenance() {
       {/* ===== Header ===== */}
       <div className="mb-4">
         <div className="flex items-end">
-          <h1 className="text-2xl font-bold tracking-tight text-pine">Manage Court Slots</h1>
-          <p className="text-l pl-2 font-bold tracking-tight text-pine/80">(30 Minutes/Slot)</p>
+          <h1 className="text-2xl font-bold tracking-tight text-pine">
+            Manage Court Slots
+          </h1>
+          <p className="text-l pl-2 font-bold tracking-tight text-pine/80">
+            (30 Minutes/Slot)
+          </p>
         </div>
         <p className="text-s font-semibold tracking-tight text-dimgray">
           You can mark slots as maintenance or create walk-in bookings.
@@ -298,7 +319,13 @@ async function handleSetMaintenance() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <DateNavigator
           value={dateFromYmd(ymd)}
-          onChange={(d) => setYmd(ymdFromDate(clamp(startOfDay(d), minDate, maxDate)))}
+          onChange={(d) =>
+            setYmd(
+              ymdFromDate(
+                clamp(startOfDay(d), minDate, maxDate)
+              )
+            )
+          }
           minDate={minDate}
           maxDate={maxDate}
         />
@@ -307,11 +334,15 @@ async function handleSetMaintenance() {
           <button
             onClick={handleSetMaintenance}
             className={`rounded-xl text-white px-4 py-2 text-sm font-semibold transition-all ${
-              selected ? "bg-maintenance hover:bg-gray-600" : "bg-gray-100"
+              selCount
+                ? "bg-maintenance hover:bg-gray-600"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
             disabled={!selected.length || isLoading}
           >
-            {selectionMode === "maintenance" ? "Set as Available" : "Set as Maintenance"}
+            {selectionMode === "maintenance"
+              ? "Set as Available"
+              : "Set as Maintenance"}
           </button>
 
           <button
@@ -323,7 +354,9 @@ async function handleSetMaintenance() {
                 : "bg-neutral-200 text-neutral-500 cursor-not-allowed"
             }`}
           >
-            {selCount ? `Book Walk-in (${selCount} selected)` : "Select Slot!"}
+            {selCount
+              ? `Book Walk-in (${selCount} selected)`
+              : "Select Slot!"}
           </button>
         </div>
       </div>

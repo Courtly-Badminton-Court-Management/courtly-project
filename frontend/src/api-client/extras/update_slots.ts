@@ -7,6 +7,7 @@ import { monthViewKey } from "./slots";
 import {
   getBookingsRetrieveQueryKey,
 } from "@/api-client/endpoints/bookings/bookings";
+import dayjs from "dayjs";
 
 /* =========================================================================
    Types
@@ -30,6 +31,8 @@ type UpdateSlotStatusApiPayload = {
 
 export function useUpdateSlotStatus() {
   const qc = useQueryClient();
+  const CURRENT_MONTH = dayjs().format("YYYY-MM");
+  const NEXT_MONTH = dayjs().add(1, 'month').format("YYYY-MM");
 
   return useMutation({
     mutationKey: ["updateSlotStatus"],
@@ -41,7 +44,7 @@ export function useUpdateSlotStatus() {
       };
 
       const res = await customRequest({
-        url: "/api/slots/status",
+        url: "/api/slots/status/",
         method: "POST",
         data: payload,
       });
@@ -49,10 +52,9 @@ export function useUpdateSlotStatus() {
       return (res as any)?.data ?? res;
     },
 
-    onSuccess: (_data, variables) => {
-      if (variables.month) {
-        qc.invalidateQueries({ queryKey: monthViewKey(variables.month) });
-      }
+    onSuccess: (_data) => {
+      qc.invalidateQueries({queryKey: monthViewKey(CURRENT_MONTH)}),
+      qc.invalidateQueries({queryKey: monthViewKey(NEXT_MONTH)}), 
       qc.invalidateQueries({ queryKey: getBookingsRetrieveQueryKey() });
     },
   });

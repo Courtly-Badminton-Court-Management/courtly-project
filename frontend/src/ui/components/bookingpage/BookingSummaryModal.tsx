@@ -60,7 +60,7 @@ export default function BookingSummaryModal({
     try {
       await onConfirm();
     } catch (err) {
-      console.error(err);
+      // console.error(err);
     } finally {
       setJustSubmitted(false);
     }
