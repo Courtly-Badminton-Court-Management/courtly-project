@@ -27,8 +27,17 @@ class WalletBalanceView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        total = (CoinLedger.objects.filter(user=request.user).aggregate(s=Sum("amount"))["s"]) or 0
-        return Response({"balance": int(total)})
+        """
+        Return REAL wallet balance using CoinLedger as the source of truth.
+        (Wallet.balance is ignored to prevent mismatch issues)
+        """
+        ledger_sum = (
+            CoinLedger.objects.filter(user=request.user)
+            .aggregate(s=Sum("amount"))
+            .get("s") or 0
+        )
+
+        return Response({"balance": int(ledger_sum)})
 
 
 class CoinLedgerViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -99,13 +108,16 @@ class TopupRequestViewSet(viewsets.ModelViewSet):
             .first()
         )
         topup = get_object_or_404(TopupRequest, pk=pk) if topup is None else topup
+
         if topup.status != "pending":
             return Response({"detail": "This request was already processed."},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        # 1) Update topup status
         topup.status = "approved"
         topup.save(update_fields=["status"])
 
+        # 2) Create ledger entry
         ledger = CoinLedger.objects.create(
             user=topup.user,
             type="topup",
@@ -113,6 +125,21 @@ class TopupRequestViewSet(viewsets.ModelViewSet):
             ref_booking=None
         )
 
+        # 3) Sync Wallet.balance to match with ledger
+        from django.db.models import Sum
+        from .models import Wallet
+
+        ledger_sum = (
+                CoinLedger.objects.filter(user=topup.user)
+                .aggregate(s=Sum("amount"))
+                .get("s") or 0
+        )
+
+        wallet, _ = Wallet.objects.get_or_create(user=topup.user)
+        wallet.balance = ledger_sum
+        wallet.save(update_fields=["balance"])
+
+        # 4) Return response
         data = TopupRequestListSerializer(topup, context={"request": request}).data
         data["ledger_id"] = ledger.id
         return Response(data, status=status.HTTP_200_OK)
