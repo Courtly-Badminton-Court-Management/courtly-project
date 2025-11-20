@@ -89,8 +89,8 @@ export default function AvailableSlotPanel({
         ) : (
           <div className="scrollbar-thin max-h-[60vh] overflow-y-auto w-full p-4">
             {groupedSlots.map((group, i) => (
-              <div key={group.label} className="pb-5">
-                <p className="mb-2 text-sm font-medium text-neutral-500">
+              <div key={group.label} className="pb-1">
+                <p className="text-sm font-medium text-neutral-500">
                   {group.label}
                 </p>
                 <div className="flex flex-wrap gap-2">
