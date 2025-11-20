@@ -35,11 +35,10 @@ def booking_detail_view(request, booking_no: str):
     )
     tz = timezone.get_current_timezone()
 
-    # Build booking_slots dict keyed by slot_id
     booking_slots = {}
     for s in slots:
         slot = s.slot
-        status_val = getattr(getattr(slot, "slot_status", None), "status", "available")
+        status_val = getattr(slot.slot_status, "status", "available") if slot.slot_status else "available"
         booking_slots[str(slot.id)] = {
             "slot_status": status_val,
             "service_date": slot.service_date.strftime("%Y-%m-%d"),
@@ -50,6 +49,12 @@ def booking_detail_view(request, booking_no: str):
             "price_coin": slot.price_coins,
             "booking_id": b.booking_no
         }
+
+    # ⭐ FIX: คำนวณ able_to_cancel แบบเดียวกับ endpoints อื่น
+    first_slot = slots.first()
+    able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+    if b.status == "cancelled":
+        able_to_cancel = False
 
     created_local = timezone.localtime(b.created_at, tz)
     payload = {
@@ -63,150 +68,68 @@ def booking_detail_view(request, booking_no: str):
         "payment_method": getattr(b, "payment_method", "coin"),
         "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
         "booking_status": b.status,
-        "able_to_cancel": False,
+        "able_to_cancel": able_to_cancel,
+        "booking_slots": booking_slots,
+    }
+    return Response(payload, status=200)
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def booking_detail_view(request, booking_no: str):
+    try:
+        b = Booking.objects.select_related("user").get(booking_no=booking_no)
+    except Booking.DoesNotExist:
+        return Response({"detail": "Not found"}, status=404)
+
+    user_role = getattr(request.user, "role", None)
+    if b.user != request.user and user_role not in ["manager", "admin"]:
+        return Response({"detail": "Forbidden"}, status=403)
+
+    slots = (
+        BookingSlot.objects.filter(booking=b)
+        .select_related("slot", "slot__court", "slot__slot_status")
+        .order_by("slot__start_at")
+    )
+    tz = timezone.get_current_timezone()
+
+    booking_slots = {}
+    for s in slots:
+        slot = s.slot
+        status_val = getattr(slot.slot_status, "status", "available") if slot.slot_status else "available"
+        booking_slots[str(slot.id)] = {
+            "slot_status": status_val,
+            "service_date": slot.service_date.strftime("%Y-%m-%d"),
+            "start_time": timezone.localtime(slot.start_at, tz).strftime("%H:%M"),
+            "end_time": timezone.localtime(slot.end_at, tz).strftime("%H:%M"),
+            "court": slot.court_id,
+            "court_name": slot.court.name,
+            "price_coin": slot.price_coins,
+            "booking_id": b.booking_no
+        }
+
+    # ⭐ FIX: คำนวณ able_to_cancel แบบเดียวกับ endpoints อื่น
+    first_slot = slots.first()
+    able_to_cancel = calculate_able_to_cancel(first_slot) if first_slot else False
+    if b.status == "cancelled":
+        able_to_cancel = False
+
+    created_local = timezone.localtime(b.created_at, tz)
+    payload = {
+        "created_date": created_local.strftime("%Y-%m-%d %H:%M"),
+        "booking_id": b.booking_no,
+        "owner_id": b.user_id if b.user_id else None,
+        "owner_username": b.user.username if b.user_id else (b.customer_name or "Unknown"),
+        "booking_method": getattr(b, "booking_method", "Courtly Website"),
+        "owner_contact": getattr(b, "contact_detail", None),
+        "total_cost": b.total_cost or 0,
+        "payment_method": getattr(b, "payment_method", "coin"),
+        "booking_date": b.booking_date.strftime("%Y-%m-%d") if b.booking_date else None,
+        "booking_status": b.status,
+        "able_to_cancel": able_to_cancel,
         "booking_slots": booking_slots,
     }
     return Response(payload, status=200)
 
 
-# # ─────────────────────────────────────────────────────────────────────────────
-# # 6) POST /api/booking/  (Authenticated)
-# #    - Player → wallet capture
-# #    - Manager → skip wallet capture + mark slots as walkin
-# #    - Always create booking with status = upcoming
-# # ─────────────────────────────────────────────────────────────────────────────
-# @api_view(["POST"])
-# @permission_classes([permissions.IsAuthenticated])
-# @transaction.atomic
-# def booking_create_view(request):
-#     ser = BookingCreateSerializer(data=request.data)
-#     ser.is_valid(raise_exception=True)
-#
-#     club_id = ser.validated_data.get("club")
-#     slots_in = ser.validated_data.get("slots", [])
-#     booking_method = ser.validated_data.get("booking_method") or "Courtly Website"
-#     owner_username = ser.validated_data.get("owner_username") or request.user.username
-#     owner_contact = ser.validated_data.get("owner_contact") or request.user.email
-#     payment_method = ser.validated_data.get("payment_method") or "coin"
-#     user_role = getattr(request.user, "role", "player")
-#
-#     if not club_id:
-#         return Response({"detail": "club is required"}, status=400)
-#     if not slots_in or not isinstance(slots_in, list):
-#         return Response({"detail": "slots must be a non-empty list"}, status=400)
-#
-#     # Validate club exists
-#     if not Club.objects.filter(id=club_id).exists():
-#         return Response({"detail": "Club not found"}, status=404)
-#
-#     # Fetch slots
-#     qs = (
-#         Slot.objects
-#         .filter(id__in=slots_in)
-#         .select_related("court", "slot_status")
-#         .order_by("start_at")
-#     )
-#     if not qs.exists():
-#         return Response({"detail": "No valid slots found"}, status=404)
-#
-#     first_slot = qs.first()
-#
-#     # ───────────────────────────────────────────────
-#     # CREATE BOOKING with status = upcoming
-#     # ───────────────────────────────────────────────
-#     booking = Booking.objects.create(
-#         booking_no=gen_booking_no(),
-#         user=request.user,
-#         club_id=club_id,
-#         court_id=first_slot.court_id,
-#         booking_date=first_slot.service_date,
-#         status="upcoming",
-#         booking_method=booking_method,
-#         customer_name=owner_username,
-#         contact_method="Courtly Website",
-#         contact_detail=owner_contact,
-#         payment_method=payment_method,
-#     )
-#
-#     total_cost = 0
-#     created_slot_ids = []
-#
-#     # ───────────────────────────────────────────────
-#     # CREATE BOOKING SLOTS + SET SLOT STATUS
-#     # ───────────────────────────────────────────────
-#     for s in qs:
-#         status_val = getattr(getattr(s, "slot_status", None), "status", "available")
-#         if status_val != "available":
-#             return Response(
-#                 {"detail": f"Slot {s.id} not available", "status": status_val},
-#                 status=409,
-#             )
-#
-#         BookingSlot.objects.create(booking=booking, slot=s)
-#
-#         # 🔥 Player → booked | Manager → walkin
-#         new_status = "walkin" if user_role == "manager" else "booked"
-#
-#         SlotStatus.objects.update_or_create(
-#             slot=s,
-#             defaults={"status": new_status}
-#         )
-#
-#         total_cost += s.price_coins
-#         created_slot_ids.append(s.id)
-#
-#     # ───────────────────────────────────────────────
-#     # PLAYER → DO WALLET CAPTURE
-#     # MANAGER → SKIP WALLET CAPTURE
-#     # ───────────────────────────────────────────────
-#     if user_role != "manager":
-#
-#         # Player must pay
-#         wallet, _ = Wallet.objects.get_or_create(
-#             user=request.user,
-#             defaults={"balance": 0}
-#         )
-#
-#         if wallet.balance < total_cost:
-#             return Response(
-#                 {
-#                     "detail": "Insufficient balance",
-#                     "required": total_cost,
-#                     "balance": wallet.balance
-#                 },
-#                 status=402,
-#             )
-#
-#         # Deduct wallet
-#         wallet.balance -= total_cost
-#         wallet.save(update_fields=["balance"])
-#
-#         # Ledger entry
-#         CoinLedger.objects.create(
-#             user=request.user,
-#             type="capture",
-#             amount=-total_cost,
-#             ref_booking=booking
-#         )
-#
-#     else:
-#         # Manager → force total_cost = 0
-#         total_cost = 0
-#
-#     # Save final total cost
-#     booking.total_cost = total_cost
-#     booking.save(update_fields=["total_cost"])
-#
-#     return Response(
-#         {
-#             "booking_id": booking.booking_no,
-#             "message": "Booking created successfully",
-#             "total_cost": total_cost,
-#             "status": "upcoming",
-#             "slots": created_slot_ids,
-#         },
-#         status=201,
-#     )
 # ─────────────────────────────────────────────────────────────────────────────
 # 6) POST /api/booking/  (Authenticated)
 #    - Player → wallet capture
