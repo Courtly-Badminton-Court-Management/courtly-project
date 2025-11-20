@@ -1,3 +1,4 @@
+// frontend/src/ui/components/wallet/PlayerWalletBalance.tsx
 "use client";
 
 import Image from "next/image";
@@ -5,7 +6,7 @@ import Image from "next/image";
 type WalletBalanceProps = {
   balanceCoins: number;
   userName?: string;
-  avatarUrl?: string;
+  avatarUrl?: string; // จะเป็น key ของไฟล์ใน /public/avatars
   isLoading?: boolean;
 };
 
@@ -15,75 +16,95 @@ export default function PlayerWalletBalance({
   avatarUrl,
   isLoading = false,
 }: WalletBalanceProps) {
+  // 🟢 map key -> path จริงใน /public/avatars
+  const avatarSrc =
+    avatarUrl && avatarUrl.trim() !== ""
+      ? avatarUrl.startsWith("http") || avatarUrl.startsWith("/")
+        ? avatarUrl
+        : `/avatars/${avatarUrl}`
+      : null;
+
   return (
     <section
       className="
-        flex flex-col md:flex-row items-start md:items-center justify-between
-        gap-4 rounded-2xl border border-white/40 bg-white/40 backdrop-blur-md
-        shadow-sm px-5 py-3 md:px-6 md:py-3
-        transition-all duration-300 hover:shadow-md
+        relative rounded-2xl border border-platinum bg-white
+        shadow-sm p-6 md:p-7 
+        flex flex-col md:flex-row justify-between items-start md:items-center
+        gap-6 transition-all duration-300 hover:shadow-md
       "
     >
-      {/* LEFT: Avatar + Name */}
-      <div className="flex items-center gap-3">
-        {avatarUrl ? (
+      {/* Decorative Glow */}
+      <div className="absolute -top-10 left-0 w-28 h-28 bg-emerald-200/30 blur-3xl rounded-full pointer-events-none" />
+      <div className="absolute -bottom-10 right-0 w-28 h-28 bg-pine/20 blur-3xl rounded-full pointer-events-none" />
+
+      {/* LEFT — Profile */}
+      <div className="flex items-center gap-4">
+        {avatarSrc ? (
           <Image
-            src={avatarUrl}
+            src={avatarSrc}
             alt={userName}
-            width={56}
-            height={56}
-            className="h-12 w-12 rounded-full object-cover ring-1 ring-white/60 shadow-sm"
+            width={64}
+            height={64}
+            className="
+              h-14 w-14 rounded-full object-cover 
+              ring-2 ring-pine/20 shadow-md bg-white
+            "
           />
         ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/60 ring-1 ring-emerald-200/60 backdrop-blur-sm">
+          <div
+            className="
+              h-14 w-14 rounded-full flex items-center justify-center
+              bg-neutral-100 shadow-inner ring-2 ring-emerald-200/40
+            "
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              width="24"
-              height="24"
-              fill="currentColor"
+              width="32"
+              height="32"
               className="text-emerald-700/70"
+              viewBox="0 0 24 24"
+              fill="currentColor"
             >
               <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5Z" />
             </svg>
           </div>
         )}
 
-        <div>
-          <p className="text-xs font-medium text-emerald-900/70 tracking-wide">
+        <div className="flex flex-col">
+          <p className="text-xs font-semibold text-neutral-500 tracking-wider uppercase">
             My Wallet
           </p>
-          <h2 className="truncate text-xl md:text-2xl font-bold text-pine">
+          <h2 className="text-2xl font-bold text-pine leading-tight">
             {userName}
           </h2>
         </div>
       </div>
 
-      {/* RIGHT: Wallet Balance */}
+      {/* RIGHT — Balance Box */}
       <div
         className="
-          relative flex items-center justify-between gap-3
-          rounded-xl border border-white/50 bg-white/60 backdrop-blur-md
-          px-4 py-2 min-w-[220px]
+          relative rounded-2xl border border-platinum bg-white/70
+          backdrop-blur-sm shadow-md px-5 py-3 min-w-[240px]
+          flex items-center justify-between gap-3
         "
       >
         {isLoading ? (
-          <div className="animate-pulse flex flex-col gap-1 w-full">
-            <div className="h-3 w-24 bg-white/60 rounded"></div>
-            <div className="h-4 w-20 bg-white/70 rounded"></div>
+          <div className="animate-pulse w-full">
+            <div className="h-4 w-28 bg-neutral-200 rounded mb-2"></div>
+            <div className="h-3 w-20 bg-neutral-200 rounded"></div>
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Image
                 src="/brand/cl-coin.png"
                 alt="CL Coin"
-                width={28}
-                height={28}
-                className="h-6 w-6 drop-shadow-sm"
+                width={32}
+                height={32}
+                className="h-8 w-7 drop-shadow-sm"
               />
               <div className="flex flex-col leading-tight">
-                <span className="text-lg font-bold text-pine">
+                <span className="text-2xl font-extrabold text-pine">
                   {balanceCoins.toLocaleString()}
                 </span>
                 <span className="text-xs font-medium text-neutral-600/80">
@@ -91,7 +112,13 @@ export default function PlayerWalletBalance({
                 </span>
               </div>
             </div>
-            <span className="absolute bottom-1 right-3 text-[10px] text-neutral-500/80">
+
+            <span
+              className="
+                absolute bottom-2 right-4 
+                text-[10px] text-neutral-500/80 tracking-wide
+              "
+            >
               1 Coin = 1 THB
             </span>
           </>

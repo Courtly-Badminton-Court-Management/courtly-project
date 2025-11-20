@@ -1,3 +1,4 @@
+// frontend/src/ui/components/wallet/BankInfoPanel.tsx
 "use client";
 
 import Image from "next/image";
@@ -7,8 +8,9 @@ export default function BankInfoPanel() {
   return (
     <section
       className="
-        relative flex flex-col gap-6 rounded-2xl border border-white/40 
-        bg-white/50 backdrop-blur-xl shadow-sm p-5 sm:p-6 md:p-7 
+        relative h-full flex flex-col gap-6 
+        rounded-2xl border border-platinum bg-white 
+        shadow-sm p-5 sm:p-6 md:p-7 
         transition-all duration-300 hover:shadow-md
       "
     >
@@ -19,7 +21,7 @@ export default function BankInfoPanel() {
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-pine">Bank Details</h2>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm font-medium text-neutral-500">
             For CL Coin top-up verification
           </p>
         </div>
@@ -58,9 +60,7 @@ export default function BankInfoPanel() {
           <p>
             <b>Account No:</b> 123-456-789
           </p>
-          <p>
-            <b>Reference:</b> (Optional) Your Username
-          </p>
+          
           <p className="text-xs text-neutral-500 italic">
             * Only transfers from Thai banks are supported.
           </p>
@@ -73,8 +73,8 @@ export default function BankInfoPanel() {
           <Info size={16} strokeWidth={2.2} />
         </div>
         <p className="text-sm leading-relaxed text-neutral-700">
-          Our wallet system allows you to <b>book</b> and <b>cancel badminton court
-          reservations</b> using <b>CL Coins</b>.  
+          Our wallet system allows you to <b>book</b> and{" "}
+          <b>cancel badminton court reservations</b> using <b>CL Coins</b>.  
           To <b>top up</b>, please transfer money to the bank account shown above, then
           fill out the top-up form and attach your payment slip for admin verification.  
           Once verified, coins will be credited to your wallet.
@@ -94,7 +94,7 @@ export default function BankInfoPanel() {
         </p>
       </div>
 
-      {/* Decorative Glow */}
+      {/* Decorative Glow (ยังใช้ได้ เพราะเป็นแค่ effect ทับบน bg ขาวเดียวกัน) */}
       <div className="absolute -top-10 left-0 h-24 w-24 bg-emerald-200/30 blur-3xl rounded-full pointer-events-none" />
       <div className="absolute -bottom-10 right-0 h-24 w-24 bg-pine/20 blur-3xl rounded-full pointer-events-none" />
     </section>
