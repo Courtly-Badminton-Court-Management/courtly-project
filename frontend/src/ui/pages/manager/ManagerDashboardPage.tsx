@@ -118,7 +118,7 @@ const totalBookingsToday = useMemo(() => {
     },
 
     onError: (err) => {
-      console.error("❌ Check-in failed:", err);
+      // console.error("❌ Check-in failed:", err);
     },
   });
 

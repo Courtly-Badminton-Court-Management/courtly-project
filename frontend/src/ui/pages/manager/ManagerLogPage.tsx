@@ -112,8 +112,8 @@ export default function ManagerLogPage() {
       setCheckinId(null);
     },
     onError: (err) => {
-      console.error("❌ Check-in failed:", err);
-      alert("Check-in failed. Please try again.");
+      // console.error("❌ Check-in failed:", err);
+      // alert("Check-in failed. Please try again.");
     },
   });
 

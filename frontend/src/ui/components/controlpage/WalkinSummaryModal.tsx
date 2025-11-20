@@ -93,7 +93,7 @@ export default function WalkinSummaryModal({
         contactDetail: contactDetail.trim() || undefined,
       });
     } catch (err) {
-      console.error(err);
+      // console.error(err);
     } finally {
       setJustSubmitted(false);
     }

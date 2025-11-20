@@ -204,8 +204,8 @@ export default function ManagerControlPage() {
         month: CURRENT_MONTH,
       });
     } catch (error) {
-      console.error("❌ Update slot failed:", error);
-      alert("Some slots failed to update. Please check the console.");
+      // console.error("❌ Update slot failed:", error);
+      // alert("Some slots failed to update. Please check the console.");
     } finally {
       setIsBatchLoading(false);
       setSelected([]);
@@ -259,7 +259,7 @@ export default function ManagerControlPage() {
       setSelected([]);
       setSelectionMode(null);
     } catch (e: any) {
-      console.error("❌ Walk-in booking failed:", e);
+      // console.error("❌ Walk-in booking failed:", e);
       const status = e?.response?.status;
       let msg = "";
       if (status === 409) {

@@ -89,8 +89,8 @@ export default function PlayerWalletPage() {
           setOpenSuccessModal(true);
         },
         onError: (err: unknown) => {
-          console.error(err);
-          alert("❌ Failed to submit top-up. Please try again.");
+          // console.error(err);
+          // alert("❌ Failed to submit top-up. Please try again.");
         },
       },
     });
