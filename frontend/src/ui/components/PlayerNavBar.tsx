@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
-import BrandMark from "./basic/BrandMark";
-import DesktopMenu from "./basic/DesktopMenu";
-import MobileMenu from "./basic/MobileMenu";
-import AvatarBlock from "./basic/AvatarBlock";
-import Button from "./basic/Button";
-
-import { useQueryClient } from "@tanstack/react-query";
-import { clientLogout } from "@/lib/auth/logout";
+import BrandMark from "@/ui/components/basic/BrandMark";
+import DesktopMenu from "@/ui/components/basic/DesktopMenu";
+import MobileMenu from "@/ui/components/basic/MobileMenu";
+import AvatarBlock from "@/ui/components/basic/AvatarBlock";
+import Button from "@/ui/components/basic/Button";
+import LogoutModal from "@/ui/components/authpage/LogoutModal";
 
 // ✅ orval hooks
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
@@ -29,10 +27,8 @@ const COIN_ICON = "/brand/cl-coin.svg";
 
 export default function PlayerNavBar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false); // ✅ modal state
+  const [showLogout, setShowLogout] = useState(false);
 
   // profile
   const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
@@ -41,18 +37,14 @@ export default function PlayerNavBar() {
   const avatarUrl: string | null = meData?.avatarUrl ?? null;
 
   // balance
-  const { data: walletData, isLoading: balLoading } = useWalletBalanceRetrieve<any>();
+  const { data: walletData, isLoading: balLoading } =
+    useWalletBalanceRetrieve<any>();
   const balance: number =
     typeof walletData?.balance === "number" ? walletData.balance : 0;
   const loading = meLoading || balLoading;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
-
-  const handleLogout = async () => {
-    await clientLogout(qc);
-    router.replace("/login");
-  };
 
   const BalanceChip = () => (
     <div className="flex items-center gap-2 rounded-full border border-neutral-200 px-3 py-1.5">
@@ -98,12 +90,13 @@ export default function PlayerNavBar() {
               loading={loading}
               variant="neutral"
             />
-            {/* 🔹 เปลี่ยนเป็นเปิด modal */}
+            {/* 🔹 เปิด LogoutModal */}
             <Button
-              onClick={() => setShowConfirm(true)}
+              onClick={() => setShowLogout(true)}
               disabled={loading}
               label="Logout"
               backIcon="LogOut"
+              
             />
           </div>
 
@@ -160,7 +153,7 @@ export default function PlayerNavBar() {
                 onClose={() => setOpen(false)}
               />
               <Button
-                onClick={() => setShowConfirm(true)}
+                onClick={() => setShowLogout(true)}
                 disabled={loading}
                 full
                 label="Logout"
@@ -171,36 +164,11 @@ export default function PlayerNavBar() {
         )}
       </header>
 
-      {/* ================= Confirm Modal ================= */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[min(90%,360px)] rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/10 animate-in fade-in zoom-in-95">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-2">
-              Confirm Logout
-            </h2>
-            <p className="text-sm text-neutral-600 mb-5">
-              Are you sure you want to log out from your account?
-            </p>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                label="Cancel"
-                onClick={() => setShowConfirm(false)}
-                bgColor="bg-neutral-100"
-                textColor="text-neutral-800"
-                hoverBgColor="hover:bg-neutral-200"
-              />
-              <Button
-                label="Logout"
-                backIcon="LogOut"
-                onClick={handleLogout}
-                bgColor="bg-red-600"
-                hoverBgColor="hover:bg-red-700"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ================= Logout Modal (shared) ================= */}
+      <LogoutModal
+        open={showLogout}
+        onClose={() => setShowLogout(false)}
+      />
     </>
   );
 }

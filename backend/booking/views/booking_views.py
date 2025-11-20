@@ -69,9 +69,149 @@ def booking_detail_view(request, booking_no: str):
     return Response(payload, status=200)
 
 
+# # ─────────────────────────────────────────────────────────────────────────────
+# # 6) POST /api/booking/  (Authenticated)
+# #    - Player → wallet capture
+# #    - Manager → skip wallet capture + mark slots as walkin
+# #    - Always create booking with status = upcoming
+# # ─────────────────────────────────────────────────────────────────────────────
+# @api_view(["POST"])
+# @permission_classes([permissions.IsAuthenticated])
+# @transaction.atomic
+# def booking_create_view(request):
+#     ser = BookingCreateSerializer(data=request.data)
+#     ser.is_valid(raise_exception=True)
+#
+#     club_id = ser.validated_data.get("club")
+#     slots_in = ser.validated_data.get("slots", [])
+#     booking_method = ser.validated_data.get("booking_method") or "Courtly Website"
+#     owner_username = ser.validated_data.get("owner_username") or request.user.username
+#     owner_contact = ser.validated_data.get("owner_contact") or request.user.email
+#     payment_method = ser.validated_data.get("payment_method") or "coin"
+#     user_role = getattr(request.user, "role", "player")
+#
+#     if not club_id:
+#         return Response({"detail": "club is required"}, status=400)
+#     if not slots_in or not isinstance(slots_in, list):
+#         return Response({"detail": "slots must be a non-empty list"}, status=400)
+#
+#     # Validate club exists
+#     if not Club.objects.filter(id=club_id).exists():
+#         return Response({"detail": "Club not found"}, status=404)
+#
+#     # Fetch slots
+#     qs = (
+#         Slot.objects
+#         .filter(id__in=slots_in)
+#         .select_related("court", "slot_status")
+#         .order_by("start_at")
+#     )
+#     if not qs.exists():
+#         return Response({"detail": "No valid slots found"}, status=404)
+#
+#     first_slot = qs.first()
+#
+#     # ───────────────────────────────────────────────
+#     # CREATE BOOKING with status = upcoming
+#     # ───────────────────────────────────────────────
+#     booking = Booking.objects.create(
+#         booking_no=gen_booking_no(),
+#         user=request.user,
+#         club_id=club_id,
+#         court_id=first_slot.court_id,
+#         booking_date=first_slot.service_date,
+#         status="upcoming",
+#         booking_method=booking_method,
+#         customer_name=owner_username,
+#         contact_method="Courtly Website",
+#         contact_detail=owner_contact,
+#         payment_method=payment_method,
+#     )
+#
+#     total_cost = 0
+#     created_slot_ids = []
+#
+#     # ───────────────────────────────────────────────
+#     # CREATE BOOKING SLOTS + SET SLOT STATUS
+#     # ───────────────────────────────────────────────
+#     for s in qs:
+#         status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+#         if status_val != "available":
+#             return Response(
+#                 {"detail": f"Slot {s.id} not available", "status": status_val},
+#                 status=409,
+#             )
+#
+#         BookingSlot.objects.create(booking=booking, slot=s)
+#
+#         # 🔥 Player → booked | Manager → walkin
+#         new_status = "walkin" if user_role == "manager" else "booked"
+#
+#         SlotStatus.objects.update_or_create(
+#             slot=s,
+#             defaults={"status": new_status}
+#         )
+#
+#         total_cost += s.price_coins
+#         created_slot_ids.append(s.id)
+#
+#     # ───────────────────────────────────────────────
+#     # PLAYER → DO WALLET CAPTURE
+#     # MANAGER → SKIP WALLET CAPTURE
+#     # ───────────────────────────────────────────────
+#     if user_role != "manager":
+#
+#         # Player must pay
+#         wallet, _ = Wallet.objects.get_or_create(
+#             user=request.user,
+#             defaults={"balance": 0}
+#         )
+#
+#         if wallet.balance < total_cost:
+#             return Response(
+#                 {
+#                     "detail": "Insufficient balance",
+#                     "required": total_cost,
+#                     "balance": wallet.balance
+#                 },
+#                 status=402,
+#             )
+#
+#         # Deduct wallet
+#         wallet.balance -= total_cost
+#         wallet.save(update_fields=["balance"])
+#
+#         # Ledger entry
+#         CoinLedger.objects.create(
+#             user=request.user,
+#             type="capture",
+#             amount=-total_cost,
+#             ref_booking=booking
+#         )
+#
+#     else:
+#         # Manager → force total_cost = 0
+#         total_cost = 0
+#
+#     # Save final total cost
+#     booking.total_cost = total_cost
+#     booking.save(update_fields=["total_cost"])
+#
+#     return Response(
+#         {
+#             "booking_id": booking.booking_no,
+#             "message": "Booking created successfully",
+#             "total_cost": total_cost,
+#             "status": "upcoming",
+#             "slots": created_slot_ids,
+#         },
+#         status=201,
+#     )
 # ─────────────────────────────────────────────────────────────────────────────
 # 6) POST /api/booking/  (Authenticated)
-#    - Wallet capture (coin) + status confirmed
+#    - Player → wallet capture
+#    - Manager → skip wallet capture + mark slots as walkin
+#    - Always create booking with status = upcoming
 # ─────────────────────────────────────────────────────────────────────────────
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
@@ -86,17 +226,19 @@ def booking_create_view(request):
     owner_username = ser.validated_data.get("owner_username") or request.user.username
     owner_contact = ser.validated_data.get("owner_contact") or request.user.email
     payment_method = ser.validated_data.get("payment_method") or "coin"
+    user_role = getattr(request.user, "role", "player")
 
+    # Validate required fields
     if not club_id:
         return Response({"detail": "club is required"}, status=400)
     if not slots_in or not isinstance(slots_in, list):
         return Response({"detail": "slots must be a non-empty list"}, status=400)
 
-    # Validate club
+    # Check if club exists
     if not Club.objects.filter(id=club_id).exists():
         return Response({"detail": "Club not found"}, status=404)
 
-    # Fetch slots
+    # Fetch requested slots
     qs = (
         Slot.objects
         .filter(id__in=slots_in)
@@ -107,13 +249,52 @@ def booking_create_view(request):
         return Response({"detail": "No valid slots found"}, status=404)
 
     first_slot = qs.first()
+
+    # ───────────────────────────────────────────────
+    # STEP 1: Validate slots and calculate total_cost
+    # ───────────────────────────────────────────────
+    total_cost = 0
+    for s in qs:
+        status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+
+        # Slot must be available or booking is denied
+        if status_val != "available":
+            return Response(
+                {"detail": f"Slot {s.id} not available", "status": status_val},
+                status=409,
+            )
+        total_cost += s.price_coins
+
+    # ───────────────────────────────────────────────
+    # STEP 2: If user is PLAYER → check balance BEFORE creating booking
+    # ───────────────────────────────────────────────
+    if user_role != "manager":
+        wallet, _ = Wallet.objects.get_or_create(
+            user=request.user,
+            defaults={"balance": 0}
+        )
+
+        # Not enough coins → reject BEFORE creating booking
+        if wallet.balance < total_cost:
+            return Response(
+                {
+                    "detail": "Insufficient balance",
+                    "required": total_cost,
+                    "balance": wallet.balance
+                },
+                status=402,
+            )
+
+    # ───────────────────────────────────────────────
+    # STEP 3: Create booking first (status = upcoming)
+    # ───────────────────────────────────────────────
     booking = Booking.objects.create(
         booking_no=gen_booking_no(),
         user=request.user,
         club_id=club_id,
         court_id=first_slot.court_id,
         booking_date=first_slot.service_date,
-        status="booked",
+        status="upcoming",            # Always upcoming on creation
         booking_method=booking_method,
         customer_name=owner_username,
         contact_method="Courtly Website",
@@ -121,39 +302,62 @@ def booking_create_view(request):
         payment_method=payment_method,
     )
 
-    total_cost = 0
     created_slot_ids = []
+
+    # ───────────────────────────────────────────────
+    # STEP 4: Create BookingSlot + Update SlotStatus
+    # ───────────────────────────────────────────────
     for s in qs:
-        status_val = getattr(getattr(s, "slot_status", None), "status", "available")
-        if status_val != "available":
-            return Response(
-                {"detail": f"Slot {s.id} not available", "status": status_val}, status=409
-            )
         BookingSlot.objects.create(booking=booking, slot=s)
-        SlotStatus.objects.update_or_create(slot=s, defaults={"status": "booked"})
-        total_cost += s.price_coins
+
+        # Player booking → slot becomes "booked"
+        # Manager booking → slot becomes "walkin"
+        new_status = "walkin" if user_role == "manager" else "booked"
+
+        SlotStatus.objects.update_or_create(
+            slot=s,
+            defaults={"status": new_status}
+        )
+
         created_slot_ids.append(s.id)
 
-    # Wallet capture (coin)
-    wallet, _ = Wallet.objects.get_or_create(user=request.user, defaults={"balance": 0})
-    if wallet.balance < total_cost:
-        return Response(
-            {"detail": "Insufficient balance", "required": total_cost, "balance": wallet.balance},
-            status=402,
+    # ───────────────────────────────────────────────
+    # STEP 5: Payments
+    #   - Player → deduct wallet + create ledger entry
+    #   - Manager → skip wallet deduction
+    # ───────────────────────────────────────────────
+    if user_role != "manager":
+        # Wallet already confirmed to have enough balance
+        wallet, _ = Wallet.objects.get_or_create(
+            user=request.user,
+            defaults={"balance": 0}
         )
-    wallet.balance -= total_cost
-    wallet.save(update_fields=["balance"])
-    CoinLedger.objects.create(user=request.user, type="capture", amount=-total_cost, ref_booking=booking)
 
+        wallet.balance -= total_cost
+        wallet.save(update_fields=["balance"])
+
+        CoinLedger.objects.create(
+            user=request.user,
+            type="capture",
+            amount=-total_cost,
+            ref_booking=booking
+        )
+    else:
+        # Manager booking should cost 0
+        total_cost = 0
+
+    # Save final total_cost onto booking
     booking.total_cost = total_cost
     booking.save(update_fields=["total_cost"])
 
+    # Success response
     return Response(
         {
             "booking_id": booking.booking_no,
             "message": "Booking created successfully",
             "total_cost": total_cost,
-            "status": "booked",
+            "status": "upcoming",
+            "slots": created_slot_ids,
         },
         status=201,
     )
@@ -194,6 +398,7 @@ def bookings_all_view(request):
             "booking_status": b.status,
             "able_to_cancel": able_to_cancel,
             "owner_id": b.user_id if b.user_id else None,
+            "owner_username": b.user.username if b.user_id else (b.customer_name or "Unknown"),
         })
 
     return Response(data, status=200)

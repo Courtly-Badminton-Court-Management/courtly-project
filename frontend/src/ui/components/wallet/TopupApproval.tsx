@@ -39,7 +39,7 @@ export default function TopupApproval({ rows, onView }: Props) {
     <>
       {/* Title + Warning */}
     <div className="mb-3 flex items-center gap-3">
-        <h2 className="text-2xl font-bold">Top-Up Requests</h2>
+        <h2 className="text-2xl text-pine font-bold">Top-Up Requests</h2>
         <button
             type="button"
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}

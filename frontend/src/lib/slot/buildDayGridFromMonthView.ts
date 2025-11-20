@@ -1,9 +1,11 @@
+// frontend/src/lib/slot/buildDayGridFromMonthView.ts
 import type { Col, GridCell } from "@/lib/slot/slotGridModel";
 import type { MonthViewResponse } from "@/api-client/extras/slots";
+import type { SlotItem } from "@/api-client/extras/types";
 
 export type DayGridResult = {
   cols: Col[];
-  grid: GridCell[][];
+  grid: (GridCell & { slot?: SlotItem | null; slot_id?: string })[][];
   priceGrid: number[][];
   courtIds: number[];
   courtNames: string[];
@@ -23,10 +25,13 @@ const ymdToDdMmYy = (ymd: string) => {
 export function buildDayGridFromMonthView(
   mv: MonthViewResponse | undefined,
   ymd: string
-) {
+): DayGridResult {
   const targetKey = ymdToDdMmYy(ymd);
   const day = mv?.days?.find((d) => d.date === targetKey);
-  const slotList = day?.booking_slots ?? {};
+  const slotList =
+    (day as any)?.slot_list ??
+    (day as any)?.booking_slots ??
+    {};
 
   if (!Object.keys(slotList).length) {
     return {
@@ -42,7 +47,7 @@ export function buildDayGridFromMonthView(
   // --- time & court map setup ---
   const timeSet = new Set<string>();
   const courtMap = new Map<number, string>();
-  Object.values(slotList).forEach((s) => {
+  Object.values(slotList as Record<string, SlotItem>).forEach((s) => {
     timeSet.add(toKey(s.start_time, s.end_time));
     courtMap.set(s.court, s.court_name);
   });
@@ -61,32 +66,39 @@ export function buildDayGridFromMonthView(
     return { start, end, label: `${start}–${end}` };
   });
 
-  // --- build lookup dict with slotId ---
-  const dict = new Map<string, any>();
-  Object.entries(slotList).forEach(([slotId, s]) => {
-    dict.set(`${s.court}|${toKey(s.start_time, s.end_time)}`, {
-      ...s,
-      id: slotId, // ✅ inject id ลงใน slot object
-    });
-  });
+  // --- build lookup dict (court|time → slot item) ---
+  const dict = new Map<string, SlotItem & { slot_id: string }>();
+  Object.entries(slotList as Record<string, SlotItem>).forEach(
+    ([slotId, s]) => {
+      dict.set(`${s.court}|${toKey(s.start_time, s.end_time)}`, {
+        ...s,
+        slot_id: slotId,
+      });
+    }
+  );
 
-  // --- build grid with id preserved ---
-  const grid: GridCell[][] = [];
+  // --- build grid with SlotItem + slot_id preserved ---
+  const grid: (GridCell & { slot?: SlotItem | null; slot_id?: string })[][] = [];
   const priceGrid: number[][] = [];
 
   for (let r = 0; r < courtIds.length; r++) {
-    const row: GridCell[] = [];
+    const row: (GridCell & { slot?: SlotItem | null; slot_id?: string })[] = [];
     const prow: number[] = [];
+
     for (let c = 0; c < cols.length; c++) {
       const key = `${courtIds[r]}|${toKey(cols[c].start, cols[c].end)}`;
       const s = dict.get(key);
+
       row.push({
         status: s?.status ?? "expired",
-        priceCoins: s?.price_coin,
-        id: s?.id ?? undefined, // ✅ ใส่ id ลงในแต่ละ cell
+        priceCoins: s?.price_coin ?? 0,
+        slot_id: s?.slot_id,
+        slot: s ?? null,
       });
+
       prow.push(typeof s?.price_coin === "number" ? s.price_coin : 0);
     }
+
     grid.push(row);
     priceGrid.push(prow);
   }
@@ -102,7 +114,7 @@ export function buildPlaceholderGrid(
   end = "22:00",
   minutesPerCell = 30,
   courtCount = 10
-) {
+): DayGridResult {
   const toMin = (t: string) => {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + (m || 0);
@@ -120,15 +132,19 @@ export function buildPlaceholderGrid(
     cols.push({ start: s, end: e, label: `${s}–${e}` });
   }
 
-  const grid: GridCell[][] = Array.from({ length: courtCount }, () =>
-    Array.from(
-      { length: cols.length },
-      () => ({ status: "expired" } as GridCell)
-    )
-  );
+  const grid: (GridCell & { slot?: SlotItem | null; slot_id?: string })[][] =
+    Array.from({ length: courtCount }, () =>
+      Array.from({ length: cols.length }, () => ({
+        status: "expired",
+        slot: null,
+        slot_id: undefined,
+      }))
+    );
+
   const priceGrid: number[][] = Array.from({ length: courtCount }, () =>
     Array.from({ length: cols.length }, () => 0)
   );
+
   const courtIds = Array.from({ length: courtCount }, (_, i) => i + 1);
   const courtNames = courtIds.map((id) => `Court ${id}`);
 

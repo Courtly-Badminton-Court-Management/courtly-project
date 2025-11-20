@@ -7,6 +7,7 @@ import PlayerTopupForm from "@/ui/components/wallet/PlayerTopupForm";
 import PlayerTransactionHistory, {
   type LedgerItem,
 } from "@/ui/components/wallet/PlayerTransactionHistory";
+import BankInfoPanel from "@/ui/components/wallet/BankInfoPanel";
 
 import {
   useWalletBalanceRetrieve,
@@ -137,20 +138,31 @@ export default function PlayerWalletPage() {
   const loadingAll = balanceLoading || meLoading;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-8 p-4 md:p-8">
+    <main className="space-y-6">
       <PlayerWalletBalance
         balanceCoins={balanceCoins}
         userName={username}
         isLoading={loadingAll}
       />
-
-      <PlayerTopupForm
+      
+    <section className="grid items-stretch mb-8 gap-6 md:grid-cols-4">
+        {/* Top up Form 2/3 */}
+        <div className="md:col-span-2">
+        <PlayerTopupForm
         values={topup}
         onChange={(patch) => setTopup((v) => ({ ...v, ...patch }))}
         onSubmit={submitTopup}
         onReset={resetTopup}
         loading={topupLoading}
-      />
+        />
+        </div>
+        {/* Bank Info Panel 1/3 */}
+       <div className="md:col-span-2">
+        <BankInfoPanel/>
+        </div>
+
+
+      </section>
 
       <PlayerTransactionHistory
         items={ledger}

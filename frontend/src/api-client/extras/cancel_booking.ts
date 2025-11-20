@@ -2,8 +2,8 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { useBookingsCancelCreate } from "@/api-client/endpoints/bookings/bookings";
-import { getMyBookingsRetrieveQueryKey } from "@/api-client/endpoints/my-bookings/my-bookings";
+import { useBookingCancelCreate } from "@/api-client/endpoints/booking/booking";
+import { getMyBookingRetrieveQueryKey } from "@/api-client/endpoints/my-booking/my-booking";
 import { getWalletBalanceRetrieveQueryKey } from "@/api-client/endpoints/wallet/wallet";
 import { monthViewKey } from "@/api-client/extras/slots";
 import dayjs from "dayjs";
@@ -19,12 +19,12 @@ export function useCancelBooking(opts?: CancelOptions) {
   const NEXT_MONTH = dayjs().add(1, 'month').format("YYYY-MM");
 
 
-  const cancelMut = useBookingsCancelCreate({
+  const cancelMut = useBookingCancelCreate({
     mutation: {
       onSuccess: async () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: getWalletBalanceRetrieveQueryKey() }),
-          queryClient.invalidateQueries({ queryKey: getMyBookingsRetrieveQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() }),
           queryClient.invalidateQueries({queryKey: monthViewKey(CURRENT_MONTH)}),
           queryClient.invalidateQueries({queryKey: monthViewKey(NEXT_MONTH)}), 
         ]);

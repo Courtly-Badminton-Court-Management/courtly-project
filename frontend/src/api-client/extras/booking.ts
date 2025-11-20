@@ -1,4 +1,4 @@
-// src/api-client/extras/booking.ts
+// frontend/src/api-client/extras/booking.ts
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,45 +11,54 @@ import {
   getBookingsRetrieveQueryKey,
 } from "@/api-client/endpoints/bookings/bookings";
 import {
-  getMyBookingsRetrieveQueryKey,
-} from "@/api-client/endpoints/my-bookings/my-bookings";
+  getMyBookingRetrieveQueryKey,
+} from "@/api-client/endpoints/my-booking/my-booking";
 
 /* =========================================================================
    Types
    ========================================================================= */
 export type CreateBookingPayload = {
-  items: Array<{ court: number; date: string; start: string; end: string }>;
+  club: number;
+  booking_method: string;
+  owner_username: string;
+  owner_contact: string;
+  payment_method: string;
+  slots: string[];
 };
 
-export type CreateBookingResponse = any;
+export type CreateBookingResponse = {
+  booking_id: string;
+  message: string;
+  total_cost: number;
+  status: string;
+};
 
 /* =========================================================================
    Hook: useBookingCreateWithBody
    ========================================================================= */
 export function useBookingCreateWithBody(month: string) {
   const qc = useQueryClient();
-  const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID) || 1;
 
   return useMutation({
     mutationKey: ["bookingCreateWithBody"],
 
-    mutationFn: (payload: CreateBookingPayload) =>
-      customRequest<CreateBookingResponse>({
+    // ✅ ensure return response.data
+    mutationFn: async (payload: CreateBookingPayload) => {
+      const res = await customRequest<CreateBookingResponse>({
         url: "/api/booking/",
         method: "POST",
-        data: {
-          club: CLUB_ID, // 👈 ฝังจาก env ให้เลย
-          items: payload.items,
-        },
-      }),
+        data: payload,
+      });
 
-    onSuccess: (response) => {
-      // ✅ invalidate ทุก cache ที่เกี่ยวข้อง
+      // 👇 ถ้า customRequest คืน AxiosResponse จะเข้าถึง res.data.booking_id ได้
+      return (res as any)?.data ?? res;
+    },
+
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: monthViewKey(month) });
       qc.invalidateQueries({ queryKey: getWalletBalanceRetrieveQueryKey() });
-      qc.invalidateQueries({ queryKey: getMyBookingsRetrieveQueryKey() });
+      qc.invalidateQueries({ queryKey: getMyBookingRetrieveQueryKey() });
       qc.invalidateQueries({ queryKey: getBookingsRetrieveQueryKey() });
-      return response;
     },
   });
 }

@@ -2,7 +2,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views.slot_views import SlotViewSet, available_slots_month_view
+from .views.slot_views import SlotViewSet, available_slots_month_view, month_view
 from .views.booking_views import (
     booking_create_view,
     bookings_all_view,

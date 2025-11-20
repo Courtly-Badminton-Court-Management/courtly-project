@@ -18,30 +18,32 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
+import type { Slot } from "../../schemas";
+
 import { customRequest } from "../../custom-client";
 
 /**
- * Players — Get bookings belonging to the current user.
+ * GET /api/month-view/?club=1&month=2025-11
  */
-export const myBookingsRetrieve = (signal?: AbortSignal) => {
-  return customRequest<void>({
-    url: `/api/my-bookings/`,
+export const monthViewRetrieve = (signal?: AbortSignal) => {
+  return customRequest<Slot>({
+    url: `/api/month-view/`,
     method: "GET",
     signal,
   });
 };
 
-export const getMyBookingsRetrieveQueryKey = () => {
-  return [`/api/my-bookings/`] as const;
+export const getMonthViewRetrieveQueryKey = () => {
+  return [`/api/month-view/`] as const;
 };
 
-export const getMyBookingsRetrieveQueryOptions = <
-  TData = Awaited<ReturnType<typeof myBookingsRetrieve>>,
+export const getMonthViewRetrieveQueryOptions = <
+  TData = Awaited<ReturnType<typeof monthViewRetrieve>>,
   TError = unknown,
 >(options?: {
   query?: Partial<
     UseQueryOptions<
-      Awaited<ReturnType<typeof myBookingsRetrieve>>,
+      Awaited<ReturnType<typeof monthViewRetrieve>>,
       TError,
       TData
     >
@@ -49,41 +51,41 @@ export const getMyBookingsRetrieveQueryOptions = <
 }) => {
   const { query: queryOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getMyBookingsRetrieveQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getMonthViewRetrieveQueryKey();
 
   const queryFn: QueryFunction<
-    Awaited<ReturnType<typeof myBookingsRetrieve>>
-  > = ({ signal }) => myBookingsRetrieve(signal);
+    Awaited<ReturnType<typeof monthViewRetrieve>>
+  > = ({ signal }) => monthViewRetrieve(signal);
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof myBookingsRetrieve>>,
+    Awaited<ReturnType<typeof monthViewRetrieve>>,
     TError,
     TData
   > & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
-export type MyBookingsRetrieveQueryResult = NonNullable<
-  Awaited<ReturnType<typeof myBookingsRetrieve>>
+export type MonthViewRetrieveQueryResult = NonNullable<
+  Awaited<ReturnType<typeof monthViewRetrieve>>
 >;
-export type MyBookingsRetrieveQueryError = unknown;
+export type MonthViewRetrieveQueryError = unknown;
 
-export function useMyBookingsRetrieve<
-  TData = Awaited<ReturnType<typeof myBookingsRetrieve>>,
+export function useMonthViewRetrieve<
+  TData = Awaited<ReturnType<typeof monthViewRetrieve>>,
   TError = unknown,
 >(
   options: {
     query: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof myBookingsRetrieve>>,
+        Awaited<ReturnType<typeof monthViewRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof myBookingsRetrieve>>,
+          Awaited<ReturnType<typeof monthViewRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof myBookingsRetrieve>>
+          Awaited<ReturnType<typeof monthViewRetrieve>>
         >,
         "initialData"
       >;
@@ -92,23 +94,23 @@ export function useMyBookingsRetrieve<
 ): DefinedUseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useMyBookingsRetrieve<
-  TData = Awaited<ReturnType<typeof myBookingsRetrieve>>,
+export function useMonthViewRetrieve<
+  TData = Awaited<ReturnType<typeof monthViewRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof myBookingsRetrieve>>,
+        Awaited<ReturnType<typeof monthViewRetrieve>>,
         TError,
         TData
       >
     > &
       Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof myBookingsRetrieve>>,
+          Awaited<ReturnType<typeof monthViewRetrieve>>,
           TError,
-          Awaited<ReturnType<typeof myBookingsRetrieve>>
+          Awaited<ReturnType<typeof monthViewRetrieve>>
         >,
         "initialData"
       >;
@@ -117,14 +119,14 @@ export function useMyBookingsRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 };
-export function useMyBookingsRetrieve<
-  TData = Awaited<ReturnType<typeof myBookingsRetrieve>>,
+export function useMonthViewRetrieve<
+  TData = Awaited<ReturnType<typeof monthViewRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof myBookingsRetrieve>>,
+        Awaited<ReturnType<typeof monthViewRetrieve>>,
         TError,
         TData
       >
@@ -135,14 +137,14 @@ export function useMyBookingsRetrieve<
   queryKey: DataTag<QueryKey, TData, TError>;
 };
 
-export function useMyBookingsRetrieve<
-  TData = Awaited<ReturnType<typeof myBookingsRetrieve>>,
+export function useMonthViewRetrieve<
+  TData = Awaited<ReturnType<typeof monthViewRetrieve>>,
   TError = unknown,
 >(
   options?: {
     query?: Partial<
       UseQueryOptions<
-        Awaited<ReturnType<typeof myBookingsRetrieve>>,
+        Awaited<ReturnType<typeof monthViewRetrieve>>,
         TError,
         TData
       >
@@ -152,7 +154,7 @@ export function useMyBookingsRetrieve<
 ): UseQueryResult<TData, TError> & {
   queryKey: DataTag<QueryKey, TData, TError>;
 } {
-  const queryOptions = getMyBookingsRetrieveQueryOptions(options);
+  const queryOptions = getMonthViewRetrieveQueryOptions(options);
 
   const query = useQuery(queryOptions, queryClient) as UseQueryResult<
     TData,

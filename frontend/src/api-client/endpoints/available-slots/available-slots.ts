@@ -22,7 +22,6 @@ import { customRequest } from "../../custom-client";
 
 /**
  * Public calendar: GET /available-slots/?club=<id>&month=YYYY-MM
-Response fields must match doc: available_percent (0-1), available_slots[], date: DD-MM-YY
  */
 export const availableSlotsRetrieve = (signal?: AbortSignal) => {
   return customRequest<void>({

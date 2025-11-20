@@ -1,33 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState,useEffect } from "react";
 import { Calendar, Loader2, ArrowUpDown } from "lucide-react";
-import { useMyBookingsRetrieve } from "@/api-client/endpoints/my-bookings/my-bookings";
+import { useMyBookingRetrieve } from "@/api-client/endpoints/my-booking/my-booking";
+import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
+import { useBookingRetrieve } from "@/api-client/endpoints/booking/booking";
 import BookingReceiptModal from "@/ui/components/historypage/BookingReceiptModal";
 import { generateBookingInvoicePDF } from "@/lib/booking/invoice";
 import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
-
-/* ========================= Runtime types ========================= */
-type SlotItem = {
-  status: string;
-  start_time: string;
-  end_time: string;
-  court: number;
-  court_name: string;
-  price_coin: number;
-};
-
-type BookingRow = {
-  created_date: string;
-  booking_id: string;
-  user: string;
-  total_cost: string | number;
-  booking_date: string;
-  booking_status: string;
-  able_to_cancel: boolean;
-  booking_slots: Record<string, SlotItem>;
-};
+import type { BookingRow, UserProfile } from "@/api-client/extras/types";
 
 /* ========================= Utils ========================= */
 const statusLabel = (s?: string) => {
@@ -35,16 +17,22 @@ const statusLabel = (s?: string) => {
   if (x === "end_game" || x === "endgame") return "End Game";
   if (x === "cancelled") return "Cancelled";
   if (x === "no_show" || x === "no-show") return "No-show";
-  if (x === "confirmed") return "Upcoming";
-  return "Upcoming";
+  if (x === "upcoming") return "Upcoming";
+  if (x === "booked") return "Upcoming"; // debug
+  if (x === "checkin") return "✓ Checked-In";
+  return "Unknown";
 };
 
 const statusPillClass = (s?: string) => {
   const x = (s || "").toLowerCase();
-  if (["confirmed", "endgame", "end_game"].includes(x))
+  if (["endgame", "end_game"].includes(x))
     return "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200";
   if (x === "cancelled")
     return "bg-rose-100 text-rose-700 ring-1 ring-rose-200";
+  if (["upcoming", "booked","confirmed"].includes(x))
+    return "bg-sea/10 text-sea ring-1 ring-inset ring-sea/30";
+  if (x === "checkin")
+    return "bg-cambridge/10 text-cambridge ring-1 ring-inset ring-cambridge/40";
   return "bg-[#f2e8e8] text-[#6b3b3b] ring-1 ring-[#d8c0c0]";
 };
 
@@ -71,10 +59,40 @@ function formatDate(dateStr: string, opts?: Intl.DateTimeFormatOptions) {
 
 /* ========================= Main Page ========================= */
 export default function PlayerHistoryPage() {
-  const { data, isLoading, isError } = useMyBookingsRetrieve();
+  const { data, isLoading, isError } = useMyBookingRetrieve();
+  const { data: me, isLoading: isMeLoading } = useAuthMeRetrieve();
+
   const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
   const [confirmModal, setConfirmModal] = useState<BookingRow | null>(null);
   const [active, setActive] = useState<BookingRow | null>(null);
+
+    // ⭐ NEW: state for downloading PDF
+  const [downloadId, setDownloadId] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // ✅ ดึงข้อมูล booking detail เมื่อเลือก id
+  const {
+    data: bookingDetail,
+    isLoading: isDetailLoading,
+  } = useBookingRetrieve(selectedId || downloadId || "", {
+    query: { enabled: !!selectedId || !!downloadId },
+  });
+
+    /* ====================== Effect: handle PDF download ====================== */
+  useEffect(() => {
+    if (!isDownloading) return;
+    if (!bookingDetail || isDetailLoading) return;
+    if (!me) return;
+
+    generateBookingInvoicePDF(bookingDetail, me as UserProfile);
+
+    // reset download state
+    setIsDownloading(false);
+    setDownloadId(null);
+
+  }, [isDownloading, bookingDetail, isDetailLoading, me]);
 
   // 🧭 Filters + Sort
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -121,11 +139,23 @@ export default function PlayerHistoryPage() {
   }, [rows, filterStatus, sortBy, sortDesc]);
 
   const onView = (b: BookingRow) => {
-    setActive(b);
+    setSelectedId(b.booking_id);
     setOpen(true);
   };
 
-  const onDownload = (b: BookingRow) => generateBookingInvoicePDF(b);
+  const onDownload = (b: BookingRow) => {
+    if (!me) return;
+    setDownloadId(b.booking_id);   // trigger fetch detail
+    setIsDownloading(true);        // waiting for data
+  };
+
+  const canDownloadPDF = (b: BookingRow) => {
+  return (
+    b.able_to_cancel === false &&
+    b.booking_status.toLowerCase() !== "cancelled"
+  );
+};
+
   const onCancelConfirm = (b: BookingRow) => setConfirmModal(b);
 
   const today = formatDate(new Date().toISOString(), {
@@ -134,6 +164,8 @@ export default function PlayerHistoryPage() {
     day: "2-digit",
     year: "numeric",
   });
+
+
 
   return (
     <div className="mx-auto my-auto">
@@ -151,7 +183,6 @@ export default function PlayerHistoryPage() {
 
       {/* Top Control Bar */}
       <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        {/* Left: Today */}
         <div className="flex items-center text-dimgray text-sm">
           <Calendar size={18} className="mr-2 text-dimgray" />
           <span className="font-medium text-dimgray">
@@ -159,9 +190,8 @@ export default function PlayerHistoryPage() {
           </span>
         </div>
 
-        {/* Right: Filter + Sort Controls */}
+        {/* Filter + Sort */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-3">
-          {/* Filter */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-semibold text-pine">Filter:</label>
             <select
@@ -170,14 +200,13 @@ export default function PlayerHistoryPage() {
               className="rounded-xl border border-neutral-300 bg-white px-3 py-2 mr-2 text-sm font-medium text-pine shadow-sm hover:border-sea/50 focus:ring-2 focus:ring-sea/30 transition"
             >
               <option value="all">All</option>
-              <option value="confirmed">Upcoming</option>
+              <option value="upcoming">Upcoming</option>
               <option value="cancelled">Cancelled</option>
               <option value="end_game">End Game</option>
               <option value="no_show">No-show</option>
             </select>
           </div>
 
-          {/* Sort */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-semibold text-pine">Sort by:</label>
             <select
@@ -226,7 +255,6 @@ export default function PlayerHistoryPage() {
               <th className="px-6 py-4 text-center">Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {isLoading &&
               Array.from({ length: 6 }).map((_, i) => (
@@ -266,7 +294,7 @@ export default function PlayerHistoryPage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm ${statusPillClass(
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-sm ${statusPillClass(
                           b.booking_status
                         )}`}
                       >
@@ -277,27 +305,23 @@ export default function PlayerHistoryPage() {
                       <div className="inline-flex flex-wrap justify-center gap-2">
                         <button
                           onClick={() => onView(b)}
-                          className="rounded-lg border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
+                          className="rounded-xl border border-[#2a756a] bg-[#2a756a] px-4 py-2 text-white hover:brightness-95"
                         >
                           View Details
                         </button>
 
                         <button
                           onClick={() => onDownload(b)}
-                          disabled={
-                            !(
-                              b.booking_status.toLowerCase() === "confirmed" &&
-                              b.able_to_cancel === false
-                            )
-                          }
-                          className={`rounded-lg border px-4 py-2 ${
-                            b.booking_status.toLowerCase() === "confirmed" &&
-                            b.able_to_cancel === false
-                              ? "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
-                              : "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                          disabled={isMeLoading || !me || !canDownloadPDF(b)}
+                          className={`rounded-xl border px-4 py-2 ${
+                            isMeLoading || !me || !canDownloadPDF(b)
+                              ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
+                              : "border-[#2a756a] text-[#2a756a] hover:bg-[#e5f2ef]"
                           }`}
                         >
-                          Download
+                          {isDownloading && downloadId === b.booking_id
+                            ? "Generating..."
+                            : "Download"}
                         </button>
 
                         <button
@@ -306,7 +330,7 @@ export default function PlayerHistoryPage() {
                             onCancelConfirm(b);
                           }}
                           disabled={!canCancel || cancelMut.isPending}
-                          className={`rounded-lg border px-4 py-2 flex items-center justify-center gap-2 ${
+                          className={`rounded-xl border px-4 py-2 flex items-center justify-center gap-2 ${
                             !canCancel
                               ? "cursor-not-allowed border-neutral-300 bg-neutral-100 text-neutral-400"
                               : "border-[#8d3e3e] bg-[#8d3e3e] text-white hover:brightness-95"
@@ -340,11 +364,15 @@ export default function PlayerHistoryPage() {
         onClose={() => setConfirmModal(null)}
       />
 
-      {/* Receipt Modal */}
+      {/* Booking Detail Modal */}
       <BookingReceiptModal
         open={open}
-        onClose={() => setOpen(false)}
-        booking={active as any}
+        onClose={() => {
+          setOpen(false);
+          setSelectedId(null);
+        }}
+        booking={bookingDetail || null}
+        isLoading={isDetailLoading}
       />
     </div>
   );

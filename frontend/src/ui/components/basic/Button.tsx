@@ -4,7 +4,7 @@ import React from "react";
 import * as LucideIcons from "lucide-react";
 
 type ButtonProps = {
-  label?: string;
+  label?: any;
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   full?: boolean;

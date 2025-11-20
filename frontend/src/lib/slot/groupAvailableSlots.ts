@@ -1,3 +1,4 @@
+//frontend/src/lib/slot/groupAvailableSlots.ts
 /**
  * Group available slots by start_time - end_time
  * Expected input: { booking_slots: {...} }

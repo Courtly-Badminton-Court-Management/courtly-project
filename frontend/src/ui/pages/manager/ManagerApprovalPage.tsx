@@ -102,7 +102,7 @@ export default function ManagerApprovalPage() {
 
   /* ────────────── UI ────────────── */
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-8">
+    <main className="">
       {/* Table Section */}
       <TopupApproval
         rows={rows}
@@ -119,7 +119,7 @@ export default function ManagerApprovalPage() {
           <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
             {/* Header */}
             <div className="mb-4 flex items-start justify-between">
-              <h3 className="text-2xl font-extrabold">
+              <h3 className="text-2xl text-pine font-extrabold">
                 {open.status === "Pending"
                   ? "Top-Up Approval"
                   : "Top-Up Detail"}
