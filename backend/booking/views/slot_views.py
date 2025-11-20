@@ -24,7 +24,7 @@ def available_slots_month_view(request):
     raw_club = request.query_params.get("club")
     month_str = request.query_params.get("month")
 
-    # Sanitize month: allow formats like "2025-11/" → "2025-11"
+    # Sanitize month
     if month_str:
         month_str = month_str.rstrip("/").strip()
 
@@ -34,7 +34,7 @@ def available_slots_month_view(request):
     except (TypeError, ValueError):
         return Response({"detail": "club must be an integer id"}, status=400)
 
-    # Validate clean month format
+    # Validate month format
     if not month_str or len(month_str) != 7 or "-" not in month_str:
         return Response({"detail": "month is required as YYYY-MM"}, status=400)
 
@@ -46,7 +46,7 @@ def available_slots_month_view(request):
     first_day = date(y, m, 1)
     last_day = date(y, m, calendar.monthrange(y, m)[1])
 
-    # Fetch all slots in this club + month
+    # Query slots
     qs = (
         Slot.objects
         .select_related("court", "slot_status")
@@ -73,7 +73,8 @@ def available_slots_month_view(request):
 
         by_day[day_key]["total"] += 1
 
-        if status_val in ["available", "expired"]:
+        # ❗ FIX: available = only "available" (NOT expired)
+        if status_val == "available":
             by_day[day_key]["available"] += 1
 
         if status_val == "available":
@@ -90,7 +91,6 @@ def available_slots_month_view(request):
     days_payload = []
     for day_key in sorted(by_day.keys(), key=lambda x: datetime.strptime(x, "%d-%m-%y")):
         info = by_day[day_key]
-
         available_percent = (
             round(info["available"] / info["total"], 2)
             if info["total"] > 0 else 0.0
@@ -106,6 +106,7 @@ def available_slots_month_view(request):
         "month": first_day.strftime("%m-%y"),
         "days": days_payload,
     })
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # NEW: /month-view/?club=&month=YYYY-MM  (AllowAny)
@@ -155,6 +156,7 @@ def month_view(request):
     for s in qs:
         day_key = s.service_date.strftime("%d-%m-%y")
         status_val = getattr(getattr(s, "slot_status", None), "status", "available")
+
         by_day.setdefault(day_key, {})[str(s.id)] = {
             "status": status_val,
             "start_time": timezone.localtime(s.start_at, tz).strftime("%H:%M"),
@@ -191,7 +193,7 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
         month_str = request.query_params.get("month")
         raw_day = request.query_params.get("day")
 
-        # Sanitize month: allow formats like "2025-11/" → "2025-11"
+        # Sanitize month
         if month_str:
             month_str = month_str.rstrip("/").strip()
 
@@ -314,4 +316,3 @@ class SlotViewSet(viewsets.ReadOnlyModelViewSet):
             })
 
         return Response({"slot_items": items}, status=200)
-

@@ -137,9 +137,11 @@ def slot_bulk_status_update_view(request):
     if not items or not isinstance(items, list):
         return Response({"detail": "items must be a list of {slot, status}"}, status=400)
 
+    # UPDATED transitions
     allowed_transitions = {
         "available": ["maintenance", "walkin", "booked", "expired"],
         "booked": ["checkin", "noshow"],
+        "upcoming": ["checkin", "noshow"],  # <-- new
         "walkin": ["checkin", "noshow"],
         "checkin": ["endgame"],
         "maintenance": ["available"],
@@ -172,11 +174,10 @@ def slot_bulk_status_update_view(request):
         ss.status = new_status
         ss.save(update_fields=["status", "updated_at"])
 
-        # Update linked booking status, if exists
-        bs = BookingSlot.objects.filter(slot=ss.slot).select_related("booking").first()
-        if bs and bs.booking:
-            bs.booking.status = new_status
-            bs.booking.save(update_fields=["status"])
+        booking_slot = BookingSlot.objects.filter(slot=ss.slot).select_related("booking").first()
+        if booking_slot and booking_slot.booking:
+            booking_slot.booking.status = new_status
+            booking_slot.booking.save(update_fields=["status"])
 
         updated.append({"slot_id": slot_id, "new_status": new_status})
 
@@ -193,7 +194,7 @@ def booking_checkin_view(request, booking_no):
     """
     Manager performs check-in:
       - Booking.status → "checkin"
-      - All SlotStatus for this booking → "checkin"
+      - All SlotStatus for this booking → "playing"
     """
 
     role = getattr(request.user, "role", None)
@@ -206,37 +207,40 @@ def booking_checkin_view(request, booking_no):
     except Booking.DoesNotExist:
         return Response({"detail": "Booking not found."}, status=404)
 
-    # Step 2: Validate allowed states
-    if booking.status in ["cancelled", "endgame"]:
+    # Step 2: Validate blocked states
+    if booking.status in ["cancelled", "endgame", "noshow"]:
         return Response(
             {"detail": f"Cannot check-in a booking that is already '{booking.status}'."},
             status=400,
         )
 
-    if booking.status not in ["booked", "walkin"]:
+    # Step 3: Allowed check-in statuses
+    # Spec: upcoming + walkin
+    ALLOWED_CHECKIN = ["upcoming", "walkin"]
+
+    if booking.status not in ALLOWED_CHECKIN:
         return Response(
-            {"detail": f"Cannot check-in from status '{booking.status}'."},
+            {"detail": f"Cannot check-in from status '{booking.status}'. Only upcoming or walkin allowed."},
             status=400,
         )
 
-    # Step 3: Update booking status
+    # Step 4: Update booking status
     booking.status = "checkin"
     booking.save(update_fields=["status"])
 
-    # Step 4: Update all related slot statuses
+    # Step 5: Update all related slot statuses → playing
     booking_slots = BookingSlot.objects.filter(booking=booking).select_related("slot")
     updated_slots = []
 
     for bs in booking_slots:
         try:
             ss = SlotStatus.objects.get(slot=bs.slot)
-            ss.status = "checkin"
+            ss.status = "playing"  # ← SPEC: change slot state to playing after check-in
             ss.save(update_fields=["status", "updated_at"])
             updated_slots.append(str(ss.slot.id))
         except SlotStatus.DoesNotExist:
             continue
 
-    # Step 5: Spec-compliant response
     return Response(
         {
             "booking_id": booking.booking_no,
@@ -246,7 +250,6 @@ def booking_checkin_view(request, booking_no):
         },
         status=200,
     )
-
 
 
 @api_view(["POST"])
@@ -312,6 +315,7 @@ def slot_simple_status_update_view(request):
         status=200
     )
 
+
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def bookings_upcoming_view(request):
@@ -354,4 +358,3 @@ def bookings_upcoming_view(request):
         })
 
     return Response(data, status=200)
-
