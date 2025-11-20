@@ -41,7 +41,7 @@ export function useUpdateSlotStatus() {
       };
 
       const res = await customRequest({
-        url: "/api/slots/status",
+        url: "/api/slots/status/",
         method: "POST",
         data: payload,
       });
