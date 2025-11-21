@@ -22,7 +22,6 @@ def combine_dt(d: date, t) -> datetime:
     return dt
 
 
-
 def calculate_able_to_cancel(first_slot):
     """Check if booking can be cancelled (more than 24 hours before start)."""
     if not first_slot or not first_slot.slot or not hasattr(first_slot.slot, "slot_status"):
