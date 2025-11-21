@@ -1,10 +1,7 @@
-# /api/booking/, /api/bookings/, /api/my-bookings/, /api/booking/<id>/
-# booking/views/booking_views.py
-from django.db import transaction, DatabaseError
+from django.db import transaction
 from ..models import Slot, SlotStatus, Booking, BookingSlot
 from core.models import Club
 from wallet.models import Wallet, CoinLedger
-from datetime import datetime, timedelta
 from django.utils import timezone
 from ..serializers import BookingCreateSerializer
 from rest_framework.decorators import api_view, permission_classes
@@ -373,6 +370,7 @@ def booking_cancel_view(request, booking_no: str):
         },
         status=200,
     )
+
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
