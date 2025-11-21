@@ -1,4 +1,3 @@
-// frontend/src/ui/components/controlpage/WalkinSummaryModal.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -55,7 +54,7 @@ export default function WalkinSummaryModal({
   const [contactMethod, setContactMethod] = useState("Walk-in (no contact)");
   const [contactDetail, setContactDetail] = useState("");
 
-  // 🆕 payment method state (ใช้ค่า value ให้ตรง backend)
+  // Payment method
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 
   useEffect(() => {
@@ -78,6 +77,12 @@ export default function WalkinSummaryModal({
     [groups, courtNames, minutesPerCell]
   );
 
+  // 💰 Total cost = number of slots * 100 baht
+  const totalCost = useMemo(
+    () => groups.reduce((acc, g) => acc + g.slots * 100, 0),
+    [groups]
+  );
+
   const isBusy = !!isSubmitting || justSubmitted;
   const isConfirmDisabled = isBusy || !customerName.trim();
 
@@ -88,12 +93,12 @@ export default function WalkinSummaryModal({
     try {
       await onConfirm({
         name: customerName.trim(),
-        paymentMethod, // 🧾 ใช้สำหรับ payment_method
-        contactMethod, // 📞 วิธีติดต่อ
+        paymentMethod,
+        contactMethod,
         contactDetail: contactDetail.trim() || undefined,
       });
     } catch (err) {
-      // console.error(err);
+      console.error(err);
     } finally {
       setJustSubmitted(false);
     }
@@ -132,7 +137,7 @@ export default function WalkinSummaryModal({
               <X size={22} />
             </button>
 
-            {/* Header (same vibe as CheckInModal) */}
+            {/* Header */}
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-pine">
               <div className="rounded-full bg-pine/10 p-2">
                 <BookCheck className="text-sea" />
@@ -140,11 +145,9 @@ export default function WalkinSummaryModal({
               Manager Booking Summary
             </h2>
 
-            {/* ================================================================
-                CONTENT — 2 columns like CheckInModal
-            ================================================================= */}
+            {/* CONTENT — 2 columns */}
             <div className="flex flex-col lg:flex-row gap-6 flex-1 overflow-hidden">
-              {/* LEFT — Selected slots (scroll only left side) */}
+              {/* LEFT — Selected Slots */}
               <div className="lg:w-1/2 pr-4 lg:border-r border-neutral-200 flex flex-col">
                 <h3 className="text-base font-semibold text-pine mb-2">
                   Selected Slots
@@ -186,17 +189,27 @@ export default function WalkinSummaryModal({
                     ))
                   )}
                 </div>
+
+                {/* 💰 TOTAL COST */}
+                <div className="mt-4 border-t border-neutral-200 pt-4">
+                  <div className="flex justify-between text-sm font-semibold text-gray-700">
+                    <span>Total cost</span>
+                    <span className="text-pine">{totalCost} Baht</span>
+                  </div>
+                  <p className="text-[12px] text-gray-500 mt-1">
+                    (100 Baht per slot)
+                  </p>
+                </div>
               </div>
 
-              {/* RIGHT — Customer info form */}
+              {/* RIGHT — Customer Information */}
               <div className="lg:w-1/2 space-y-4 overflow-y-auto pr-1">
-                {/* Section title */}
                 <section className="space-y-3">
                   <h3 className="text-base font-semibold text-pine">
                     Customer Information
                   </h3>
 
-                  {/* Customer Name */}
+                  {/* Name */}
                   <div className="space-y-1">
                     <label className="block text-sm font-semibold text-gray-700">
                       Customer Name
@@ -276,7 +289,7 @@ export default function WalkinSummaryModal({
               </div>
             </div>
 
-            {/* Footer — buttons style like CheckInModal */}
+            {/* Footer */}
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-neutral-200 shrink-0">
               <button
                 className="px-4 py-2 rounded-lg bg-neutral-200 text-neutral-700 hover:bg-neutral-300 transition"
@@ -305,7 +318,7 @@ export default function WalkinSummaryModal({
               </button>
             </div>
 
-            {/* ✨ Glow animation while loading */}
+            {/* Glow loading overlay */}
             {isBusy && (
               <motion.div
                 className="absolute inset-0 rounded-2xl bg-white/40 backdrop-blur-[2px]"
