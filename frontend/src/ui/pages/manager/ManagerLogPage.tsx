@@ -20,7 +20,7 @@ const statusLabel = (s?: string) => {
   const x = (s || "").toLowerCase();
   if (x === "end_game" || x === "endgame") return "End Game";
   if (x === "cancelled") return "Cancelled";
-  if (x === "no_show" || x === "no-show") return "No-show";
+  if (x === "noshow" || x === "no-show") return "No-show";
   if (x === "upcoming" || x === "booked" || x === "confirmed") return "Upcoming";
   if (x === "checkin" || x === "checked_in") return "✓ Checked-In";
   return "Unknown";
