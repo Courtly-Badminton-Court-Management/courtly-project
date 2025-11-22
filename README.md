@@ -40,7 +40,7 @@ cp .env.local.example .env
 Run the following to build and start the Frontend, Backend, Database, and Scheduler.
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
 *Give it about 10-15 seconds for the Database to fully initialize.*
