@@ -22,6 +22,7 @@ yarn-error.log*
 .env.*
 *.env
 !.env.example*
+!.env.*example*
 **/.env
 
 # ---- Python / Django ----
@@ -85,4 +86,3 @@ frontend/.turbo/
 frontend/.parcel-cache/
 frontend/.vercel/
 venv
-
