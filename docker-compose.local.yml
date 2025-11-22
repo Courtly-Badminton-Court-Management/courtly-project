@@ -32,7 +32,8 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - courtly_media:/app/media  # Keeps uploaded images persistent inside docker volume
+      - ./backend:/app
+      - ./backend/media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -42,16 +43,19 @@ services:
         python manage.py runserver 0.0.0.0:8000
       "
     environment:
+      # Django Settings
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
       DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE}
+      # Database
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_SSL_MODE: ${POSTGRES_SSL_MODE}
+      # Digital Ocean Spaces (Images)
       SPACES_KEY: ${SPACES_KEY}
       SPACES_SECRET: ${SPACES_SECRET}
       SPACES_REGION: ${SPACES_REGION}
@@ -59,7 +63,7 @@ services:
       SPACES_BUCKET: ${SPACES_BUCKET}
 
   # ────────────────────────────────────────────────
-  # 🔁 Scheduler
+  # 🔁 Scheduler: Auto Expire Slots & Bookings
   # ────────────────────────────────────────────────
   scheduler:
     build:
@@ -69,6 +73,8 @@ services:
     depends_on:
       backend:
         condition: service_started
+    volumes:
+      - ./backend:/app
     command: >
       sh -c "
         echo '⏳ Starting auto-expire scheduler...' &&
@@ -79,6 +85,7 @@ services:
         done
       "
     environment:
+      # Note: Scheduler needs DB access to run management commands
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG}
       DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE}
@@ -94,20 +101,24 @@ services:
   # ⚛️ Frontend (Next.js)
   # ────────────────────────────────────────────────
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: node:20-alpine
+    working_dir: /app
     restart: unless-stopped
     ports:
       - "3001:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
     depends_on:
       backend:
         condition: service_started
+    command: sh -lc "npm install && npx next dev -p 3000 -H 0.0.0.0"
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
       NEXT_PUBLIC_CLUB_ID: ${NEXT_PUBLIC_CLUB_ID}
+      # Standard Node settings
       NODE_ENV: development
 
 volumes:
   courtly_pgdata:
-  courtly_media:
+  frontend_node_modules:
