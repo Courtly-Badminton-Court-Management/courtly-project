@@ -137,18 +137,18 @@ git clone https://github.com/Courtly-Badminton-Court-Managment/courtly-project
 
 2. Spin up the containers
 
-Run the following to build and start the Frontend, Backend, Database, and Scheduler.
+   Run the following to build and start the Frontend, Backend, Database, and Scheduler.
 
    ```bash
    docker compose -f docker-compose.local.yml up -d --build
    ```
 
-*Give it about 10-15 seconds for the Database to fully initialize.*
+    *Give it about 10-15 seconds for the Database to fully initialize.*
 
 
 3. Populate Demo Data (Important\!)
 
-Since you're starting with a fresh database, the app will be empty. We wrote a helper script to set up a test club ("Courtly Arena") with 6 courts and **automatically generate booking slots for the next 7 days**.
+    Since you're starting with a fresh database, the app will be empty. We wrote a helper script to set up a test club ("Courtly Arena") with 6 courts and **automatically generate booking slots for the next 7 days**.
 
    Run this once the containers are up:
 
@@ -180,7 +180,7 @@ Courtly is fully deployed and ready to use.
 
 ## 📖 Documentation
 
-* Project Documentation: [Project Proposal PDF](https://docs.google.com/document/d/1GTUfvFuz0-BakMo8qoCyeXMFQkgDXW2m0fMjVoUGdTc/edit?usp=sharing)
+* Project Documentation: [Project Proposal](https://docs.google.com/document/d/1GTUfvFuz0-BakMo8qoCyeXMFQkgDXW2m0fMjVoUGdTc/edit?usp=sharing)
 * Jira Board: [Courtly Jira](https://courtly-project.atlassian.net/jira/software/projects/COURTLY/boards/1)
 * GitHub Org: [Courtly-Badminton-Court-Managment](https://github.com/Courtly-Badminton-Court-Management)
 * 🎥 Presentation Video: [Presentation Video on Youtube](https://www.youtube.com/playlist?list=PLy2euUO-1ED_5BwWGAM6IQy1v_EnQUnwQ)
