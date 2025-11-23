@@ -28,7 +28,8 @@ export const monthViewKey = (month: string) =>
 export const availableSlotsKey = (month: string) =>
   ["available-slots", { month }] as const;
 
-const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+// const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+const CLUB_ID = 1;
 
 /* =========================================================================
    Hook: useMonthView

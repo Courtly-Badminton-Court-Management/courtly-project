@@ -85,7 +85,8 @@ function normalizeForManager(
 /* =========================================================================
    CONFIG
    ========================================================================= */
-const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+// const CLUB_ID = Number(process.env.NEXT_PUBLIC_CLUB_ID);
+const CLUB_ID = 1;
 
 export default function ManagerControlPage() {
   const today = useMemo(() => startOfDay(new Date()), []);

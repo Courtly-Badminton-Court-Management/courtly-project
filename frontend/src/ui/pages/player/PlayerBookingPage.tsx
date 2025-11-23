@@ -128,7 +128,7 @@ export default function PlayerBookingPage() {
         .filter((id): id is string => Boolean(id));
 
       const payload: CreateBookingPayload = {
-        club: Number(process.env.NEXT_PUBLIC_CLUB_ID),
+        club: 1,
         booking_method: "courtly web application",
         owner_username: profile?.username ?? "unknown_user",
         owner_contact: profile?.email ?? "unknown@example.com",
