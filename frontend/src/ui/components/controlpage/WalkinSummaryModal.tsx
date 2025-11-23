@@ -16,6 +16,8 @@ import {
   CreditCard,
 } from "lucide-react";
 import type { GroupedSelection } from "@/lib/slot/slotGridModel";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
+
 
 type Props = {
   open: boolean;
@@ -81,6 +83,10 @@ export default function WalkinSummaryModal({
   const isBusy = !!isSubmitting || justSubmitted;
   const isConfirmDisabled = isBusy || !customerName.trim();
 
+
+
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);
   const handleConfirm = async () => {
     if (isConfirmDisabled) return;
 
@@ -93,7 +99,8 @@ export default function WalkinSummaryModal({
         contactDetail: contactDetail.trim() || undefined,
       });
     } catch (err) {
-      // console.error(err);
+        setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+        setOpenError(true);
     } finally {
       setJustSubmitted(false);
     }

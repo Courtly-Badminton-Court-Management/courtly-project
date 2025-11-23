@@ -37,7 +37,7 @@ export default function ImageSlider() {
                 src={src}
                 alt={`banner-${idx + 1}`}
                 className="absolute inset-0 h-full w-full object-cover"
-                // onError={() => console.warn(`⚠️ Failed to load banner: ${src}`)}
+                onError={() => console.warn(`Failed to load banner: ${src}`)}
               />
             </div>
           </div>

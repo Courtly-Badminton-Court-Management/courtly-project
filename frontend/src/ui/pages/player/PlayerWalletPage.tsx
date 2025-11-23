@@ -10,6 +10,7 @@ import PlayerTransactionHistory, {
 } from "@/ui/components/wallet/PlayerTransactionHistory";
 import BankInfoPanel from "@/ui/components/wallet/BankInfoPanel";
 import SuccessfulRequestModal from "@/ui/components/wallet/RequestConfirmedModal";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
 
 import {
   useWalletBalanceRetrieve,
@@ -74,6 +75,8 @@ export default function PlayerWalletPage() {
   };
 
   /* 🔹 5. Mutation - Create Top-up */
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);
   const { mutate: createTopup, isPending: topupLoading } =
     useWalletTopupsCreate({
       mutation: {
@@ -89,8 +92,12 @@ export default function PlayerWalletPage() {
           setOpenSuccessModal(true);
         },
         onError: (err: unknown) => {
-          // console.error(err);
-          // alert("❌ Failed to submit top-up. Please try again.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to submit top-up. Please try again."
+          );
+          setOpenError(true);
         },
       },
     });
@@ -183,6 +190,13 @@ export default function PlayerWalletPage() {
         open={openSuccessModal}
         onClose={() => setOpenSuccessModal(false)}
         onGoHistory={scrollToHistory}
+      />
+
+      {/* Error Modal */}
+      <GlobalErrorModal
+        open={openError}
+        message={error}
+        onClose={() => setOpenError(false)}
       />
     </main>
   );
