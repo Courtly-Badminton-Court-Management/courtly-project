@@ -31,7 +31,7 @@ export default function OurServices() {
       </div>
       <h2
         id="services-title"
-        className="mb-6 text-3xl font-extrabold tracking-tight"
+        className="mb-6 text-3xl font-extrabold tracking-tight text-pine"
       >
         Our Services
       </h2>
