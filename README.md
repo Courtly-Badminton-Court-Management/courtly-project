@@ -86,9 +86,7 @@ For venue managers, this leads to **high manual workload** and **limited visibil
   - DO Databases (for deploy postgreSQL)
   - DO Space Object Storage (for store slip images)
 
-<img width="1620" height="930" alt="image" src="https://github.com/user-attachments/assets/c0d2de60-f981-431e-a08d-8d5b025bc4ac" />
-
-
+<img width="2143" height="1133" alt="image" src="https://github.com/user-attachments/assets/aefe8e22-c20f-438b-952a-d2391464d814" />
 
 
 ---
