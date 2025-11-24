@@ -66,10 +66,8 @@ const walletSteps: Step[] = [
 export default function HowItWorks() {
   return (
     <section aria-labelledby="how-title" className="mt-10 md:mt-14">
-
       {/* Tag */}
-      <div className="inline-block rounded-full bg-rose-100 px-4 py-1 
-      text-sm font-semibold text-cherry mb-3">
+      <div className="mb-3 inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-cherry">
         How It Works
       </div>
 
@@ -83,7 +81,10 @@ export default function HowItWorks() {
             height={40}
             className="object-contain"
           />
-          <h2 className="text-2xl font-extrabold tracking-tight text-pine md:text-3xl">
+          <h2
+            id="how-title"
+            className="text-2xl font-extrabold tracking-tight text-pine md:text-3xl"
+          >
             How Courtly Booking Works
           </h2>
         </div>
@@ -117,8 +118,12 @@ function StepRow({ steps }: { steps: Step[] }) {
   return (
     <div className="relative">
       {/* Background line */}
-      <div className="pointer-events-none absolute left-[5%] right-[5%] top-[160px]
-        hidden h-[3px] bg-pine md:block z-0" />
+      <div
+        className="
+          pointer-events-none absolute left-[5%] right-[5%] top-[160px]
+          hidden h-[3px] bg-pine md:block z-0
+        "
+      />
 
       <div className="grid items-stretch gap-6 md:grid-cols-5">
         {steps.map((step, idx) => (
@@ -137,14 +142,23 @@ function StepCard({ index, step }: { index: number; step: Step }) {
   return (
     <div
       className="
-        relative flex h-full flex-col justify-start
+        group relative flex h-full flex-col justify-start
         rounded-2xl border border-platinum bg-white
         px-6 py-6 shadow-sm
+        transition-all duration-300 ease-out
+        hover:-translate-y-1 hover:scale-[1.03]
+        hover:shadow-lg hover:shadow-grey-200
       "
     >
       <div className="relative z-20 mb-3 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center 
-        rounded-full bg-cherry text-base font-bold text-white">
+        <div
+          className="
+            flex h-9 w-9 items-center justify-center 
+            rounded-full bg-cherry text-base font-bold text-white
+            transition-transform duration-300
+            group-hover:scale-110
+          "
+        >
           {number}
         </div>
         <h3 className="text-base font-bold text-neutral-900">{step.title}</h3>
