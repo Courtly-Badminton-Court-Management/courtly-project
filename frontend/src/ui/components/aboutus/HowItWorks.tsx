@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 type Step = {
   title: string;
   text: string;
@@ -64,29 +66,45 @@ const walletSteps: Step[] = [
 export default function HowItWorks() {
   return (
     <section aria-labelledby="how-title" className="mt-10 md:mt-14">
-      {/* Tag */}
-    <div className="inline-block rounded-full bg-rose-100 px-4 py-1 text-sm font-semibold text-cherry mb-2">
-        How It Works
-    </div>
 
+      {/* Tag */}
+      <div className="inline-block rounded-full bg-rose-100 px-4 py-1 
+      text-sm font-semibold text-cherry mb-3">
+        How It Works
+      </div>
 
       {/* Booking Section */}
-      <div>
-        <h2
-            id="how-title"
-            className="my-4 text-2xl font-extrabold tracking-tight text-pine md:text-3xl"
-        >
+      <div className="mt-4">
+        <div className="mb-6 flex items-center gap-3">
+          <Image
+            src="/icons/booking-online.png"
+            alt="Booking icon"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+          <h2 className="text-2xl font-extrabold tracking-tight text-pine md:text-3xl">
             How Courtly Booking Works
-        </h2>
+          </h2>
+        </div>
 
         <StepRow steps={bookingSteps} />
       </div>
 
       {/* Wallet Section */}
-      <div>
-        <h2 className="my-4 text-2xl font-extrabold tracking-tight text-pine md:text-3xl">
-          How Courtly Wallet Top-Up Works
-        </h2>
+      <div className="mt-16">
+        <div className="mb-6 flex items-center gap-3">
+          <Image
+            src="/brand/cl-coin.png"
+            alt="CL Coin icon"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+          <h2 className="text-2xl font-extrabold tracking-tight text-pine md:text-3xl">
+            How Courtly Wallet Top-Up Works
+          </h2>
+        </div>
 
         <StepRow steps={walletSteps} />
       </div>
@@ -94,14 +112,13 @@ export default function HowItWorks() {
   );
 }
 
-/**
- * Row wrapper with a horizontal line behind all step cards.
- */
+/* Horizontal line + grid */
 function StepRow({ steps }: { steps: Step[] }) {
   return (
     <div className="relative">
-      {/* horizontal line behind cards – desktop only */}
-      <div className="pointer-events-none absolute left-[5%] right-[5%] top-[160px] hidden h-[3px] bg-pine md:block z-0" />
+      {/* Background line */}
+      <div className="pointer-events-none absolute left-[5%] right-[5%] top-[160px]
+        hidden h-[3px] bg-pine md:block z-0" />
 
       <div className="grid items-stretch gap-6 md:grid-cols-5">
         {steps.map((step, idx) => (
@@ -125,15 +142,14 @@ function StepCard({ index, step }: { index: number; step: Step }) {
         px-6 py-6 shadow-sm
       "
     >
-      {/* Number + Title */}
       <div className="relative z-20 mb-3 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-cherry text-base font-bold text-white">
+        <div className="flex h-9 w-9 items-center justify-center 
+        rounded-full bg-cherry text-base font-bold text-white">
           {number}
         </div>
         <h3 className="text-base font-bold text-neutral-900">{step.title}</h3>
       </div>
 
-      {/* Paragraph */}
       <p className="text-sm leading-relaxed text-neutral-700">{step.text}</p>
     </div>
   );
