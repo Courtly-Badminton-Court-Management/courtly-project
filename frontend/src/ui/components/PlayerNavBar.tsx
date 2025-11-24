@@ -19,6 +19,7 @@ import AvatarPickerModal from "@/ui/components/navbar/AvatarPickerModal";
 import { useAuthMeRetrieve } from "@/api-client/endpoints/auth/auth";
 import { useWalletBalanceRetrieve } from "@/api-client/endpoints/wallet/wallet";
 
+
 const NAV_ITEMS = [
   { name: "Home", href: "/home" },
   { name: "Booking", href: "/booking" },
@@ -160,6 +161,8 @@ export default function PlayerNavBar() {
 
           <div className="hidden items-center gap-4 lg:flex">
             <BalanceChip />
+
+
             <AvatarBlock
               name={username}
               avatarKey={avatarKey}
