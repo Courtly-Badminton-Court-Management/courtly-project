@@ -55,7 +55,7 @@ axiosInstance.interceptors.request.use(
           (config.headers as any).Authorization = `Bearer ${newAccess}`;
         }
       } catch (err) {
-        // console.warn("[request] preemptive refresh failed", err);
+        console.warn("[request] preemptive refresh failed", err);
       }
     }
 
@@ -79,11 +79,12 @@ axiosInstance.interceptors.request.use(
 let refreshing = false;
 let waiters: Array<() => void> = [];
 
+
 function nukeAndRedirect() {
   clearTokens();
   clearSessionCookie();
   if (typeof window !== "undefined") {
-    // console.warn("[auth] ❌ token expired, redirecting to /login");
+    console.warn("[auth] token expired, redirecting to /login");
     window.location.href = "/login";
   }
 }
@@ -115,7 +116,7 @@ axiosInstance.interceptors.response.use(
         waiters.forEach((fn) => fn());
         waiters = [];
       } catch (err) {
-        // console.error("[response] refresh failed", err);
+        console.error("[response] refresh failed", err);
         waiters.forEach((fn) => fn());
         waiters = [];
         nukeAndRedirect();

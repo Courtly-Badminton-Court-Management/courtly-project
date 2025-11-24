@@ -8,19 +8,19 @@ import CalendarModal from "@/ui/components/homepage/CalendarModal";
 import DailyBookingPanel from "@/ui/components/dashboardpage/DailyBookingsPanel";
 import CheckInModal from "@/ui/components/dashboardpage/CheckInModal";
 import SuccessCheckinToast from "@/ui/components/dashboardpage/SuccessCheckinToast";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
 
 /* APIs */
 import { useBookingsRetrieve } from "@/api-client/endpoints/bookings/bookings";
 import { useAvailableSlots } from "@/api-client/extras/slots";
 import { useBookingRetrieve } from "@/api-client/endpoints/booking/booking";
-
-/* Check-in hook */
 import { useCheckInBooking } from "@/api-client/extras/checkin_booking";
 
 /* Utils */
 import { groupBookingDate } from "@/lib/booking/groupBookingDate";
 import { filterUpcomingBookings } from "@/lib/booking/filterUpcoming";
 import type { BookingRow } from "@/api-client/extras/types";
+
 
 /* ========================================================================== */
 /*                          Manager Dashboard Page                            */
@@ -97,6 +97,10 @@ const totalBookingsToday = useMemo(() => {
   });
   const username = checkInBookingDetail?.owner_username || "";
 
+
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);
+
   /* -------------------------------------------------------------------------- */
   /* 6. Check-in Mutation                                                        */
   /* -------------------------------------------------------------------------- */
@@ -118,7 +122,8 @@ const totalBookingsToday = useMemo(() => {
     },
 
     onError: (err) => {
-      // console.error("❌ Check-in failed:", err);
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setOpenError(true);
     },
   });
 
@@ -190,6 +195,13 @@ const totalBookingsToday = useMemo(() => {
       <SuccessCheckinToast
         username={showSuccessToast.username}
         open={showSuccessToast.open}
+      />
+
+
+      <GlobalErrorModal
+        open={openError}
+        message={error}
+        onClose={() => setOpenError(false)}
       />
     </main>
   );

@@ -141,6 +141,12 @@ class MeView(APIView):
         ser.save()
         return Response(ser.data, status=status.HTTP_200_OK)
 
+    def post(self, request):
+        ser = MeSerializer(instance=request.user, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data, status=status.HTTP_200_OK)
+
 
 class AddCoinView(APIView):
     permission_classes = [permissions.IsAuthenticated]

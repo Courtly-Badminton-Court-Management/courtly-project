@@ -14,6 +14,7 @@ import CheckInModal from "@/ui/components/dashboardpage/CheckInModal";
 import { useCheckInBooking } from "@/api-client/extras/checkin_booking";
 
 import type { BookingRow, UserProfile } from "@/api-client/extras/types";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
 
 /* ========================= Utils ========================= */
 const statusLabel = (s?: string) => {
@@ -89,6 +90,10 @@ export default function ManagerLogPage() {
   const [sortBy, setSortBy] = useState<"created" | "booking">("created");
   const [sortDesc, setSortDesc] = useState(true);
 
+  // error modal
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);
+
   const { cancelMut, handleCancel } = useCancelBooking({
     onSuccess: async () => {
       setConfirmModal(null);
@@ -112,8 +117,8 @@ export default function ManagerLogPage() {
       setCheckinId(null);
     },
     onError: (err) => {
-      // console.error("❌ Check-in failed:", err);
-      // alert("Check-in failed. Please try again.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      setOpenError(true);
     },
   });
 
@@ -505,6 +510,13 @@ const filtered = useMemo(() => {
         isPending={checkinMut.isPending || isDetailLoading}
         onConfirm={handleConfirmCheckIn}
         onClose={() => setCheckinId(null)}
+      />
+
+      {/* Error Modal */} 
+      <GlobalErrorModal
+        open={openError}
+        message={error}
+        onClose={() => setOpenError(false)}
       />
     </div>
   );

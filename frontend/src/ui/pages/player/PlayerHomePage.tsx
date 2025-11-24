@@ -9,6 +9,7 @@ import CalendarModal from "@/ui/components/homepage/CalendarModal";
 import AvailableSlotPanel from "@/ui/components/homepage/AvailableSlotPanel";
 import UpcomingModal from "@/ui/components/homepage/UpcomingModal";
 import CancelConfirmModal from "@/ui/components/historypage/CancelConfirmModal";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
 
 import type { BookingRow } from "@/api-client/extras/types";
 
@@ -18,6 +19,7 @@ import { useCancelBooking } from "@/api-client/extras/cancel_booking";
 import { bookingRetrieve } from "@/api-client/endpoints/booking/booking";
 
 import { filterUpcomingBookings } from "@/lib/booking/filterUpcoming";
+import { set } from "zod";
 
 /* ========================================================================== */
 /*                              Player Home Page                              */
@@ -67,6 +69,8 @@ export default function PlayerHomePage() {
   /* -------------------------------------------------------------------------- */
   const [fullUpcoming, setFullUpcoming] = useState<BookingRow[]>([]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);  
 
   useEffect(() => {
     if (!upcomingList.length) {
@@ -84,7 +88,8 @@ export default function PlayerHomePage() {
               const detail = await bookingRetrieve(b.booking_id);
               return detail;
             } catch (err) {
-              // console.error("❌ Failed to load detail for:", b.booking_id, err);
+              setError(err instanceof Error ? err.message : "Failed to load detail for: " + b.booking_id);
+              setOpenError(true);
               return b; // fallback
             }
           })
@@ -92,7 +97,8 @@ export default function PlayerHomePage() {
 
         setFullUpcoming(results as any);
       } catch (err) {
-        // console.error("❌ Error loading booking details", err);
+            setError(err instanceof Error ? err.message : "An unexpected error occurred while loading booking details.");
+            setOpenError(true);
         setFullUpcoming(upcomingList);
       }
 
@@ -191,6 +197,13 @@ export default function PlayerHomePage() {
           handleCancel(confirmModal.booking_id);
         }}
         onClose={() => setConfirmModal(null)}
+      />
+
+      {/* Error Modal */}
+      <GlobalErrorModal
+        open={openError}
+        message={error}
+        onClose={() => setOpenError(false)}
       />
 
 

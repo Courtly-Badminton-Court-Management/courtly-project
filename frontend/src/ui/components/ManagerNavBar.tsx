@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import BrandMark from "./basic/BrandMark";
 import DesktopMenu from "./basic/DesktopMenu";
 import MobileMenu from "./basic/MobileMenu";
-import AvatarBlock from "./basic/AvatarBlock";
+import AvatarBlock from "./navbar/AvatarBlock";
 import Button from "./basic/Button";
 import LogoutModal from "@/ui/components/authpage/LogoutModal";
 
@@ -15,7 +15,7 @@ import { customRequest } from "@/api-client/custom-client";
 
 type AdminMe = {
   displayName: string | null;
-  avatarUrl: string | null;
+  avatarKey: string | null;
 };
 
 const NAV_ITEMS = [
@@ -32,25 +32,25 @@ export default function ManagerNavBar() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showLogout, setShowLogout] = useState(false);
-  const [me, setMe] = useState<AdminMe>({ displayName: null, avatarUrl: null });
+  const [me, setMe] = useState<AdminMe>({ displayName: null, avatarKey: null });
 
   // โหลดข้อมูลแอดมิน
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await customRequest<{ username?: string; avatarUrl?: string }>({
+        const data = await customRequest<{ username?: string; avatarKey?: string }>({
           url: "/api/auth/me/",
           method: "GET",
         });
         if (!cancelled) {
           setMe({
             displayName: data?.username ?? "Admin",
-            avatarUrl: data?.avatarUrl ?? null,
+            avatarKey: data?.avatarKey ?? null,
           });
         }
       } catch {
-        if (!cancelled) setMe({ displayName: "Admin", avatarUrl: null });
+        if (!cancelled) setMe({ displayName: "Admin", avatarKey: null });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -83,7 +83,7 @@ export default function ManagerNavBar() {
           <div className="hidden items-center gap-4 md:flex">
             <AvatarBlock
               name={me.displayName}
-              avatarUrl={me.avatarUrl}
+              avatarKey={me.avatarKey}
               loading={loading}
               variant="emerald"
             />
@@ -138,7 +138,7 @@ export default function ManagerNavBar() {
               <div className="flex items-center justify-between">
                 <AvatarBlock
                   name={me.displayName}
-                  avatarUrl={me.avatarUrl}
+                  avatarKey={me.avatarKey}
                   loading={loading}
                   variant="emerald"
                 />

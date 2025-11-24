@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CalendarRange, Clock3, Coins, MapPin, Loader2,X } from "lucide-react";
 import Link from "next/link";
 import type { GroupedSelection } from "@/lib/slot/slotGridModel";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
 
 type Props = {
   open: boolean;
@@ -54,13 +55,18 @@ export default function BookingSummaryModal({
     [groups, courtNames, minutesPerCell]
   );
 
+
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);
+
   const handleConfirm = async () => {
     if (notEnough || items.length === 0) return;
     setJustSubmitted(true);
     try {
       await onConfirm();
     } catch (err) {
-      // console.error(err);
+        setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+        setOpenError(true);
     } finally {
       setJustSubmitted(false);
     }
@@ -206,6 +212,13 @@ export default function BookingSummaryModal({
           </motion.div>
         </motion.div>
       )}
+
+      <GlobalErrorModal
+        open={openError}
+        message={error}
+        onClose={() => setOpenError(false)}
+      />
+
     </AnimatePresence>
   );
 }

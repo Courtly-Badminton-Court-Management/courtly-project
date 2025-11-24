@@ -26,6 +26,7 @@ import type {
   ManagerSelectedSlot,
   GridCell,
 } from "@/lib/slot/slotGridModel";
+import GlobalErrorModal from "@/ui/components/basic/GlobalErrorModal";
 
 const SlotGridManager = dynamic(
   () => import("@/ui/components/controlpage/SlotGridManager"),
@@ -175,6 +176,10 @@ export default function ManagerControlPage() {
     setSelected([]);
   }
 
+
+  const [error, setError] = useState("");
+  const [openError, setOpenError] = useState(false);
+
   // ======= Maintenance Toggle =======
   async function handleSetMaintenance() {
     if (!selected.length) {
@@ -205,8 +210,10 @@ export default function ManagerControlPage() {
         month: CURRENT_MONTH,
       });
     } catch (error) {
-      // console.error("❌ Update slot failed:", error);
-      // alert("Some slots failed to update. Please check the console.");
+
+      setError(error instanceof Error ? error.message : "An unexpected error occurred.");
+      setOpenError(true);
+
     } finally {
       setIsBatchLoading(false);
       setSelected([]);
@@ -260,7 +267,7 @@ export default function ManagerControlPage() {
       setSelected([]);
       setSelectionMode(null);
     } catch (e: any) {
-      // console.error("❌ Walk-in booking failed:", e);
+
       const status = e?.response?.status;
       let msg = "";
       if (status === 409) {
@@ -406,6 +413,12 @@ export default function ManagerControlPage() {
         open={errorModal}
         message={errorMessage}
         onClose={() => setErrorModal(false)}
+      />
+
+      <GlobalErrorModal
+        open={openError}
+        message={error}
+        onClose={() => setOpenError(false)}
       />
     </div>
   );
