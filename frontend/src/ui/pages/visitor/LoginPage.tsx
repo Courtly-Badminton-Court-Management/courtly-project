@@ -234,7 +234,7 @@ function LoginContent() {
           <p className="font-medium text-neutral-700">Mockup credentials</p>
           <p>
             Player:{" "}
-            <CopyToClipboard text="sprint4Tester@example.com" />{" "}
+            <CopyToClipboard text="demo@example.com" />{" "}
             <CopyToClipboard text="Courtly_123" />
           </p>
           <p>

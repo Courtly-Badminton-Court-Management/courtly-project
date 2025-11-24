@@ -1,4 +1,4 @@
-// src/ui/components/basic/AvatarBlock.tsx
+//frontend/src/ui/components/navbar/AvatarBlock.tsx
 "use client";
 
 import Image from "next/image";
@@ -8,21 +8,14 @@ type AvatarBlockProps = {
   name?: string | null;
   avatarKey?: string | null;
   loading?: boolean;
-  /** px size of avatar circle (default 32px) */
   size?: number;
-  /** quick theme for fallback chip */
   variant?: "neutral" | "emerald";
-  /** show name text */
   showName?: boolean;
-  /**
-   * collapse name on small screens by adding "hidden sm:inline".
-   * Default: false (always show)
-   */
   collapseOnSmall?: boolean;
-  /** override ring classes if needed (e.g., 'ring-emerald-100') */
   ringClassName?: string;
-  /** extra wrapper class */
   className?: string;
+  /** 👉 เพิ่ม onClick ให้ NavBar ใช้เปิด AvatarPickerModal */
+  onClick?: () => void;
 };
 
 export default function AvatarBlock({
@@ -32,11 +25,11 @@ export default function AvatarBlock({
   size = 32,
   variant = "neutral",
   showName = true,
-  collapseOnSmall = false, // ← เปลี่ยนดีฟอลต์ให้ “ไม่ซ่อน”
-  ringClassName = "ring-cambridge",
+  collapseOnSmall = false,
+  ringClassName = "ring-dimgray",
   className = "",
+  onClick, // ← รับมาที่นี่
 }: AvatarBlockProps) {
-  // ป้องกันค่าว่าง/ช่องว่างล้วน
   const displayName = loading
     ? "Loading..."
     : (() => {
@@ -46,17 +39,29 @@ export default function AvatarBlock({
 
   const nameClass = [
     "text-sm font-semibold text-neutral-800",
-    collapseOnSmall ? "hidden sm:inline" : "", // ซ่อนเฉพาะถ้าเปิด option นี้
+    collapseOnSmall ? "hidden sm:inline" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   const fallbackBg =
-    variant === "emerald" ? "bg-emerald-100 text-emerald-800" : "bg-neutral-200 text-neutral-600";
+    variant === "emerald"
+      ? "bg-emerald-100 text-emerald-800"
+      : "bg-neutral-200 text-neutral-600";
 
   return (
-    <div className={`flex items-center gap-3 ${className}`} title={displayName} aria-label={displayName}>
-      {/* Avatar ก่อนชื่อ จะเข้ากับ nav ได้สากลกว่า */}
+    <div
+      className={`
+        flex items-center gap-3
+        ${onClick ? "cursor-pointer hover:opacity-80 transition" : ""}
+        ${className}
+      `}
+      title={displayName}
+      aria-label={displayName}
+      onClick={onClick}       // ← ทำให้คลิกได้
+      role={onClick ? "button" : undefined}
+    >
+      {/* Avatar */}
       {avatarKey ? (
         <img
           src={`/avatars/${avatarKey}`}
@@ -81,8 +86,12 @@ export default function AvatarBlock({
         </div>
       )}
 
-      {/* ชื่อ (เลือกซ่อนบนจอเล็กได้) */}
-      {showName ? <span className={nameClass}>{displayName}</span> : <span className="sr-only">{displayName}</span>}
+      {/* ชื่อ */}
+      {showName ? (
+        <span className={nameClass}>{displayName}</span>
+      ) : (
+        <span className="sr-only">{displayName}</span>
+      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import BrandMark from "./basic/BrandMark";
 import DesktopMenu from "./basic/DesktopMenu";
 import MobileMenu from "./basic/MobileMenu";
-import AvatarBlock from "./basic/AvatarBlock";
+import AvatarBlock from "./navbar/AvatarBlock";
 import Button from "./basic/Button";
 import LogoutModal from "@/ui/components/authpage/LogoutModal";
 
