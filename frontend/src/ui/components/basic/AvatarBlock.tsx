@@ -6,7 +6,7 @@ import React from "react";
 
 type AvatarBlockProps = {
   name?: string | null;
-  avatarUrl?: string | null;
+  avatarKey?: string | null;
   loading?: boolean;
   /** px size of avatar circle (default 32px) */
   size?: number;
@@ -27,7 +27,7 @@ type AvatarBlockProps = {
 
 export default function AvatarBlock({
   name = "—",
-  avatarUrl = null,
+  avatarKey = null,
   loading = false,
   size = 32,
   variant = "neutral",
@@ -57,9 +57,9 @@ export default function AvatarBlock({
   return (
     <div className={`flex items-center gap-3 ${className}`} title={displayName} aria-label={displayName}>
       {/* Avatar ก่อนชื่อ จะเข้ากับ nav ได้สากลกว่า */}
-      {avatarUrl ? (
-        <Image
-          src={avatarUrl}
+      {avatarKey ? (
+        <img
+          src={`/avatars/${avatarKey}`}
           alt={`${displayName} avatar`}
           width={size}
           height={size}

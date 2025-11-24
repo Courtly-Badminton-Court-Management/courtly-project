@@ -34,7 +34,7 @@ export default function PlayerNavBar() {
   const { data: meData, isLoading: meLoading } = useAuthMeRetrieve<any>();
   const username: string =
     meData?.username ?? meData?.name ?? meData?.email ?? "User";
-  const avatarUrl: string | null = meData?.avatarUrl ?? null;
+  const avatarKey: string | null = meData?.avatarKey ?? null;
 
   // balance
   const { data: walletData, isLoading: balLoading } =
@@ -86,7 +86,7 @@ export default function PlayerNavBar() {
             <BalanceChip />
             <AvatarBlock
               name={username}
-              avatarUrl={avatarUrl}
+              avatarKey={avatarKey}
               loading={loading}
               variant="neutral"
             />
@@ -141,7 +141,7 @@ export default function PlayerNavBar() {
               <div className="flex items-center justify-between">
                 <AvatarBlock
                   name={username}
-                  avatarUrl={avatarUrl}
+                  avatarKey={avatarKey}
                   loading={loading}
                   variant="neutral"
                 />
