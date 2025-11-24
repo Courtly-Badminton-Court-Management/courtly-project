@@ -2,10 +2,10 @@
 
 import GetToKnowUs from "@/ui/components/aboutus/GetToKnowUs";
 import OurServices from "@/ui/components/aboutus/OurServices";
+import HowItWorks from "@/ui/components/aboutus/HowItWorks";
 import WhyChooseUs from "@/ui/components/aboutus/WhyChooseUs";
 import ServiceCost from "@/ui/components/aboutus/ServiceCost";
 import CourtLocation from "@/ui/components/aboutus/CourtLocation";
-
 
 export default function PlayerAboutUsPage() {
   return (
@@ -14,6 +14,11 @@ export default function PlayerAboutUsPage() {
 
       <div className="mt-10 md:mt-14">
         <OurServices />
+      </div>
+
+      {/* New How It Works section */}
+      <div className="mt-10 md:mt-14">
+        <HowItWorks />
       </div>
 
       <div className="mt-10 md:mt-14">
